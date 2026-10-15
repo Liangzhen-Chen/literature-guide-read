@@ -8,6 +8,7 @@ Prompted by Kőszegi and Rabin (2006), a JSTOR scan read with the brief "core cl
 
 - Inline mathematics: any text field (notes, read lines, claims, explanations, recall) may hold LaTeX between single dollar signs, rendered inline by KaTeX; a span starting with a digit is money unless it holds LaTeX, operators or no spaces. check.py treats sub- and superscripts inside such spans as notation. Rule in method.md section 5 and schema.md.
 - mineru_backend.py: a doc_title at the top of a page followed by a volume line is the journal masthead, not the title; the title then comes from the running head that is not the journal name. A numbered text block at the foot of a page is a footnote. A page's first text block that starts in lower case continues the previous page's open paragraph.
+- render.py: captions and mentions numbered in Roman (TABLE II, Figure IV) resolve like Arabic ones, so a table crop reaches the paragraph that first cites it; a paragraph that is only an equation label, "(2a)", is not a crop host. mineru_backend.py turns such a label into a fragment.
 - segment.py: superscript digits ("given by²") count as footnote markers; the period after a footnote number is stripped.
 
 ## 0.5.1 (2026-10-15)

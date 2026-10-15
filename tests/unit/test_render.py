@@ -173,3 +173,24 @@ def test_inline_math_in_notes_inlines_katex(clean):
     g['paras']['P2']['note'] = 'A salary of $50,000 against $60,000 expected.'
     _, _, comp = run_checks(doc, g)
     assert r.build_data(doc, g, comp, None, {}, 'en')['has_tex'] is False
+
+
+def test_cap_key_and_mentions_roman_numerals():
+    # List (2003), QJE: tables are numbered TABLE II ... TABLE XI; Roman numbers must resolve like Arabic ones
+    assert r.cap_key('TABLE III NONDEALER SUMMARY STATISTICS') == ['table', 3]
+    assert r.cap_key('FIGURE I Summary of Trading Results') == ['fig', 1]
+    assert r.mentions('Table II reports; see Table XI and Figure IV') == [['table', 2], ['table', 11], ['fig', 4]]
+    assert r.mentions('Table 3 and 图4') == [['table', 3], ['fig', 4]]
+
+
+def test_equation_crop_skips_label_only_paragraph(clean):
+    # List (2003): "(2a)" came out as its own paragraph between the introducing sentence and the equation crop
+    doc, g = clean
+    doc['items'][0]['text'] = 'The model is given by the following system:'
+    doc['items'].insert(1, {'id': 'P9', 'type': 'para', 'text': '(2a)', 'page': 1})
+    doc['items'].insert(2, {'id': 'F1', 'type': 'frag', 'text': '[equation]', 'page': 1, 'equation': True})
+    g['paras']['P9'] = {'tier': 'skip', 'role': 'label', 'note': 'label', 'why': 'label'}
+    g['parts'][0]['range'] = 'P1-P9'
+    _, _, comp = run_checks(doc, g)
+    d = r.build_data(doc, g, comp, None, {}, 'en', crops={'F1': 'data:image/png;base64,AAAA'})
+    assert d['frag_crops'] == {'P1': ['F1']}

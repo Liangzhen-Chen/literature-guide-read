@@ -112,3 +112,10 @@ def test_convert_joins_paragraph_cut_by_page_break_without_flag():
     d = mb.convert(sc, 'x.pdf', '/x.pdf')
     paras = [i['text'] for i in d['items'] if i['type'] == 'para']
     assert len(paras) == 3 and 'mixture of these two feelings.3 That' in paras[1]
+
+
+def test_convert_equation_label_alone_is_a_fragment():
+    # List (2003): "(2a)" became a paragraph of its own
+    sc = _pages([_b('paragraph_title', 'III. MODEL', 0.05, level=2), _b('text', LONG, 0.1, 0.3), _b('text', '(2a)', 0.32), _b('equation', '', 0.33, 0.4)])
+    d = mb.convert(sc, 'x.pdf', '/x.pdf')
+    assert [i['type'] for i in d['items'] if i['text'] == '(2a)'] == ['frag']

@@ -22,22 +22,37 @@ from check import report, run_checks  # noqa: E402
 from common import inline_math_spans, SKILL_DIR, as_lang, load_elements, load_guide, load_json, skill_version  # noqa: E402
 
 DATA_RE = re.compile(r'<script id="guide-data" type="application/json">(.*?)</script>', re.S)
-CAP_KEY_RE = re.compile(r"^\s*(?:(?P<fig>fig(?:ure)?s?\.?|exhibit|chart|plate|map|图)|(?P<tab>tables?|tab\.|表))\s*(?P<n>\d+)", re.I)
-MENTION_RE = re.compile(r"(?:\b(?P<w>fig(?:ure)?s?\.?|tables?|tab\.)\s*(?P<n>\d+))|(?:(?P<c>[图表])\s*(?P<m>\d+))", re.I)
+NUMBER = r"(?P<{0}>\d+|(?=[IVXLC])M{{0,3}}(?:CM|CD|D?C{{0,3}})(?:XC|XL|L?X{{0,3}})(?:IX|IV|V?I{{0,3}}))"
+CAP_KEY_RE = re.compile(r"^\s*(?:(?P<fig>fig(?:ure)?s?\.?|exhibit|chart|plate|map|图)|(?P<tab>tables?|tab\.|表))\s*" + NUMBER.format("n") + r"\b", re.I)
+MENTION_RE = re.compile(r"(?:\b(?P<w>fig(?:ure)?s?\.?|tables?|tab\.)\s*" + NUMBER.format("n") + r"\b)|(?:(?P<c>[图表])\s*(?P<m>\d+))", re.I)
+EQ_LABEL_ONLY_RE = re.compile(r"^\s*\(\d{1,3}[a-z]?\)\s*$")
+ROMAN = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
+
+
+def number_value(s):
+    """'3' -> 3, 'XI' -> 11 (captions in older journals are numbered in Roman)."""
+    if s.isdigit():
+        return int(s)
+    total = 0
+    for k, ch in enumerate(s.upper()):
+        v = ROMAN[ch]
+        total += -v if k + 1 < len(s) and ROMAN[s[k + 1].upper()] > v else v
+    return total
 
 
 def cap_key(text):
     m = CAP_KEY_RE.match(text or "")
-    if not m:
+    if not m or not m.group("n"):
         return None
-    return ["table" if m.group("tab") else "fig", int(m.group("n"))]
+    return ["table" if m.group("tab") else "fig", number_value(m.group("n"))]
 
 
 def mentions(text):
     out = []
     for m in MENTION_RE.finditer(text):
         if m.group("w"):
-            out.append(["table" if m.group("w").lower().startswith("tab") else "fig", int(m.group("n"))])
+            if m.group("n"):
+                out.append(["table" if m.group("w").lower().startswith("tab") else "fig", number_value(m.group("n"))])
         else:
             out.append(["table" if m.group("c") == "表" else "fig", int(m.group("m"))])
     return out
@@ -161,7 +176,9 @@ def build_data(doc, guide, comp, sources, imgs, lang, crops=None):
     frag_crops, last, last_cap = {}, None, None
     for it in doc["items"]:
         if it["type"] == "para":
-            last, last_cap = it["id"], None
+            if not EQ_LABEL_ONLY_RE.match(it["text"]):  # "(2a)" on its own line is a label, not a host
+                last = it["id"]
+            last_cap = None
         elif it["type"] == "caption":
             last_cap = it["id"]
         elif it["type"] == "frag" and it["id"] in crops:
