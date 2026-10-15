@@ -1,0 +1,282 @@
+{
+ "pages": [
+  {
+   "page_idx": 0,
+   "blocks": [
+    {
+     "type": "header",
+     "bbox": [
+      0.282,
+      0.053,
+      0.719,
+      0.07
+     ],
+     "content": "Open access, freely available online"
+    },
+    {
+     "type": "page_number",
+     "bbox": [
+      0.108,
+      0.052,
+      0.143,
+      0.068
+     ],
+     "content": "696"
+    },
+    {
+     "type": "paragraph_title",
+     "bbox": [
+      0.1,
+      0.1,
+      0.9,
+      0.12
+     ],
+     "content": "Modeling the Framework for False Positive Findings",
+     "level": 2
+    },
+    {
+     "type": "text",
+     "bbox": [
+      0.103,
+      0.13,
+      0.895,
+      0.4
+     ],
+     "content": "Several methodologists have pointed out [9–11] that the high rate of nonreplication (lack of confirmation) of research discoveries is a consequence of the convenient, yet ill-founded strategy of claiming conclusive research findings solely on the basis of a single study assessed by formal statistical significance, typically for a p-value less than 0.05. Research is not most appropriately represented and summarized by p-values, but, unfortunately, there is a widespread notion that medical research articles should be interpreted based only on p-values. Research findings are defined here as any relationship reaching formal statistical significance, e.g., effective interventions, informative predictors, risk factors, or associations. “Negative” research is also very useful. “Negative” is actually a misnomer, and the misinterpretation is widespread. However, here we will target relationships that investigators claim exist, rather than null findings."
+    },
+    {
+     "type": "text",
+     "bbox": [
+      0.103,
+      0.4,
+      0.895,
+      0.85
+     ],
+     "content": "As has been shown previously, the probability that a research finding is indeed true depends on the prior probability of it being true (before doing the study), the statistical power of the study, and the level of statistical significance [10,11]. Consider a 2 × 2 table in which research findings are compared against the gold standard of true relationships in a scientific field. In a research field both true and false hypotheses can be made about the presence of relationships. Let R be the ratio of the number of “true relationships” to “no relationships” among those tested in the field. R is characteristic of the field and can vary a lot depending on whether the field targets highly likely relationships or searches for only one or a few true relationships among thousands and millions of hypotheses that may be postulated. Let us also consider, for computational simplicity, circumscribed fields where either there is only one true relationship (among many that can be hypothesized) or the power is similar to find any of the several existing true relationships. The pre-study probability of a relationship being true is R/(R + 1). The probability of a study finding a true relationship reflects the power 1 − β (one minus the Type II error rate). The probability of claiming a relationship when none truly exists reflects the Type I error rate, α. Assuming that c relationships are being probed in the field, the expected values of the 2 × 2 table are given in Table 1. After a research finding has been claimed based on achieving formal statistical significance, the post-study probability that it is true is the positive predictive value, PPV. The PPV is also the complementary probability of what Wacholder et al. have called the false positive report probability [10]. According to the 2 × 2 table, one gets"
+    },
+    {
+     "type": "equation",
+     "bbox": [
+      0.104,
+      0.857,
+      0.622,
+      0.878
+     ],
+     "content": "PPV = \\frac{(1 - \\beta)R}{R - \\beta R + \\alpha}",
+     "image_source": "images/page_0_equation_9.jpg"
+    },
+    {
+     "type": "text",
+     "bbox": [
+      0.104,
+      0.88,
+      0.898,
+      0.905
+     ],
+     "content": "A research finding is thus more likely true than false if (1 − β)R > α."
+    },
+    {
+     "type": "footer",
+     "bbox": [
+      0.277,
+      0.912,
+      0.716,
+      0.953
+     ],
+     "content": "PLoS Medicine | www.plosmedicine.org 0696 August 2005 | Volume 2 | Issue 8 | e124"
+    }
+   ]
+  },
+  {
+   "page_idx": 1,
+   "blocks": [
+    {
+     "type": "page_number",
+     "bbox": [
+      0.857,
+      0.053,
+      0.891,
+      0.068
+     ],
+     "content": "697"
+    },
+    {
+     "type": "table",
+     "bbox": [
+      0.107,
+      0.124,
+      0.891,
+      0.345
+     ],
+     "content": "<table><tr><td></td><td colspan=\"2\">True Relationship</td><td></td></tr><tr><td>Research Finding</td><td>Yes</td><td>No</td><td>Total</td></tr><tr><td>Yes</td><td>c(1 − β)R/(R + 1)</td><td>cα/(R + 1)</td><td>c(R + α − βR)/(R + 1)</td></tr><tr><td>No</td><td>cβR/(R + 1)</td><td>c(1 − α)/(R + 1)</td><td>c(1 − α + βR)/(R + 1)</td></tr><tr><td>Total</td><td>cR/(R + 1)</td><td>c/(R + 1)</td><td>c</td></tr></table>",
+     "captions": [
+      {
+       "bbox": [
+        0.1,
+        0.088,
+        0.2,
+        0.104
+       ],
+       "content": "Table 1."
+      },
+      {
+       "bbox": [
+        0.2,
+        0.104,
+        0.8,
+        0.121
+       ],
+       "content": "Research Findings and True Relationships"
+      }
+     ],
+     "footnotes": [
+      {
+       "bbox": [
+        0.136,
+        0.354,
+        0.891,
+        0.381
+       ],
+       "content": "DOI: 10.1371/journal.pmed.0020124.t001"
+      }
+     ],
+     "image_source": "images/page_1_table_4.jpg"
+    },
+    {
+     "type": "text",
+     "bbox": [
+      0.102,
+      0.388,
+      0.892,
+      0.463
+     ],
+     "content": "Since usually the vast majority of investigators depend on α = 0.05, this means that a research finding is more likely true than false if (1 − β)R > 0.05.",
+     "continues_prev": true
+    },
+    {
+     "type": "text",
+     "bbox": [
+      0.101,
+      0.462,
+      0.894,
+      0.557
+     ],
+     "content": "What is less well appreciated is that bias and the extent of repeated independent testing by different teams of investigators around the globe may further distort this picture and may lead to even smaller probabilities of the research findings being indeed true. We will try to model these two factors in the context of similar 2 × 2 tables."
+    },
+    {
+     "type": "text",
+     "bbox": [
+      0.1,
+      0.557,
+      0.893,
+      0.751
+     ],
+     "content": "First, let us define bias as the combination of various design, data, analysis, and presentation factors that tend to produce research findings when they should not be produced. Let u be the proportion of probed analyses that would not have been “research findings,” but nevertheless end up presented and reported as such, because of bias. Bias should not be confused with chance variability that causes some findings to be false by chance even though the study design, data, analysis, and presentation are perfect. Bias can entail manipulation in the analysis or reporting of findings. Selective or distorted reporting is a typical form of such bias. We may assume that u does not depend on whether a true relationship exists or not. This is not an unreasonable assumption, since typically it is impossible to know which relationships are indeed true. In the presence of bias (Table 2), one gets PPV = ([1 − β]R + uβR)/(R + α − βR + u − uα + uβR), and PPV decreases with increasing u, unless 1 − β ≤ α, i.e., 1 − β ≤ 0.05 for most situations. Thus, with increasing bias, the chances that a research finding is true diminish considerably. This is shown for different levels of power and for different pre-study odds in Figure 1. Conversely, true research findings may occasionally be annulled because of reverse bias. For example, with large measurement errors relationships are lost in noise [12], or investigators use data inefficiently or fail to notice statistically significant relationships, or there may be conflicts of interest that tend to “bury” significant findings.13 There is no good large-scale empirical evidence on how frequently such reverse bias may occur across diverse research fields. However, it is probably fair to say that reverse bias is not as common. Moreover measurement errors and inefficient use of data are probably becoming less frequent problems, since measurement error has decreased with technological advances in the molecular era and investigators are becoming increasingly sophisticated about their data. Regardless, reverse bias may be modeled in the same way as bias above. Also reverse bias should not be confused with chance variability that may lead to missing a true relationship because of chance."
+    },
+    {
+     "type": "table",
+     "bbox": [
+      0.105,
+      0.76,
+      0.89,
+      0.85
+     ],
+     "content": "| Research Finding | Yes | No | Total |\n| --- | --- | --- | --- |\n| Yes | (c[1 − β]R + ucβR)/(R + 1) | cα + uc(1 − α)/(R + 1) | c(R + α − βR + u − uα + uβR)/(R + 1) |\n| No | (1 − u)cβR/(R + 1) | (1 − u)c(1 − α)/(R + 1) | c(1 − u)(1 − α + βR)/(R + 1) |\n| Total | cR/(R + 1) | c/(R + 1) | c |",
+     "captions": [
+      {
+       "bbox": [
+        0.1,
+        0.757,
+        0.2,
+        0.77
+       ],
+       "content": "Table 2."
+      },
+      {
+       "bbox": [
+        0.2,
+        0.77,
+        0.8,
+        0.78
+       ],
+       "content": "Research Findings and True Relationships in the Presence of Bias"
+      }
+     ],
+     "footnotes": [
+      {
+       "bbox": [
+        0.104,
+        0.85,
+        0.89,
+        0.86
+       ],
+       "content": "DOI: 10.1371/journal.pmed.0020124.t002"
+      }
+     ],
+     "image_source": "images/page_1_table_5.jpg"
+    },
+    {
+     "type": "footer",
+     "bbox": [
+      0.277,
+      0.912,
+      0.716,
+      0.953
+     ],
+     "content": "PLoS Medicine | www.plosmedicine.org 0697 August 2005 | Volume 2 | Issue 8 | e124"
+    },
+    {
+     "type": "page_footnote",
+     "bbox": [
+      0.1,
+      0.9,
+      0.9,
+      0.93
+     ],
+     "content": "13. Topol EJ (2004) Failing the public health—Rofecoxib, Merck, and the FDA. N Engl J Med 351: 1707–1709."
+    }
+   ]
+  }
+ ],
+ "metadata": {
+  "file_suffix": "pdf",
+  "producer": {
+   "name": "mineru",
+   "version": "4.0.12"
+  },
+  "document": {
+   "title": "Why Most Published Research Findings Are False",
+   "languages": [
+    "eng"
+   ],
+   "created_at": "2005-08-23T13:13:31Z",
+   "modified_at": "2005-08-23T13:13:31Z",
+   "creator_application": "Adobe InDesign CS (3.0.1)",
+   "producer_application": "Acrobat Distiller 5.0.5 (Windows)",
+   "page_count": 6,
+   "page_count_kind": "physical"
+  }
+ },
+ "extensions": {
+  "mineru": {
+   "tier": "basic",
+   "parse_mode": "ocr"
+  },
+  "docvortex_layout": {
+   "version": 1,
+   "pages": [
+    {
+     "page_idx": 0,
+     "width_pt": 594.0,
+     "height_pt": 783.0
+    },
+    {
+     "page_idx": 1,
+     "width_pt": 594.0,
+     "height_pt": 783.0
+    }
+   ]
+  }
+ },
+ "is_full_document": false
+}

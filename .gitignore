@@ -1,0 +1,26 @@
+.DS_Store
+.venv*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage*
+htmlcov/
+sample/
+tests/private/
+tests/output/
+
+.tools/
+
+# local working files, never published
+docs/superpowers/
+.superpowers/
+tests/corpus/
+tests/golden/
+tests/evidence/
+tests/issues/
+tests/browser/
+tests/*.md
+tests/*.json
+tests/*.py
+tests/*.lock
+!tests/conftest.py
