@@ -118,7 +118,7 @@ def convert(sc, source_name, source_path):
             elif t == "ref_text":
                 n_refs += 1
             elif t in ("doc_title", "paragraph_title"):
-                lvl = 0 if t == "doc_title" else max(1, int(b.get("level", 2)) - 1)
+                lvl = 0 if t == "doc_title" else max(1, int(b.get("level") or 2) - 1)
                 m = NUM_HEAD_RE.match(text)
                 if m and re.match(r"^\d", text):
                     lvl = min(4, m.group(1).count(".") + 1)
@@ -139,7 +139,9 @@ def convert(sc, source_name, source_path):
             elif t == "aside_text":
                 blocks.append(dict(base, type="frag", text=text))
             elif t == "page_footnote":
-                blocks.append(dict(base, type="note", text=text))
+                # Scans yield footnote blocks that are empty or hold a stray symbol ("μ(·)"); a note has words.
+                if text and (re.search(r"[A-Za-z]{3,}", text) or re.search(r"[\u4e00-\u9fff]", text)):
+                    blocks.append(dict(base, type="note", text=text))
             elif t == "equation":
                 blocks.append(dict(base, type="frag", text=text or "[equation]", tex=text or None, equation=True))
             elif t in ("image", "table", "chart"):

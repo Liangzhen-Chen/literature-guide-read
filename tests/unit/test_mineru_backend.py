@@ -48,3 +48,21 @@ def test_available_returns_none_when_no_mineru(monkeypatch):
     monkeypatch.setattr(mb.shutil, 'which', lambda name: None)
     monkeypatch.setattr(mb, '_can_import', lambda py: False)
     assert mb.available() is None
+
+
+def test_convert_heading_with_null_level():
+    sc = json.loads(FIX.read_text())
+    sc['pages'][0]['blocks'].insert(0, {'type': 'paragraph_title', 'level': None, 'content': 'Appendix', 'bbox': [0.1, 0.1, 0.5, 0.12]})
+    d = mb.convert(sc, 'x.pdf', '/x.pdf')
+    assert any(i['type'] == 'heading' and i['text'] == 'Appendix' and i['level'] == 1 for i in d['items'])
+
+
+def test_convert_drops_empty_and_stray_math_footnotes():
+    # Kőszegi & Rabin (2006) scan: MinerU emitted footnote blocks holding "" or stray symbols such as "μ(·)"
+    sc = json.loads(FIX.read_text())
+    sc['pages'][0]['blocks'] += [{'type': 'page_footnote', 'content': '', 'bbox': [0.1, 0.9, 0.5, 0.92]},
+                                 {'type': 'page_footnote', 'content': 'μ(·)', 'bbox': [0.1, 0.92, 0.5, 0.94]},
+                                 {'type': 'page_footnote', 'content': '8. A real note.', 'bbox': [0.1, 0.94, 0.5, 0.96]}]
+    d = mb.convert(sc, 'x.pdf', '/x.pdf')
+    notes = [i['text'] for i in d['items'] if i['type'] == 'note']
+    assert '' not in notes and 'μ(·)' not in notes and any('A real note' in t for t in notes)

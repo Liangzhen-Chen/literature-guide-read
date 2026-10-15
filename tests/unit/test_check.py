@@ -240,3 +240,17 @@ def test_repeated_generic_roles_warn(clean):
         g['paras'][pid]['role'] = f'Evidence item {k}'
     _, warns, _ = run_checks(doc, g)
     assert not any('same role' in w for w in warns)
+
+
+def test_formula_double_backslash_before_brace_is_not_an_escape(clean):
+    # "\\{" is a line break followed by a group, not an escaped brace
+    errors, _, _ = run_checks(*_formula(clean, tex='\\begin{cases} 3 \\\\{5} \\end{cases}'))
+    assert not any('braces' in e for e in errors)
+
+
+def test_formula_tex_numbers_must_come_from_the_source(clean):
+    # 3 and 5 are in the paragraph; 7 is not. Sub- and superscripts are notation, not data.
+    _, warns, _ = run_checks(*_formula(clean, tex='s_1 = \\frac{3}{5} x^{2}'))
+    assert not any('tex' in w and 'numbers' in w for w in warns)
+    _, warns, _ = run_checks(*_formula(clean, tex='s = \\frac{7}{5}'))
+    assert any('tex' in w and 'numbers' in w and '7' in w for w in warns)
