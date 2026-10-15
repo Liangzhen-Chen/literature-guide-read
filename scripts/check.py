@@ -326,6 +326,18 @@ def run_checks(doc, guide, density=None):
                 warns.append(f"{eid}: anchors of elements {i1 + 1} and {i2 + 1} overlap; only the first is highlighted")
         hl[eid] = spans
 
+    role_count, role_text = {}, {}
+    for eid, g in entries.items():
+        if isinstance(g, dict) and items.get(eid, {}).get("type") == "para":
+            for lang, txt in as_lang(g.get("role"), primary).items():
+                key = (lang, txt.strip().lower())
+                role_count.setdefault(key, []).append(eid)
+                role_text.setdefault(key, txt.strip())
+    for key, ids in sorted(role_count.items(), key=lambda kv: -len(kv[1])):
+        lang, txt = key
+        if len(ids) >= 4 and txt:
+            warns.append(f"{len(ids)} paragraphs ({compress([pnum(i) for i in ids])}) carry the same role «{role_text[key]}» ({lang}); "
+                         f"a role says what that paragraph does (\"Experiment 2 results\"), not its kind")
     for p in parts:
         if p.get("skip") or "_skip" in p:
             continue

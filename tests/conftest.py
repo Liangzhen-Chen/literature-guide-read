@@ -16,7 +16,7 @@ def clean():
                         'recall': [{'q': 'What did buyers choose?', 'a': 'The smaller reward.'}],
                         'flow': [{'p': 'P1', 'x': 'Buyers choose.'},
                                  {'p': 'P2', 'x': 'Rewards vary.', 'rel': 'explains'}]}],
-             'paras': {f'P{i}': {'tier': 'close' if i == 1 else 'skim', 'role': 'Evidence',
+             'paras': {f'P{i}': {'tier': 'close' if i == 1 else 'skim', 'role': f'Choice {i}',
                         'read': 'Track the choices.', 'note': 'Buyers choose the smaller reward.',
                         'els': []} for i in range(1, 5)}}
     guide['paras']['P1']['els'] = [{'t': 'claim', 'a': 'Three buyers', 's': 'Buyers choose'}]

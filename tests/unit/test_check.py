@@ -228,3 +228,15 @@ def test_missing_purpose_warns(clean):
     del g['meta']['purpose']
     _, warns, _ = run_checks(doc, g)
     assert any('purpose' in w for w in warns)
+
+
+def test_repeated_generic_roles_warn(clean):
+    doc, g = clean
+    for pid in ('P1', 'P2', 'P3', 'P4'):
+        g['paras'][pid]['role'] = 'Definition'
+    _, warns, _ = run_checks(doc, g)
+    assert any('role' in w and 'Definition' in w for w in warns)
+    for k, pid in enumerate(('P1', 'P2', 'P3', 'P4')):
+        g['paras'][pid]['role'] = f'Evidence item {k}'
+    _, warns, _ = run_checks(doc, g)
+    assert not any('same role' in w for w in warns)
