@@ -69,3 +69,10 @@ def test_elements_malformed_level_skipped(tmp_path,monkeypatch):
     (tmp_path/'references/elements.md').write_text('### bad | Bad | 错 | nope | facts\nIgnored\n### good | Good | 好 | 2 | facts\nKept\n')
     monkeypatch.setattr(c,'SKILL_DIR',tmp_path)
     assert set(c.load_elements()) == {'good'}
+
+
+def test_inline_math_spans_versus_money():
+    from common import inline_math_spans
+    assert [m.group(1) for m in inline_math_spans('between $1 + \\eta$ and $1 + \\eta\\lambda$, except at $0$, and $1 - p_M$')] == ['1 + \\eta', '1 + \\eta\\lambda', '0', '1 - p_M']
+    assert inline_math_spans('a salary of $50,000 against $60,000 expected') == []
+    assert inline_math_spans('paid $5 - $3 more') == []

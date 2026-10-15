@@ -164,6 +164,7 @@ body.v-gist .t-close .readfor { margin-bottom: 2px; }
 .readfor { margin: 2px 0 6px; font-size: 13.5px; }
 .readfor b { color: var(--claim); margin-right: 6px; }
 .note { margin: 2px 0 6px; font-size: 14.5px; }
+.imath .katex { font-size: 1em; }
 b.num { font-weight: 700; font-variant-numeric: tabular-nums; }
 .why { margin: 0 0 6px; font-size: 13px; color: var(--muted); }
 .formula { margin: 8px 0 4px; padding: 8px 10px; border-left: 3px solid var(--math); background: var(--math-bg); border-radius: 4px; }
@@ -282,14 +283,26 @@ __KATEX__
   function L(v) { if (v == null) return ""; if (typeof v === "string") return v; return v[LANG] || v[D.langs[0]] || ""; }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   var NUM = /(\$\s?\d[\d.,]*(?:[–-]\d[\d.,]*)?|\d[\d.,]*(?:[–-]\d[\d.,]*)?\s?(?:%|percent|美元|元|次|名|人|分钟|倍|件|支|瓶|例|min\b)|\d+(?:\.\d+)?\s?:\s?\d+|[Nn]\s?=\s?\d+)/g;
+  var IMATH = /\$(?![\s$])([^$\n]+?)(?<!\s)\$/g;
+  function isMath(s) { return !/^\d/.test(s) || /[\\_^=<>()]/.test(s) || !/\s/.test(s); }
   function withNums(node, text) {
+    // $...$ spans are inline LaTeX (a span starting with a digit is money unless it holds LaTeX or no spaces)
+    var last = 0, m; IMATH.lastIndex = 0; text = text == null ? "" : String(text);
+    while ((m = IMATH.exec(text))) {
+      if (!isMath(m[1])) { IMATH.lastIndex = m.index + 1; continue; }
+      if (m.index > last) numsInto(node, text.slice(last, m.index));
+      var sp = el("span", "imath"); mathInto(sp, m[1], true); node.appendChild(sp); last = m.index + m[0].length;
+    }
+    numsInto(node, text.slice(last));
+    return node;
+  }
+  function numsInto(node, text) {
     var last = 0, m; NUM.lastIndex = 0;
     while ((m = NUM.exec(text))) {
       if (m.index > last) node.appendChild(document.createTextNode(text.slice(last, m.index)));
       node.appendChild(el("b", "num", m[0])); last = m.index + m[0].length;
     }
     node.appendChild(document.createTextNode(text.slice(last)));
-    return node;
   }
   function pnum(id) { return parseInt(String(id).slice(1), 10); }
   function rangeIds(r) { var m = /^P(\d+)(?:-P?(\d+))?$/.exec(r); var out = []; for (var i = +m[1]; i <= +(m[2] || m[1]); i++) out.push("P" + i); return out; }
@@ -444,7 +457,7 @@ __KATEX__
     var ph = el("header", "ph");
     ph.appendChild(el("span", "pid", isNote ? u.fn + " " + (it.num || "") : id));
     ph.appendChild(el("span", "pg", pageText([id])));
-    ph.appendChild(el("span", "role", L(g.role)));
+    ph.appendChild(withNums(el("span", "role"), L(g.role)));
     var mini = el("span", "mini"), seen = {};
     (g.els || []).forEach(function (e) { if (T(e.t).level < 2 || seen[e.t]) return; seen[e.t] = 1; mini.appendChild(paint(el("i", null, tname(e.t)), e.t)); });
     ph.appendChild(mini);
@@ -452,7 +465,7 @@ __KATEX__
     art.appendChild(ph);
     var gap = gapNode(id);
     if (tier === "close") {
-      if (g.read) { var rf = el("p", "readfor"); rf.appendChild(el("b", null, u.readFor)); rf.appendChild(document.createTextNode(L(g.read))); art.appendChild(rf); }
+      if (g.read) { var rf = el("p", "readfor"); rf.appendChild(el("b", null, u.readFor)); withNums(rf, L(g.read)); art.appendChild(rf); }
       var detc = el("details", "ow"); detc.appendChild(el("summary", null, u.orig)); detc.appendChild(origNode(id)); if (gap) detc.appendChild(gap);
       detc.open = VIEW !== "gist"; art.appendChild(detc);
     } else {
@@ -495,8 +508,8 @@ __KATEX__
     document.getElementById("title").textContent = D.meta.title || D.doc.title_guess || D.doc.source;
     var bits = [D.meta.author, D.meta.source, L(D.meta.genre)].filter(Boolean);
     document.getElementById("meta").textContent = bits.join("　");
-    document.getElementById("thesis").textContent = L(D.thesis);
-    document.getElementById("overview").textContent = L(D.overview);
+    withNums(document.getElementById("thesis"), L(D.thesis));
+    withNums(document.getElementById("overview"), L(D.overview));
     var br = document.getElementById("brief"); br.textContent = "";
     var hasBrief = L(D.meta.purpose) || L(D.meta.familiarity) || (D.questions && D.questions.length);
     br.hidden = !hasBrief;
@@ -504,7 +517,7 @@ __KATEX__
       if (L(D.meta.purpose)) { var p1 = el("p", "bl"); p1.appendChild(el("b", null, u.purpose + "：")); p1.appendChild(document.createTextNode(L(D.meta.purpose))); br.appendChild(p1); }
       if (L(D.meta.familiarity)) { var p2 = el("p", "bl"); p2.appendChild(el("b", null, u.familiarity + "：")); p2.appendChild(document.createTextNode(L(D.meta.familiarity))); br.appendChild(p2); }
       (D.questions || []).forEach(function (q) {
-        var d = el("div", "bq"); d.appendChild(el("b", null, "Q: " + L(q.q)));
+        var d = el("div", "bq"); d.appendChild(withNums(el("b"), "Q: " + L(q.q)));
         d.appendChild(withNums(el("span"), L(q.a)));
         (q.p || []).forEach(function (pid) { var b = el("button", "linkbtn", pid); b.type = "button"; b.addEventListener("click", function () { jump(pid); }); d.appendChild(b); });
         br.appendChild(d);
@@ -538,7 +551,7 @@ __KATEX__
       h.appendChild(el("span", "pn", String(k))); h.appendChild(el("span", "pt", L(p.title)));
       h.appendChild(el("span", "pr", rtext(ids) + "　" + pageText(ids))); box.appendChild(h);
       box.appendChild(el("div", "prole", L(p.role)));
-      var c = el("button", "pclaim", L(p.claim)); c.type = "button"; c.addEventListener("click", function () { jump(p.claim_p); }); box.appendChild(c);
+      var c = withNums(el("button", "pclaim"), L(p.claim)); c.type = "button"; c.addEventListener("click", function () { jump(p.claim_p); }); box.appendChild(c);
       var chips = el("div", "chips");
       ALL.filter(function (x) { return x.part === p && x.e.s; }).forEach(function (x) {
         var b = paint(el("button", "chip" + (T(x.e.t).family === "limit" ? " lim" : "")), x.e.t); b.type = "button";

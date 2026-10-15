@@ -163,3 +163,13 @@ def test_crop_images_recompress_to_grayscale(tmp_path):
     out = r.crop_images({'crops': {'F1': 'crops/F1.png'}}, work)
     assert out['F1'].startswith('data:image/png;base64,')
     assert len(out['F1']) < len(raw) * 4 / 3
+
+
+def test_inline_math_in_notes_inlines_katex(clean):
+    doc, g = clean
+    g['paras']['P2']['note'] = 'Two goods: $c_1 \\in C$ for shoes.'
+    _, _, comp = run_checks(doc, g)
+    assert r.build_data(doc, g, comp, None, {}, 'en')['has_tex'] is True
+    g['paras']['P2']['note'] = 'A salary of $50,000 against $60,000 expected.'
+    _, _, comp = run_checks(doc, g)
+    assert r.build_data(doc, g, comp, None, {}, 'en')['has_tex'] is False

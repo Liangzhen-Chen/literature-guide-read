@@ -254,3 +254,13 @@ def test_formula_tex_numbers_must_come_from_the_source(clean):
     assert not any('tex' in w and 'numbers' in w for w in warns)
     _, warns, _ = run_checks(*_formula(clean, tex='s = \\frac{7}{5}'))
     assert any('tex' in w and 'numbers' in w and '7' in w for w in warns)
+
+
+def test_inline_math_subscripts_are_notation_not_numbers(clean):
+    doc, g = clean
+    g['paras']['P2']['note'] = 'Two goods: $c_1 \\in C$, wealth $c_2$, and $m(c) = c_1^2 + c_2$.'
+    errors, _, _ = run_checks(doc, g)
+    assert not [e for e in errors if 'P2' in e and 'numbers' in e]
+    g['paras']['P2']['note'] = 'Two goods: $c_1 = 9$.'
+    errors, _, _ = run_checks(doc, g)
+    assert [e for e in errors if 'P2' in e and '9' in e]

@@ -38,6 +38,7 @@ KNOWN_HEAD_RE = re.compile(r"^(abstract|introduction|background|literature revie
                            r"bibliography|appendix|notes|摘要|引言|前言|导论|绪论|结论|结语|讨论|致谢|附录|参考文献)$", re.I)
 CN_HEAD_RE = re.compile(r"^(第[一二三四五六七八九十百零〇\d]+[章节部篇]|[一二三四五六七八九十]+、|[（(][一二三四五六七八九十]+[）)])")
 CIRCLED_RE = re.compile(r"[\u2460-\u2473]")
+SUP_DIGITS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
 SMALL_WORDS = {"a", "an", "the", "and", "or", "of", "in", "on", "for", "to", "with", "by", "at", "from", "as", "vs", "via"}
 MONO_RE = re.compile(r"mono|courier|cmtt|consol|menlo|inconsolata|sftt|typewriter|nimbusmon", re.I)
 JSTOR_RE = re.compile(r"your use of the jstor archive|jstor is a not-for-profit", re.I)
@@ -883,7 +884,7 @@ def link_notes(items):
     notes = [it for it in items if it["type"] == "note"]
     used = set()
     for it in notes:
-        m = re.match(r"^\s*(\d{1,2})\s*", it["text"])
+        m = re.match(r"^\s*(\d{1,2})[.．]?\s*", it["text"])
         q = re.match(r"^\s*['’‘]\s*", it["text"])
         c = re.match(r"^\s*([\u2460-\u2473])\s*", it["text"])
         if c and ord(c.group(1)) - 0x245F not in used:
@@ -907,7 +908,7 @@ def link_notes(items):
     for it in items:
         if it["type"] != "para":
             continue
-        found = [(int(m.group(1)) if m.group(1) else 1) for m in marker.finditer(it["text"])]
+        found = [(int(m.group(1)) if m.group(1) else 1) for m in marker.finditer(it["text"].translate(SUP_DIGITS))]
         found += [ord(ch) - 0x245F for ch in CIRCLED_RE.findall(it["text"])]
         for n in found:
             note = by_num.get(n)

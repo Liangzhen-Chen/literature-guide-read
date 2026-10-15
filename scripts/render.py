@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check import report, run_checks  # noqa: E402
-from common import SKILL_DIR, as_lang, load_elements, load_guide, load_json, skill_version  # noqa: E402
+from common import inline_math_spans, SKILL_DIR, as_lang, load_elements, load_guide, load_json, skill_version  # noqa: E402
 
 DATA_RE = re.compile(r'<script id="guide-data" type="application/json">(.*?)</script>', re.S)
 CAP_KEY_RE = re.compile(r"^\s*(?:(?P<fig>fig(?:ure)?s?\.?|exhibit|chart|plate|map|图)|(?P<tab>tables?|tab\.|表))\s*(?P<n>\d+)", re.I)
@@ -179,7 +179,8 @@ def build_data(doc, guide, comp, sources, imgs, lang, crops=None):
             for z in x.get("syms") or [] if isinstance(x.get("syms"), list) else []:
                 if isinstance(z, dict) and z.get("s") and z.get("m") and "\\" not in str(z["s"]):
                     glossary.append({"term": str(z["s"]), "x": as_lang(z["m"], primary), "src": eid})
-    has_tex = (any(e.get("tex") for g in entries.values() for e in g["els"])
+    has_tex = (bool(inline_math_spans(json.dumps(guide, ensure_ascii=False)))
+               or any(e.get("tex") for g in entries.values() for e in g["els"])
                or any(q.get("tex") for q in (sources or {}).get("equations", [])))
     meta = dict(guide.get("meta") or {})
     for f in ("genre", "purpose", "familiarity"):

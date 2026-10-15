@@ -2,6 +2,14 @@
 
 Add an entry at the top for every change to the rules or the workflow: version, date, what changed, and what prompted it (which reading, what went wrong).
 
+## 0.6.0 (2026-10-15)
+
+Prompted by Kőszegi and Rabin (2006), a JSTOR scan read with the brief "core claims only, bilingual": notes full of $c_1$, $p_{\max}$ and $\mu(x) = \eta x$ written as plain text looked wrong, and the MinerU converter mis-handled three things on the scan.
+
+- Inline mathematics: any text field (notes, read lines, claims, explanations, recall) may hold LaTeX between single dollar signs, rendered inline by KaTeX; a span starting with a digit is money unless it holds LaTeX, operators or no spaces. check.py treats sub- and superscripts inside such spans as notation. Rule in method.md section 5 and schema.md.
+- mineru_backend.py: a doc_title at the top of a page followed by a volume line is the journal masthead, not the title; the title then comes from the running head that is not the journal name. A numbered text block at the foot of a page is a footnote. A page's first text block that starts in lower case continues the previous page's open paragraph.
+- segment.py: superscript digits ("given by²") count as footnote markers; the period after a footnote number is stripped.
+
 ## 0.5.1 (2026-10-15)
 
 Five small findings from the 0.4.0 code review, each with a regression test that failed first.

@@ -227,3 +227,11 @@ def test_strip_margins_first_page_title_at_head_row_survives():
     labels = []
     s.strip_margins(pages, lambda p: p['lines'], lambda p, v: p.update(lines=v), labels)
     assert [l['text'] for l in pages[0]['lines']] == ['DOES MARKET EXPERIENCE ELIMINATE MARKET ANOMALIES?', 'JOHN A. LIST']
+
+
+def test_link_notes_superscript_digit_marker():
+    # Kőszegi & Rabin (2006): the text layer carries the footnote marker as "²"
+    items = [dict(id='P1', type='para', text='the utility is given by²', page=6),
+             dict(id='N1', type='note', text='2. Despite the clear evidence.', page=6)]
+    s.link_notes(items)
+    assert items[1]['num'] == 2 and items[1]['ref'] == 'P1'
