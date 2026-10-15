@@ -433,6 +433,27 @@ def strip_margins(pages, get_items, set_items, label_sink, band=0.15):
                 seen.add(margin_key(it["text"]))
         keys.update(seen)
     need = 2 if n >= 3 else 99  # 奇偶页交替的页眉各自只占一部分页面
+    # Alternating heads on a short range: the odd-page head repeats but the even-page head may appear once.
+    # A head-like line at the same height as a repeated head on a neighbouring page is a running head too.
+    head_rows = {}
+    for p in pages:
+        for it in get_items(p):
+            if in_band(it, p) and keys[margin_key(it["text"])] >= need and len(it["text"]) < 200 and head_like(it, p):
+                head_rows.setdefault(p["pno"], []).append(it["top"] / p["h"])
+
+    first = pages[0]["pno"] if pages else None
+
+    def same_row(it, p):
+        """Only for ranges of three pages or fewer: longer ranges repeat both heads. Chapter openers and
+        first pages put titles where running heads sit, so the line must also look like a head itself."""
+        if n > 3 or p["pno"] == first:
+            return False
+        t = it["text"].strip()
+        if not t or not (t[0].isupper() or t[0].isdigit()) or re.search(r"[.!?]\s+[a-z]", t):
+            return False
+        rows = head_rows.get(p["pno"] - 1, []) + head_rows.get(p["pno"] + 1, [])
+        return any(abs(it["top"] / p["h"] - r) < 0.015 for r in rows)
+
     removed = 0
     for p in pages:
         keep = []
@@ -444,8 +465,8 @@ def strip_margins(pages, get_items, set_items, label_sink, band=0.15):
                 removed += 1
                 continue
             banner = it["top"] < band * p["h"] and BANNER_RE.search(it["text"]) and len(it["text"]) < 160
-            if banner or (in_margin and keys[margin_key(it["text"])] >= need and len(it["text"]) < 200
-                          and head_like(it, p)):
+            if banner or (in_margin and len(it["text"]) < 200 and head_like(it, p)
+                          and (keys[margin_key(it["text"])] >= need or same_row(it, p))):
                 # 页眉里的页码也记下来
                 mm = (re.search(r"(?:^|\s)(\d{1,4})\s*/\s*\d{1,4}$", it["text"])
                       or re.match(r"^(\d{1,4})\s+\D", it["text"])

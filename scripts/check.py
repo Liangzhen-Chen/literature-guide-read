@@ -295,13 +295,19 @@ def run_checks(doc, guide, density=None):
                 elif e.get("tex"):
                     tex = str(e["tex"])
                     depth = 0
-                    for ch in re.sub(r"\\[{}]", "", tex):  # escaped braces are literal
+                    for ch in re.sub(r"\\\\|\\[{}]", "", tex):  # "\\" is a line break; "\{" is a literal brace
                         depth += ch == "{"
                         depth -= ch == "}"
                         if depth < 0:
                             break
                     if depth != 0:
                         errors.append(f"{eid} element {i + 1}: tex has unbalanced braces: «{tex[:60]}»")
+                    # numbers in the formula must come from the source; sub- and superscripts are notation
+                    plain = re.sub(r"[_^]\s*(?:\{[^{}]*\}|\S)", " ", tex)
+                    extra = sorted(x for x in numbers_in(plain) if x not in allowed)
+                    if extra:
+                        warns.append(f"{eid} element {i + 1} tex: numbers not in the source text: "
+                                     f"{', '.join(fmt_num(x) for x in extra)}; check the transcription against the crop")
                 elif not e.get("tex"):
                     warns.append(f"{eid} element {i + 1}: formula without tex; transcribe it from WORK/crops/ or the open version")
                 syms = e.get("syms")

@@ -126,8 +126,9 @@ def pnum(pid):
 
 # Numbers that are references rather than data: paragraph ids, figure/table/note numbers, page numbers.
 REF_SKIP_RE = re.compile(r"\b[PN]\d+\b|注\s?\d+|\b(?:figures?|figs?\.|tables?|notes?|footnotes?|experiments?|studies|study|"
-                         r"questions?|problems?|sections?|chapters?|parts?|hypothes[ie]s|propositions?|equations?|eqs?\.)\s?\(?\d+[a-z]?\)?\b|"
-                         r"(?:实验|研究|问题|题|假说|命题|公式)\s?\(?\d+[a-z]?\)?|式\s?\(\d+[a-z]?\)|"
+                         r"questions?|problems?|sections?|chapters?|parts?|hypothes[ie]s|propositions?|equations?|eqs?\.|"
+                         r"inequalit(?:y|ies)|expressions?|definitions?|lemmas?|theorems?|corollar(?:y|ies)|conditions?)\s?\(?\d+[a-z]?\)?\b|"
+                         r"(?:实验|研究|问题|题|假说|命题|公式|不等式|定义|引理|定理|推论|条件)\s?\(?\d+[a-z]?\)?|式\s?\(\d+[a-z]?\)|"
                          r"[图表]\s?\d+(?!\d|[.,]\d)|第\s?\d+\s?[页节章部分条]|\bpp?\.\s?\d+(?:\s?[–-]\s?\d+)?", re.I)
 NUM_TOKEN_RE = re.compile(r"(?<![\w.])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)")
 

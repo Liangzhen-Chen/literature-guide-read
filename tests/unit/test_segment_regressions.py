@@ -207,3 +207,23 @@ def test_math_dense_paragraph_is_marked():
     items, _ = s.finalize([_blk('MultiHead( Q, K, V ) = Concat(head 1 , ..., head h ) W O where head i = Attention( QW i Q , KW i K , V W i V )'),
                            _blk('The share of buyers who traded was 32.8 percent, which is below one half.')])
     assert items[0].get('has_math') is True and 'has_math' not in items[1]
+
+
+def test_strip_margins_three_pages_alternating_heads():
+    # three pages: the odd-page head repeats, the even-page head appears once but sits at the same height
+    pages = [_page(p, 652, [('42 QUARTERLY JOURNAL OF ECONOMICS' if p % 2 else 'DOES MARKET EXPERIENCE ELIMINATE ANOMALIES? 43', 40),
+                             ('theory to doubt the validity of certain neoclassical models', 106)]) for p in (1, 2, 3)]
+    labels = []
+    removed = s.strip_margins(pages, lambda p: p['lines'], lambda p, v: p.update(lines=v), labels)
+    assert removed == 3
+    assert all(len(p['lines']) == 1 and p['lines'][0]['text'].startswith('theory') for p in pages)
+    assert (2, '43') in labels
+
+
+def test_strip_margins_first_page_title_at_head_row_survives():
+    # the article title sits where the running head sits on later pages; it is not a running head
+    pages = [_page(1, 652, [('DOES MARKET EXPERIENCE ELIMINATE MARKET ANOMALIES?', 40), ('JOHN A. LIST', 60)])]
+    pages += [_page(p, 652, [('42 QUARTERLY JOURNAL OF ECONOMICS', 40), ('theory to doubt the validity', 106)]) for p in (2, 3)]
+    labels = []
+    s.strip_margins(pages, lambda p: p['lines'], lambda p, v: p.update(lines=v), labels)
+    assert [l['text'] for l in pages[0]['lines']] == ['DOES MARKET EXPERIENCE ELIMINATE MARKET ANOMALIES?', 'JOHN A. LIST']

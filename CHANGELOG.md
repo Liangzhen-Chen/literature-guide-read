@@ -2,6 +2,17 @@
 
 Add an entry at the top for every change to the rules or the workflow: version, date, what changed, and what prompted it (which reading, what went wrong).
 
+## 0.5.1 (2026-10-15)
+
+Five small findings from the 0.4.0 code review, each with a regression test that failed first.
+
+- check.py: `\\` before a brace is a line break, not an escaped brace, so `\\{` no longer trips the brace check; numbers inside `tex` must appear in the source text (warning, with sub- and superscripts treated as notation).
+- mineru_backend.py: a heading block with `level: null` no longer crashes the converter.
+- render.py: crops are re-encoded as optimised grayscale PNG before embedding (20 to 30% smaller pages).
+- check.py: "inequality (8)", "expression (15)", "Definition 1", "Lemma 2", "Theorem 3", "Corollary 4" and their Chinese forms are references, not data (Kőszegi and Rabin 2006 cites its inequalities by number).
+- mineru_backend.py: footnote blocks that are empty or hold a stray symbol are dropped (a JSTOR scan produced twelve such notes).
+- segment.py: on ranges of three pages or fewer, a head-like line at the same height as a repeated running head on a neighbouring page is removed too (odd/even heads each appear only once or twice there). Longer ranges, first pages and sentence-like lines are untouched; the 11 corpus readings segment identically.
+
 ## 0.5.0 (2026-10-15)
 
 Prompted by the question of what evidence the reading method rests on. The changes follow published studies of reading interfaces and learning: skimming highlights (Scim), on-demand definitions (ScholarPhi), argument mapping, prequestions and retrieval practice, self-explanation of worked examples.

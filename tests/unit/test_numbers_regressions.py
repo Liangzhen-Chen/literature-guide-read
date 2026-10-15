@@ -36,3 +36,9 @@ def test_bare_shi_is_not_a_reference():
     from common import numbers_in
     assert numbers_in('以这种方式 30% 的人受益') == {30.0}
     assert numbers_in('见式 (2) 和公式 3') == set()
+
+
+def test_numbered_statements_are_references_not_data():
+    # Kőszegi & Rabin (2006): "inequality (8)", "expression (15)", "Definition 1", "Lemma 2" are labels
+    from common import numbers_in
+    assert numbers_in("by inequality (8), expression (15), Definition 1, Lemma 2, Theorem 3 and Corollary 4; 不等式 (8) 与定义 1") == set()

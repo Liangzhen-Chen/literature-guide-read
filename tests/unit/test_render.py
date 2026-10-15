@@ -150,3 +150,16 @@ def test_build_reader_brief(clean):
     d = r.build_data(doc, g, comp, None, {}, None)
     assert d['meta']['purpose'] == {'en': 'core claims only'} and d['meta']['familiarity'] == {'en': 'new to the field'}
     assert d['questions'] == [{'q': {'en': 'Do buyers prefer small rewards?'}, 'a': {'en': 'Yes.'}, 'p': ['P1']}]
+
+
+def test_crop_images_recompress_to_grayscale(tmp_path):
+    from PIL import Image
+    work = tmp_path; (work / 'crops').mkdir()
+    im = Image.new('RGB', (400, 120), 'white')
+    for x in range(0, 400, 3):
+        im.putpixel((x, 60), (20, 30, 40))
+    im.save(work / 'crops' / 'F1.png')
+    raw = (work / 'crops' / 'F1.png').read_bytes()
+    out = r.crop_images({'crops': {'F1': 'crops/F1.png'}}, work)
+    assert out['F1'].startswith('data:image/png;base64,')
+    assert len(out['F1']) < len(raw) * 4 / 3
