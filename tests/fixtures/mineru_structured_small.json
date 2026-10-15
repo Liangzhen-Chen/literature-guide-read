@@ -1,0 +1,282 @@
+{
+ "pages": [
+  {
+   "page_idx": 8,
+   "blocks": [
+    {
+     "type": "page_number",
+     "bbox": [
+      0.108,
+      0.052,
+      0.143,
+      0.068
+     ],
+     "content": "48"
+    },
+    {
+     "type": "header",
+     "bbox": [
+      0.282,
+      0.053,
+      0.719,
+      0.07
+     ],
+     "content": "QUARTERLY JOURNAL OF ECONOMICS"
+    },
+    {
+     "type": "table",
+     "bbox": [
+      0.107,
+      0.124,
+      0.891,
+      0.345
+     ],
+     "content": "<table><tr><td>Variable</td><td>Percent traded</td><td>p-value for Fisher&#x27;s exact test</td></tr><tr><td>Pooled sample (n = 148)</td><td></td><td></td></tr><tr><td>Good A for Good B</td><td>32.8</td><td rowspan=\"2\">&lt;0.001</td></tr><tr><td>Good B for Good A</td><td>34.6</td></tr><tr><td>Dealers (n = 74)</td><td></td><td></td></tr><tr><td>Good A for Good B</td><td>45.7</td><td rowspan=\"2\">0.194</td></tr><tr><td>Good B for Good A</td><td>43.6</td></tr><tr><td>Nondealers (n = 74)</td><td></td><td></td></tr><tr><td>Good A for Good B</td><td>20.0</td><td rowspan=\"2\">&lt;0.001</td></tr><tr><td>Good B for Good A</td><td>25.6</td></tr></table>",
+     "captions": [
+      {
+       "bbox": [
+        0.445,
+        0.088,
+        0.557,
+        0.104
+       ],
+       "content": "TABLE II"
+      },
+      {
+       "bbox": [
+        0.173,
+        0.104,
+        0.828,
+        0.121
+       ],
+       "content": "SUMMARY TRADING STATISTICS FOR EXPERIMENT I: SPORTSCARD SHOW"
+      }
+     ],
+     "footnotes": [
+      {
+       "bbox": [
+        0.136,
+        0.354,
+        0.891,
+        0.381
+       ],
+       "content": "a. Good A is a Cal Ripken, Jr. game ticket stub, circa 1996. Good B is a Nolan Ryan certificate, circa 1990. b. Fisher's exact test has a null hypothesis of no endowment effect."
+      }
+     ],
+     "image_source": "images/page_8_table_4.jpg"
+    },
+    {
+     "type": "paragraph_title",
+     "bbox": [
+      0.1,
+      0.4,
+      0.5,
+      0.42
+     ],
+     "content": "III. Experimental Design II",
+     "level": 2
+    },
+    {
+     "type": "text",
+     "bbox": [
+      0.103,
+      0.427,
+      0.895,
+      0.672
+     ],
+     "content": "Although these results are suggestive, they may be an artifact of the sampling procedure—by chance subjects who preferred good A (good B) may have been endowed with good A (good B), leading to false inference. To amend this situation, I test the null hypothesis of no endowment effect by using a Fisher's exact test, which has a hypergeometric distribution under the null. The result of the exact test presented in row 1, column 2 of Table II, strongly suggests that the null hypothesis should be rejected (p <.001) for the pooled sample, implying that an endowment effect exists. This evidence, which is consistent with past experimental studies, is at odds with conventional economic theory, which assumes that indifference curves are completely reversible when transactions costs are zero [Knetsch 1989]."
+    },
+    {
+     "type": "text",
+     "bbox": [
+      0.104,
+      0.671,
+      0.898,
+      0.88
+     ],
+     "content": "Panels two and three in Table II present split subsamples and tell an intuitive story consistent with the research hypothesis—dealers tend to trade more than nondealers, regardless of which good they were initially endowed. For example, whereas 43.6 percent and 45.7 percent of dealers chose to execute a trade, only 20-25 percent of nondealers chose to trade. These proportions suggest that nondealers were nearly 3.5 times more likely to select the good which they were endowed, whereas dealers were only 1.25 times more likely to choose their endowed good. A Fisher's exact test shows that for nondealers the null hypothesis of no endowment effect should be rejected at the p < .001 level."
+    },
+    {
+     "type": "footer",
+     "bbox": [
+      0.277,
+      0.912,
+      0.716,
+      0.953
+     ],
+     "content": "This content downloaded from 198.137.190.57 on Tue, 13 Oct 2026 13:02:09 UTC All use subject to https://about.jstor.org/terms"
+    }
+   ]
+  },
+  {
+   "page_idx": 9,
+   "blocks": [
+    {
+     "type": "header",
+     "bbox": [
+      0.197,
+      0.054,
+      0.8,
+      0.07
+     ],
+     "content": "DOES MARKET EXPERIENCE ELIMINATE ANOMALIES?"
+    },
+    {
+     "type": "page_number",
+     "bbox": [
+      0.857,
+      0.053,
+      0.891,
+      0.068
+     ],
+     "content": "49"
+    },
+    {
+     "type": "table",
+     "bbox": [
+      0.105,
+      0.125,
+      0.89,
+      0.214
+     ],
+     "content": "| Variable | Percent traded | p-value for Fisher's exact test |\n| --- | --- | --- |\n| $( \\mathbf { n } = \\mathbf { 3 0 } )$ Experienced nondealers | 46.7 | 0.32 |\n| Inexperienced nondealers $( \\mathbf { n } = 4 4 )$ | 6.80 | &lt;0.001 |",
+     "captions": [
+      {
+       "bbox": [
+        0.439,
+        0.088,
+        0.558,
+        0.105
+       ],
+       "content": "TABLE III"
+      },
+      {
+       "bbox": [
+        0.157,
+        0.105,
+        0.84,
+        0.122
+       ],
+       "content": "NONDEALER SUMMARY STATISTICS FOR EXPERIMENT I: SPORTSCARD SHOW"
+      }
+     ],
+     "footnotes": [
+      {
+       "bbox": [
+        0.104,
+        0.223,
+        0.89,
+        0.261
+       ],
+       "content": "a. Experienced nondealers are those consumers who trade 6 or more times per month (5.66 is the mean level of monthly trades for nondealers). Inexperienced nondealers trade less than 6 times per month. b. Fisher's exact test has a null hypothesis of no endowment effect."
+      }
+     ],
+     "image_source": "images/page_9_table_4.jpg"
+    },
+    {
+     "type": "text",
+     "bbox": [
+      0.102,
+      0.288,
+      0.892,
+      0.363
+     ],
+     "content": "Alternatively, the null hypothesis cannot be rejected at conventional significance levels in the dealer treatments $( p = . 1 9 )$ . This result provides initial evidence that experienced consumers' utility functions may not reflect an endowment effect.7",
+     "continues_prev": true
+    },
+    {
+     "type": "text",
+     "bbox": [
+      0.101,
+      0.362,
+      0.894,
+      0.757
+     ],
+     "content": "To investigate this finding further, I present Table III, which provides a breakdown of the nondealer data based on the level of trading experience of each subject. I split the sample of experienced and inexperienced nondealers according to the central tendency of the data. Experienced nondealers are those who trade 6 or more times in a typical month, where 6 is a shade above the mean level of monthly trades (5.66). Inexperienced nondealers are those subjects who trade fewer than six times per month. The results are compelling. For experienced nondealers, 14 of 30 (46.7 percent) opted to trade. This figure is very close to the dealers' trading strategy observed above, and using a Fisher's exact test the null hypothesis cannot be rejected at conventional significance levels $(p = 0.32)$ . For inexperienced nondealers the endowment effect is large: only 6.8 percent (3 of 44) of inexperienced subjects opted to trade, and the hypothesis of no endowment effect is rejected at the $p \\; < \\; 0 . 0 0 1$ level. This latter finding suggests that once inexperienced consumers are endowed with a good, they are thirteen times more likely to keep that good. This average increase in the likelihood that the subject chooses a good once endowed with it is slightly higher than that observed in Knetsch [1989]."
+    },
+    {
+     "type": "text",
+     "bbox": [
+      0.1,
+      0.757,
+      0.893,
+      0.851
+     ],
+     "content": "Although analysis of the raw data provides evidence that supports the main conjecture of the study, there has been no attempt to control for other factors that may affect the propensity to trade. These other subject-specific variables can be adequately accounted for in a basic econometric model:"
+    },
+    {
+     "type": "equation",
+     "bbox": [
+      0.104,
+      0.857,
+      0.622,
+      0.878
+     ],
+     "content": "t r a d e = g ( \\alpha + \\beta ^ { \\prime } X ) ,\\tag{1}",
+     "image_source": "images/page_9_equation_9.jpg"
+    },
+    {
+     "type": "footer",
+     "bbox": [
+      0.276,
+      0.912,
+      0.716,
+      0.953
+     ],
+     "content": "This content downloaded from 198.137.190.57 on Tue, 13 Oct 2026 13:02:09 UTC All use subject to https://about.jstor.org/terms"
+    },
+    {
+     "type": "page_footnote",
+     "bbox": [
+      0.1,
+      0.9,
+      0.9,
+      0.93
+     ],
+     "content": "7. Differences across goods are not significant."
+    }
+   ]
+  }
+ ],
+ "metadata": {
+  "file_suffix": "pdf",
+  "producer": {
+   "name": "mineru",
+   "version": "4.0.12"
+  },
+  "document": {
+   "title": "Does Market Experience Eliminate Market Anomalies?",
+   "languages": [
+    "eng"
+   ],
+   "created_at": "2016-08-09T04:13:57Z",
+   "modified_at": "2020-09-13T01:24:12Z",
+   "creator_application": "page2pdf-2.1",
+   "producer_application": "iText® 5.5.8 ©2000-2015 iText Group NV (AGPL-version); modified using iText® 7.1.3 ©2000-2018 iText Group NV (JSTOR Michigan; licensed version)",
+   "page_count": 32,
+   "page_count_kind": "physical"
+  }
+ },
+ "extensions": {
+  "mineru": {
+   "tier": "basic",
+   "parse_mode": "ocr"
+  },
+  "docvortex_layout": {
+   "version": 1,
+   "pages": [
+    {
+     "page_idx": 8,
+     "width_pt": 384.0,
+     "height_pt": 652.0
+    },
+    {
+     "page_idx": 9,
+     "width_pt": 384.0,
+     "height_pt": 652.0
+    }
+   ]
+  }
+ },
+ "is_full_document": false
+}

@@ -1,0 +1,9 @@
+pdfplumber>=0.10
+# scanned PDFs: also install tesseract (with eng and chi_sim data) and poppler
+pytesseract
+pdf2image
+# open versions (sources.py parse)
+beautifulsoup4
+# optional, better layout analysis (running heads, tables, formulas; CPU is fine):
+#   pip install "mineru>=4,<5" && mineru-kit models download --tier basic
+# segment.py uses it automatically; set MINERU_PYTHON if MinerU lives in another interpreter
