@@ -63,6 +63,8 @@ The share of close reads is capped by `meta.density`: low 15%, medium 25%, high 
 - Anchors in one paragraph must not overlap.
 - A formula element needs `tex`, `syms` and `x` (schema.md). Check the LaTeX against the crop in `WORK/crops/` before you write the symbol table.
 
+Inline mathematics in any note, read line, claim or explanation goes between single dollar signs, `$c_1 \in \{0,1\}$`, and the page renders it with KaTeX; write symbols that way rather than `c_1` or `p_max` in plain text. A span that starts with a digit is read as money (`$50,000 against $60,000`) unless it holds LaTeX or operators (`$1 + \eta$`) or no spaces (`$0$`). Sub- and superscripts inside such spans are notation, not numbers.
+
 ## 6 Numbers
 
 Every number in a note, a read line, an element or a claim must appear in the source: the paragraph itself, its footnotes or its neighbours (for a part claim, anything in the part). check.py stops on numbers it cannot find. Keep the author's form: "more than an order of magnitude" stays that, not "10 times".

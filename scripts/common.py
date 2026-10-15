@@ -131,6 +131,37 @@ REF_SKIP_RE = re.compile(r"\b[PN]\d+\b|注\s?\d+|\b(?:figures?|figs?\.|tables?|n
                          r"(?:实验|研究|问题|题|假说|命题|公式|不等式|定义|引理|定理|推论|条件)\s?\(?\d+[a-z]?\)?|式\s?\(\d+[a-z]?\)|"
                          r"[图表]\s?\d+(?!\d|[.,]\d)|第\s?\d+\s?[页节章部分条]|\bpp?\.\s?\d+(?:\s?[–-]\s?\d+)?", re.I)
 NUM_TOKEN_RE = re.compile(r"(?<![\w.])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)")
+# Inline LaTeX in notes: $...$. A span that starts with a digit is money ("$50,000 against $60,000")
+# unless it holds LaTeX or operators ("$1 + \eta$") or has no spaces at all ("$0$").
+INLINE_MATH_RE = re.compile(r"\$(?![\s$])([^$\n]+?)(?<!\s)\$")
+SCRIPT_RE = re.compile(r"[_^]\s*(?:\{[^{}]*\}|\S)")
+
+
+def is_math_span(inner):
+    return not inner[:1].isdigit() or bool(re.search(r"[\\_^=<>()]", inner)) or not re.search(r"\s", inner)
+
+
+def inline_math_spans(text):
+    """Matches of $...$ that are mathematics, left to right, never overlapping."""
+    out, pos = [], 0
+    while True:
+        m = INLINE_MATH_RE.search(text or "", pos)
+        if not m:
+            return out
+        if is_math_span(m.group(1)):
+            out.append(m)
+            pos = m.end()
+        else:
+            pos = m.start() + 1
+
+
+def strip_math_notation(text):
+    """Sub- and superscripts inside $...$ spans are notation (x_1, x^2), not data."""
+    out, last = [], 0
+    for m in inline_math_spans(text):
+        out.append((text or "")[last:m.start()]); out.append(" " + SCRIPT_RE.sub(" ", m.group(1)) + " "); last = m.end()
+    out.append((text or "")[last:])
+    return "".join(out)
 
 
 WORD_NUMS = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve thirteen "
@@ -171,7 +202,7 @@ def source_numbers(text):
 
 
 def numbers_in(text):
-    t = REF_SKIP_RE.sub(" ", text or "")
+    t = REF_SKIP_RE.sub(" ", strip_math_notation(text))
     # In explicit normal-distribution notation the comma separates parameters.
     # Leave ordinary grouped counts (including parenthesized counts) unchanged.
     t = re.sub(r"\bN\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*"

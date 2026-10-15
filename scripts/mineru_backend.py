@@ -20,6 +20,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from segment import NUM_HEAD_RE, join_text, link_notes  # noqa: E402
 
+MASTHEAD_LINE_RE = re.compile(r"\b(vol\.|volume|issue|no\.)\s*[\dIVXLCM]+", re.I)
+
+FOOTNOTE_START_RE = re.compile(r"^\d{1,2}\.\s+[A-Z\u4e00-\u9fff]")
+
 MD_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 HTML_TAG = re.compile(r"</?(?:sup|sub|strong|em|b|i|span|br)\b[^>]*>")
 MFR_DIR = Path(os.environ.get("MINERU_HOME", str(Path.home() / ".mineru"))) / "models" / "MinerU-4_models_onnx" / "MFR"
@@ -102,10 +106,11 @@ def run(pdf_path, out_dir, pages=None, python=None):
 
 def convert(sc, source_name, source_path):
     """MinerU structured_content.json -> the skill's paragraphs.json dict."""
-    blocks, labels, n_refs = [], [], 0
+    blocks, labels, n_refs, headers = [], [], 0, Counter()
     for pg in sc["pages"]:
         page = pg["page_idx"] + 1
-        for b in pg["blocks"]:
+        pblocks = pg["blocks"]
+        for k, b in enumerate(pblocks):
             t, c = b["type"], b.get("content")
             text = clean(c) if isinstance(c, str) else ""
             base = {"page": page, "bbox": b.get("bbox")}
@@ -113,8 +118,19 @@ def convert(sc, source_name, source_path):
                 m = re.match(r"^\s*(\d{1,4})", text)
                 if m:
                     labels.append((page, m.group(1)))
-            elif t in ("header", "footer"):
+            elif t == "header":
+                if text:
+                    headers[re.sub(r"\d+", "", text).strip()] += 1
+            elif t == "footer":
                 continue
+            elif t == "doc_title" and _is_masthead(pblocks, k):
+                blocks.append(dict(base, type="frag", text=text, masthead=True))
+            elif t == "text" and _is_footnote_block(pblocks, k, text):
+                blocks.append(dict(base, type="note", text=text))
+            elif t == "text" and text and _continues_without_flag(blocks, text, page):
+                a = next(x for x in reversed(blocks) if x["type"] == "para")
+                a["text"] = join_text(a["text"], text)
+                a.setdefault("pages", {a["page"]}).add(page)
             elif t == "ref_text":
                 n_refs += 1
             elif t in ("doc_title", "paragraph_title"):
@@ -161,12 +177,42 @@ def convert(sc, source_name, source_path):
     pnos = [pg["page_idx"] + 1 for pg in sc["pages"]]
     page_labels = _labels(labels, pnos)
     title = next((i["text"] for i in items if i["type"] == "heading" and i.get("level") == 0), "")
+    if not title:  # alternating running heads: the one that is not the journal name is the article title
+        banner = next((b["text"] for b in blocks if b["type"] == "frag" and b.get("masthead")), "")
+        for h, _ in headers.most_common():
+            if len(h.split()) >= 2 and not (banner and (h.casefold() in banner.casefold() or banner.casefold() in h.casefold())):
+                title = h
+                break
     layout = sc.get("extensions", {}).get("docvortex_layout", {}).get("pages")
     return {"version": 2, "source": source_name, "source_path": source_path,
             "mode": "MinerU " + sc.get("extensions", {}).get("mineru", {}).get("tier", ""),
             "page_count": len(layout) if layout else len(pnos),
             "pages_processed": [pnos[0], pnos[-1]] if pnos else None, "page_labels": page_labels,
             "title_guess": title, "items": items, "refs_excluded": n_refs}
+
+
+def _is_masthead(pblocks, k):
+    """A doc_title at the top of a page followed by a volume/issue line is the journal masthead, not the title."""
+    b = pblocks[k]
+    nxt = next((x for x in pblocks[k + 1:] if x["type"] not in ("page_number", "header")), None)
+    return (b.get("bbox") or [0, 1])[1] < 0.1 and nxt is not None and bool(MASTHEAD_LINE_RE.search(clean(nxt.get("content") or "")))
+
+
+def _is_footnote_block(pblocks, k, text):
+    """'2. Despite ...' as the last text block at the foot of a page is a footnote MinerU labelled text."""
+    if not FOOTNOTE_START_RE.match(text) or (pblocks[k].get("bbox") or [0, 0])[1] < 0.7:
+        return False
+    return not any(x["type"] in ("text", "paragraph_title", "equation", "table", "image") for x in pblocks[k + 1:])
+
+
+def _continues_without_flag(blocks, text, page):
+    """First text block of a page that starts in lower case continues the previous page's open paragraph."""
+    if not text[:1].islower():
+        return False
+    if any(b["page"] == page and b["type"] in ("para", "heading") for b in blocks):
+        return False
+    prev = next((b for b in reversed(blocks) if b["type"] in ("para", "heading", "caption")), None)
+    return prev is not None and prev["type"] == "para" and not re.search(r"[.!?。！？:]['\"’”)]*$", prev["text"])
 
 
 def _sidebar_rule(blocks):

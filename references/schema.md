@@ -104,3 +104,4 @@ Field rules:
 - `formula` elements: `tex` is the LaTeX (copied from the open version, from MinerU, or transcribed by you from `WORK/crops/<id>.png`); `syms` lists every symbol; `x` says the equation in words; `why` is optional. A formula element without `tex` gets a warning.
 - Footnote entries use the footnote's id (N1, N2, ...) from paragraphs.json and are optional.
 - Numbers in any text field must appear in the source text (method.md section 6).
+- Any text field may hold inline LaTeX between single dollar signs (`"note": "Two goods: $c_1 \\in \\{0,1\\}$ ..."`); the page renders it. A dollar sign followed by a digit is money, not math.

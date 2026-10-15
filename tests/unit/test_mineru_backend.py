@@ -66,3 +66,49 @@ def test_convert_drops_empty_and_stray_math_footnotes():
     d = mb.convert(sc, 'x.pdf', '/x.pdf')
     notes = [i['text'] for i in d['items'] if i['type'] == 'note']
     assert '' not in notes and 'μ(·)' not in notes and any('A real note' in t for t in notes)
+
+
+def _pages(*pages):
+    return {'pages': [{'page_idx': i, 'blocks': bs} for i, bs in enumerate(pages)]}
+
+
+def _b(t, content, y0, y1=None, **kw):
+    return dict({'type': t, 'content': content, 'bbox': [0.11, y0, 0.89, y1 or y0 + 0.03]}, **kw)
+
+
+LONG = 'We develop a model of reference-dependent preferences and loss aversion where gain-loss utility is derived from standard consumption utility. ' * 3
+
+
+def test_convert_journal_masthead_is_not_the_title():
+    # Kőszegi & Rabin (2006), QJE scan: MinerU labelled the journal masthead doc_title; the article title is the running head
+    sc = _pages(
+        [_b('doc_title', 'THE QUARTERLY JOURNAL OF ECONOMICS', 0.04, 0.14), _b('text', 'Vol. CXXI November 2006 Issue 4', 0.16),
+         _b('text', 'A MODEL OF REFERENCE-DEPENDENT PREFERENCES* BOTOND KŐSZEGI AND MATTHEW RABIN', 0.21, 0.26), _b('text', LONG, 0.28, 0.47),
+         _b('paragraph_title', 'I. INTRODUCTION', 0.5, level=2), _b('text', LONG, 0.52, 0.58)],
+        [_b('header', 'QUARTERLY JOURNAL OF ECONOMICS', 0.06), _b('text', LONG, 0.1, 0.3)],
+        [_b('header', 'A MODEL OF REFERENCE-DEPENDENT PREFERENCES', 0.06), _b('text', LONG, 0.1, 0.3)],
+        [_b('header', 'QUARTERLY JOURNAL OF ECONOMICS', 0.06), _b('text', LONG, 0.1, 0.3)])
+    d = mb.convert(sc, 'x.pdf', '/x.pdf')
+    assert d['title_guess'] == 'A MODEL OF REFERENCE-DEPENDENT PREFERENCES'
+    assert not any(i['type'] == 'heading' and 'QUARTERLY' in i['text'] for i in d['items'])
+
+
+def test_convert_numbered_text_at_page_bottom_is_a_footnote():
+    # the same scan: footnote 2 came back as a text block at the foot of the page
+    sc = _pages([_b('paragraph_title', 'II. UTILITY', 0.28, level=2), _b('text', 'If c is drawn according to the probability measure F, the person\'s utility is given by2', 0.31, 0.4),
+                 _b('text', LONG, 0.47, 0.58),
+                 _b('text', '2. Despite the clear evidence that people\'s evaluation of prospects is not linear in probabilities, our model simplifies things by assuming preferences are linear.', 0.79, 0.83),
+                 _b('footer', 'This content downloaded from JSTOR', 0.91)])
+    d = mb.convert(sc, 'x.pdf', '/x.pdf')
+    note = next((i for i in d['items'] if i['type'] == 'note'), None)
+    assert note and note['num'] == 2 and note['text'].startswith('Despite') and note.get('ref') == 'P1'
+    assert sum(i['type'] == 'para' for i in d['items']) == 2
+
+
+def test_convert_joins_paragraph_cut_by_page_break_without_flag():
+    # the same scan: "...mixture of these" / "two feelings.3 That a person's utility..." with no continues_prev
+    sc = _pages([_b('paragraph_title', 'II. UTILITY', 0.05, level=2), _b('text', LONG, 0.1, 0.3), _b('text', 'This formulation captures the notion that the overall sensation is a mixture of these', 0.65, 0.75)],
+                [_b('header', 'QUARTERLY JOURNAL OF ECONOMICS', 0.06), _b('text', 'two feelings.3 That a person\'s utility depends on a reference lottery is similar to several previous theories.', 0.1, 0.2), _b('text', LONG, 0.22, 0.4)])
+    d = mb.convert(sc, 'x.pdf', '/x.pdf')
+    paras = [i['text'] for i in d['items'] if i['type'] == 'para']
+    assert len(paras) == 3 and 'mixture of these two feelings.3 That' in paras[1]
