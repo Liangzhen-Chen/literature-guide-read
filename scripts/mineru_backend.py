@@ -125,6 +125,8 @@ def convert(sc, source_name, source_path):
                 continue
             elif t == "doc_title" and _is_masthead(pblocks, k):
                 blocks.append(dict(base, type="frag", text=text, masthead=True))
+            elif t == "text" and re.match(r"^\(\d{1,3}[a-z]?\)$", text):  # an equation label on its own line
+                blocks.append(dict(base, type="frag", text=text))
             elif t == "text" and _is_footnote_block(pblocks, k, text):
                 blocks.append(dict(base, type="note", text=text))
             elif t == "text" and text and _continues_without_flag(blocks, text, page):
