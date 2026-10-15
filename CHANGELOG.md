@@ -10,6 +10,8 @@ Prompted by the question of what evidence the reading method rests on. The chang
 - Recall: every part carries two or three `recall` questions, folded at the end of the part with the answers hidden. check.py validates them and warns when they are missing.
 - Page: a Gist view (notes only, originals and crops folded); hover definitions for every defined term and symbol wherever it recurs; a "guess the relations" mode on the argument map; formula explanations folded under the formula and its crop; a reading progress bar; reading column narrowed to about 70 characters.
 - check.py warns when a paragraph carries more than four highlights.
+- check.py warns when four or more paragraphs carry the same role: a role says what that paragraph does, not its kind.
+- README in English and Chinese with the same structure as other published skills, with screenshots from an openly licensed demo.
 
 ## 0.4.0 (2026-10-14)
 
