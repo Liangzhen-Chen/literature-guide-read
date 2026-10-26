@@ -197,6 +197,7 @@ def build_data(doc, guide, comp, sources, imgs, lang, crops=None):
                 if isinstance(z, dict) and z.get("s") and z.get("m") and "\\" not in str(z["s"]):
                     glossary.append({"term": str(z["s"]), "x": as_lang(z["m"], primary), "src": eid})
     has_tex = (bool(inline_math_spans(json.dumps(guide, ensure_ascii=False)))
+               or any(inline_math_spans(it.get("text")) for it in items.values() if it["type"] != "frag")  # MinerU writes $...$ into the text
                or any(e.get("tex") for g in entries.values() for e in g["els"])
                or any(q.get("tex") for q in (sources or {}).get("equations", [])))
     meta = dict(guide.get("meta") or {})

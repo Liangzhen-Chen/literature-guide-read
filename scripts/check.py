@@ -31,6 +31,16 @@ EN_STYLE = [
     (re.compile(r"\b(?:it is worth noting|importantly|interestingly|notably)\b", re.I), "filler phrase"),
     (re.compile(r"\b(?:brilliant|compelling|powerful|elegant|insightful)\b", re.I), "evaluative adjective"),
 ]
+# AI-sounding constructions (method.md section 9a); applied to the fields the agent writes, never to anchors
+TELLS = [
+    (re.compile(r"(?<!并)不是[^。；！？\n]{1,30}而是|而不是|不只是|不仅仅是|并不是[^。；！？\n]{1,30}而是"),
+     "contrast “不是……而是……”: state what it is, drop the denial"),
+    (re.compile(r"\bnot (?:just|only|merely|simply)\b|\bnot (?:[\w'’-]+,? ){1,4}but\b"
+                r"|\b(?:it|this|that)(?:'s|’s| is) not\b[^.;!?]{1,40}[,;] ?(?:it|this|that)(?:'s|’s| is)\b", re.I),
+     "contrast “not X but Y”: state what it is, drop the denial"),
+    (re.compile(r"—| – "), "dash as a connector: use a comma, colon, full stop or brackets"),
+    (re.compile(r"\b(?:serves|stands) as\b", re.I), "“serves/stands as”: write “is”"),
+]
 LIMITS = {"role": {"zh": 16, "en": 60}, "read": {"zh": 90, "en": 240},
           "claim": {"zh": 80, "en": 220}, "thesis": {"zh": 100, "en": 280}}
 SHORT_NOTE = {"zh": 40, "en": 25}
@@ -67,7 +77,14 @@ def run_checks(doc, guide, density=None):
             if extra:
                 errors.append(f"{where} ({lang}): numbers not in the source text: {', '.join(fmt_num(x) for x in extra)}")
 
+    def tells(where, d):
+        for lang, txt in d.items():
+            for rx, msg in TELLS:
+                if rx.search(txt):
+                    warns.append(f"{where} ({lang}): {msg}")
+
     def style(where, d, restating=True):
+        tells(where, d)
         for lang, txt in d.items():
             if restating and DESCRIPTIVE[lang].search(txt.strip()):
                 warns.append(f"{where} ({lang}) describes the paragraph instead of restating it: «{txt[:40]}»")
@@ -98,6 +115,8 @@ def run_checks(doc, guide, density=None):
     overview = need("guide", guide.get("overview"), "overview")
     nums_ok("thesis", thesis, whole)
     nums_ok("overview", overview, whole)
+    tells("thesis", thesis)
+    tells("overview", overview)
     longer("thesis", thesis, "thesis")
 
     # text that belongs to a paragraph's region: table rows, figure labels and captions up to the next paragraph
@@ -157,6 +176,7 @@ def run_checks(doc, guide, density=None):
         if not p.get("skip"):
             claim = need(pid, p.get("claim"), "claim")
             longer(f"{pid} claim", claim, "claim")
+            tells(f"{pid} claim", claim)
             nums_ok(f"{pid} claim", claim, text_nums(ids))
             cp = pnum(p.get("claim_p"))
             if cp is None or not a <= cp <= b:
@@ -169,7 +189,9 @@ def run_checks(doc, guide, density=None):
             else:
                 for k, q in enumerate(recall):
                     for f in ("q", "a"):
-                        nums_ok(f"{pid} recall {k + 1} {f}", need(f"{pid} recall {k + 1}", q[f], f), text_nums(ids))
+                        rd = need(f"{pid} recall {k + 1}", q[f], f)
+                        nums_ok(f"{pid} recall {k + 1} {f}", rd, text_nums(ids))
+                        tells(f"{pid} recall {k + 1} {f}", rd)
     if parts and pos - 1 != n:
         errors.append(f"parts end at P{pos - 1}; they must end at P{n}")
 
@@ -228,6 +250,7 @@ def run_checks(doc, guide, density=None):
                 errors.append(f"{pid} flow step {k + 1}: 'rel' must be one of {', '.join(sorted(STEP_RELS))}")
             x = need(f"{pid} flow step {k + 1}", st.get("x"), "x")
             nums_ok(f"{pid} flow step {k + 1}", x, text_nums(sorted(inside)))
+            tells(f"{pid} flow step {k + 1}", x)
 
     missing = [pnum(p) for p in pids if p not in entries]
     if missing:
@@ -295,6 +318,7 @@ def run_checks(doc, guide, density=None):
             for f in ("s", "x", "term"):
                 if e.get(f) is not None:
                     nums_ok(f"{eid} element {i + 1} {f}", as_lang(e.get(f), primary), allowed)
+                    tells(f"{eid} element {i + 1} {f}", as_lang(e.get(f), primary))
             if t == "formula":
                 if "tex" in e and not str(e.get("tex") or "").strip():
                     errors.append(f"{eid} element {i + 1}: tex is empty; write the LaTeX or drop the field")

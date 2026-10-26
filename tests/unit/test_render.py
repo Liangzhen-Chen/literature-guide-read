@@ -212,3 +212,13 @@ def test_build_close_para_carries_note(clean):
     d=r.build_data(doc,g,comp,None,{},None)
     e=d['guide']['P1'] if 'guide' in d else d['entries']['P1']
     assert e['tier']=='close' and e['read']=={'en':'Track the choices.'} and e['note']=={'en':'Buyers choose the smaller reward.'}
+
+
+def test_inline_math_in_paragraph_text_inlines_katex(clean):
+    # MinerU writes inline formulas into the paragraph text; the page must typeset them even when no note has LaTeX
+    doc, g = clean
+    _, _, comp = run_checks(doc, g)
+    assert r.build_data(doc, g, comp, None, {}, 'en')['has_tex'] is False
+    doc['items'][1]['text'] = 'One gets PPV = $u \beta R / ( R + \alpha )$ for the field.'
+    _, _, comp = run_checks(doc, g)
+    assert r.build_data(doc, g, comp, None, {}, 'en')['has_tex'] is True

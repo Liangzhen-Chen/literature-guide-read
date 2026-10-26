@@ -87,6 +87,17 @@ Display equations and table rows are cropped from the PDF by segment.py; the pag
 - English notes: plain declarative sentences; no "this paragraph", no filler such as "importantly".
 - In both: do not grade the authors, and add nothing the text does not say.
 
+## 9a Plain wording
+
+The wording rules below are drawn from lists of common AI writing habits. They apply to every field you write, in zh and en. check.py warns on the first four patterns; the rest are on you.
+
+- No denial before the statement. Bad: "这不是偏好，而是禀赋效应" / "It is not a preference but the endowment effect". Better: "卖家要价高出买家一倍多，这是禀赋效应" / "Sellers ask about twice what buyers offer: the endowment effect". Also avoid "not just", "not only", "而不是", "不仅仅是". This includes answering an objection nobody raised ("很多人以为…其实…").
+- No dash as a connector (— or ——). Bad: "Sellers asked more — buyers offered less". Better: "Sellers asked more, and buyers offered less". Use a comma, colon, full stop or brackets.
+- Say "is", not "serves as" or "stands as". Bad: "The mug serves as the test good". Better: "The test good is a mug".
+- No closing line that only sums up or points at importance. Bad: "这才是关键。" / "This is what matters." Better: end on the last fact the paragraph gives, or stop one sentence earlier.
+- Do not pad lists to three. Bad: "reliable, robust and replicable" when the text says two things. Better: name the two.
+- Cut inflating words: crucial, pivotal, key (as praise), 关键性, 至关重要, 深刻, 全面. Bad: "a pivotal result that fundamentally changes the field". Better: "the result: 45% of dealers traded". Say what the number or claim is.
+
 ## 10 The logic map: relations and steps
 
 The argument map at the top of the page is drawn from two fields on each part.

@@ -24,6 +24,10 @@ KaTeX 0.16.11 (MIT licence, Khan Academy and contributors) is vendored under `as
 
 MinerU is an optional dependency that the user installs separately. `scripts/mineru_backend.py` calls it through a subprocess. This repository does not distribute MinerU; its licence is at https://github.com/opendatalab/MinerU/blob/master/LICENSE.md.
 
+## Writing rules
+
+The wording rules in `references/method.md` (section 9a) draw on blader/humanizer (MIT, https://github.com/blader/humanizer) and Wikipedia's "Signs of AI writing". No text from either was copied.
+
 ## Test data
 
 The text in `tests/fixtures/mineru_structured_small.json` comes from Ioannidis JPA (2005), Why Most Published Research Findings Are False. PLoS Med 2(8): e124. https://doi.org/10.1371/journal.pmed.0020124. The article is published under the Creative Commons Attribution License (CC BY).

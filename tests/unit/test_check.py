@@ -301,3 +301,44 @@ def test_close_note_descriptive_warns(clean):
     g['paras']['P1']['note']='This paragraph explains choices.'
     _,warnings,_=run_checks(doc,g)
     assert any('P1 note' in w and 'instead of restating' in w for w in warnings), warnings
+
+
+@pytest.mark.parametrize('lang,text,message',[
+ ('zh','这不是偏好，而是禀赋效应。','不是'),
+ ('zh','买家出价低，而不是卖家出价高。','不是'),
+ ('en','The effect is not just about price.','not X but Y'),
+ ('en','It is not only a bias.','not X but Y'),
+ ('en','The offers are not prices but reservations.','not X but Y'),
+ ('en','Sellers asked more — buyers offered less.','dash as a connector'),
+ ('zh','卖家要价更高——买家出价更低。','dash as a connector'),
+ ('en','The mug serves as the test good.','serves/stands as')])
+def test_ai_tells_warn(clean,lang,text,message):
+    doc,g=clean
+    g['paras']['P1']['note']={lang:text}
+    _,ws,_=run_checks(doc,g)
+    assert any('P1 note' in w and message in w for w in ws), ws
+
+
+@pytest.mark.parametrize('lang,text',[
+ ('zh','并不是所有买家都愿意出价。'),
+ ('zh','这个结果不是偶然出现的。'),
+ ('en','Buyers did not choose the smaller reward.'),
+ ('en','Not every seller asked for more.'),
+ ('en','Sellers asked $7.12 against $2.87 for buyers, with a gap of 4-5 dollars.')])
+def test_ai_tells_no_false_positive(clean,lang,text):
+    doc,g=clean
+    g['paras']['P1']['note']={lang:text}
+    _,ws,_=run_checks(doc,g)
+    assert not any(k in w for w in ws for k in ('contrast','dash as','serves/stands')), ws
+
+
+def test_ai_tells_skip_anchors_and_cover_claim(clean):
+    doc,g=clean
+    el=g['paras']['P1']['els'][0]
+    doc['items'][0]['text']=doc['items'][0]['text']+' It is not only a bias — it persists.'
+    el['a']='It is not only a bias — it persists.'
+    _,ws,_=run_checks(doc,g)
+    assert not any('contrast' in w or 'dash as' in w for w in ws), ws
+    g['parts'][0]['claim']={k:'Not just price, but loss.' for k in (g['parts'][0]['claim'] if isinstance(g['parts'][0]['claim'],dict) else {'en':1})}
+    _,ws,_=run_checks(doc,g)
+    assert any('claim' in w and 'contrast' in w for w in ws), ws
