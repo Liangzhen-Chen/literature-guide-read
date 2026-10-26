@@ -82,6 +82,7 @@ Display equations and table rows are cropped from the PDF by segment.py; the pag
 ## 9 Language
 
 - Notes follow the user's language, zh or en. Write both only when asked; `meta.notes_lang` lists them and the first is the default.
+- Chinese notes keep English terms. Terms, model and method names, metric names and abbreviations (PPV, RLHF, reward model, Bradley-Terry, KL divergence, policy, power, Type I error) stay in English, or appear once as 中文（English） at first mention and then in one form only, the same throughout the note. A term with no common Chinese rendering stays in English. Bad: "奖励模型用布拉德利-特里模型拟合偏好" / Better: "reward model 用 Bradley-Terry 模型拟合偏好".
 - Never translate or edit the original. Anchors are verbatim.
 - Chinese notes: written Chinese with direct verbs; no "对……进行……", no "起到……作用", no long stacked modifiers; keep a key term's original form at first mention, such as 禀赋效应（endowment effect）.
 - English notes: plain declarative sentences; no "this paragraph", no filler such as "importantly".
