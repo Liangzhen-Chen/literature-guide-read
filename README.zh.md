@@ -6,9 +6,9 @@
 
 ![页面顶部：核心论点、读者的阅读目的和问题、论证地图](assets/readme/page-top.png)
 
-![一个精读段：公式从 PDF 裁出，用 KaTeX 渲染并解释](assets/readme/page-formula.png)
+![从 PDF 裁下的表格挂在引用它的段落下，公式用 KaTeX 渲染，符号逐个解释](assets/readme/page-formula.png)
 
-上面的演示页来自 OpenStax 统计教材的一章（CC BY）。这个 skill 遵循开放的 [Agent Skills](https://agentskills.io) 格式，任何支持 skill 的 agent 都能用；脚本是普通 Python，页面是单个文件，离线可用。
+截图来自 Ioannidis（2005）[Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124) 的导读页，PLoS Medicine 2(8): e124（CC BY）。这个 skill 遵循开放的 [Agent Skills](https://agentskills.io) 格式，任何支持 skill 的 agent 都能用；脚本是普通 Python，页面是单个文件，离线可用。
 
 ## 安装（30 秒）
 
@@ -73,7 +73,7 @@ python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json
 `check.py` 报错就把错误贴回给模型让它改。
 </details>
 
-**可选，用于扫描件和公式密集的读物：** Tesseract（`eng`、`chi_sim`）和 Poppler 做 OCR；[MinerU](https://github.com/opendatalab/MinerU) 做版面分析（`pip install "mineru>=4,<5" && mineru-kit models download --tier basic`，约 0.8 GB，CPU 即可）。装了 MinerU 后 `segment.py` 自动使用，见[两档提取](#两档提取)。
+可选，用于扫描件和公式密集的读物：Tesseract（`eng`、`chi_sim`）和 Poppler 做 OCR；[MinerU](https://github.com/opendatalab/MinerU) 做版面分析（`pip install "mineru>=4,<5" && mineru-kit models download --tier basic`，约 0.8 GB，CPU 即可）。装了 MinerU 后 `segment.py` 自动使用，见[两档提取](#两档提取)。
 
 ## 用法
 
@@ -83,19 +83,19 @@ python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json
 
 页面上有：
 
-- **你的简报**在顶部：目的、熟悉程度，以及你的每个问题从原文作答并链接到段落。
-- **论证地图**：结论在最上方，各部分用带类型的关系（支持、解释、限定、推广……）连到结论；点一个部分看它内部的推理步骤。"先猜关系"把关系藏起来让你先自己判断。
-- **按原文顺序排的正文**。精读段上方有一行"读时注意"；略读和可跳过段先显示复述笔记，原文一键可见。**粗读**视图只留笔记。
-- 原文里的**高亮**：定义、论点、证据、图表、公式、限定；每个定义过的术语和符号在后文出现时悬停显示定义。
-- **公式和表格**从 PDF 裁出，挂在引用它们的段落下；公式另用 KaTeX 渲染，配符号表和一句话解释，默认折叠。
-- 每部分末尾的**回想题**，答案折叠。
+- 顶部是你的简报：目的、熟悉程度，以及你的每个问题从原文作答并链接到段落。
+- 论证地图：结论在最上方，各部分用带类型的关系（支持、解释、限定、推广……）连到结论；点一个部分看它内部的推理步骤。"先猜关系"把关系藏起来让你先自己判断。
+- 按原文顺序排的正文。精读段上方有一行"读时注意"；略读和可跳过段先显示复述笔记，原文一键可见。粗读视图只留笔记。
+- 原文里的高亮：定义、论点、证据、图表、公式、限定；每个定义过的术语和符号在后文出现时悬停显示定义。
+- 公式和表格从 PDF 裁出，挂在引用它们的段落下；公式另用 KaTeX 渲染，配符号表和一句话解释，默认折叠。
+- 每部分末尾的回想题，答案折叠。
 - 左侧栏列出每段的作用、术语表、证据清单；中文、英文或双语切换。
 
 阅读过程中可以问 agent 任何一段（"P23 在说什么？"），改某段的档位或笔记，或者说"带我过一遍"让它逐部分讲。
 
 ## 原理
 
-1. `segment.py` 把 PDF 切成固定编号的段落（P1、P2……），识别标题、图注、脚注，去掉页眉，记下印刷页码，把脚注挂到引用它的段落上，并把每条行间公式和表格区域裁成图。支持双栏、扫描件 OCR、中文标题和脚注。
+1. `segment.py` 把 PDF 切成固定编号的段落（P1、P2……），识别标题、图注、脚注，去掉页眉，记下印刷页码，把脚注挂到引用它的段落上，并把每条行间公式和表格区域裁成图。支持单栏和双栏（三栏或带侧栏要用 MinerU）、扫描件 OCR、中文标题和脚注。
 2. `sources.py`（可选）抓取 arXiv 的 HTML 或 TeX 版本，取干净的图、表、公式。
 3. Agent 读完每一段，写导读数据：分部分和分论点、部分之间的关系、每段的档位和笔记或"读时注意"、逐字锚定的要素、对照裁剪图核对过的公式转写、回想题。
 4. 下列情况 `check.py` 报错，`render.py` 不生成页面：某段没有条目、各部分没按顺序覆盖全文、锚句在该段里找不到原文、笔记里的数字不在原文、LaTeX 括号不配平。公式 `tex` 里的数字、精读比例超过上限、笔记只描述段落没有复述内容，这三种只给警告。
@@ -120,7 +120,7 @@ Agent 遵守的规则在 `references/method.md`、`elements.md`、`genres.md`、
 
 - 分面高亮让读者更快找到信息且不降低准确率，但错误或过密的高亮会损害信任（[Scim, Allen AI](https://dl.acm.org/doi/fullHtml/10.1145/3581641.3584034)）。所以高亮稀疏、经过校验，并提供粗读视图。
 - 在用到的位置给定义对读密集论文有帮助（[ScholarPhi](https://dl.acm.org/doi/fullHtml/10.1145/3411764.3445648)）。所以有悬停释义。
-- 论证图能提升批判性思维，收益来自读者自己动手画图，看现成的图得不到（[van Gelder](https://www.reasoninglab.com/wp-content/uploads/2013/10/TvG-Using-argument-mapping-to-improve-critical-thinking-skills-2015.pdf)）。所以有"先猜关系"。
+- 论证图能提升批判性思维，收益来自自己动手画图（[van Gelder](https://www.reasoninglab.com/wp-content/uploads/2013/10/TvG-Using-argument-mapping-to-improve-critical-thinking-skills-2015.pdf)）。所以有"先猜关系"。
 - 前置问题对它指向的内容有效（[prequestion 元分析](https://link.springer.com/article/10.3758/s13423-023-02353-8)），提取练习是证据最强的学习方法（[Dunlosky 等 2013](https://doi.org/10.1177/1529100612453266)）。所以"读时注意"写得具体，每部分有回想题。
 - 自己解释工作示例比读解释有效（[self-explanation](https://link.aps.org/doi/10.1103/PhysRevPhysEducRes.18.010136)）。所以公式解释默认折叠。
 
@@ -147,7 +147,8 @@ Agent 遵守的规则在 `references/method.md`、`elements.md`、`genres.md`、
 ## 已知限制
 
 - 默认档的切段是启发式的：公式、表格、元数据和特殊版式仍可能切错或合并段落。写导读前先抽查 part 文件，之后段落编号固定。
-- 正文里的行内公式按 PDF 文字层原样保留，除非装了 MinerU 的公式模型。原文一字不改；行间公式以裁剪图配转写显示。
+- 默认档只处理单栏和双栏。三栏或带侧栏的版式（例如 2005 年 PLOS Medicine 的排版）要装 MinerU。
+- 用 MinerU 时，正文里的行内公式以 MinerU 给出的 LaTeX 源码显示在原文段落中，页面不渲染它们，原文段落也不做编辑。没有 MinerU 的公式模型时，行内公式按 PDF 文字层原样保留。行间公式以裁剪图配转写显示。
 - 开放版本只对 arXiv 论文抓取，且需要网络允许。
 - 页面里嵌有生成它的 PDF 的全文。用受版权保护的读物生成的页面只留给自己看；公开演示请用开放许可的论文。
 

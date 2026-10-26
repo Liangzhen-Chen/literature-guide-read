@@ -364,6 +364,24 @@ def run_checks(doc, guide, density=None):
     if n and counts["close"] == 0:
         warns.append("no close-read paragraphs")
     stats = {"n": n, "counts": counts, "density": dens, "langs": langs, "parts": len(parts)}
+    # JSON escapes that eat a LaTeX backslash: "\beta" -> backspace, "\frac" -> form feed, "\theta" -> tab, ...
+    def eaten(where, v, key=None):
+        if isinstance(v, dict):
+            for k, x in v.items():
+                eaten(f"{where}.{k}" if where else str(k), x, k)
+        elif isinstance(v, list):
+            for k, x in enumerate(v):
+                eaten(f"{where}[{k + 1}]", x, key)
+        elif isinstance(v, str):
+            fix = "write a double backslash in the JSON, e.g. \"\\\\beta\" for \\beta"
+            if "\x08" in v or "\x0c" in v:
+                errors.append(f"{where}: contains a backspace/form-feed character, so a LaTeX backslash was eaten by JSON "
+                              f"(\\b -> backspace, \\f -> form feed); {fix}: «{v[:50]!r}»")
+            elif (key == "tex" or "$" in v) and re.search(r"[\t\n\r][a-z]", v):
+                errors.append(f"{where}: a tab/newline/return is followed by a letter, probably \\theta, \\nu or \\rho eaten by JSON "
+                              f"(\\t, \\n, \\r); {fix}: «{v[:50]!r}»")
+    eaten("", guide)
+
     return errors, warns, {"hl": hl, "stats": stats, "primary": primary}
 
 

@@ -94,7 +94,8 @@ def run(pdf_path, out_dir, pages=None, python=None):
     if pages:
         cmd += ["-p", pages]
     print(f"MinerU: {'with formula model' if mode == '--with-mfr' else 'light, display formulas as crops'} …", file=sys.stderr, flush=True)
-    res = subprocess.run(cmd, capture_output=True, text=True)
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+    res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
     if res.returncode != 0:
         sys.exit("MinerU failed:\n" + res.stderr[-2000:])
     zips = sorted(out_dir.glob("*.zip"), key=lambda p: p.stat().st_mtime)

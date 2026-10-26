@@ -121,3 +121,24 @@ def test_convert_equation_label_alone_is_a_fragment():
     sc = _pages([_b('paragraph_title', 'Bias', 0.05, level=2), _b('text', LONG, 0.1, 0.3), _b('text', '(2a)', 0.32), _b('equation', '', 0.33, 0.4)])
     d = mb.convert(sc, 'x.pdf', '/x.pdf')
     assert [i['type'] for i in d['items'] if i['text'] == '(2a)'] == ['frag']
+
+
+def test_run_decodes_mineru_output_as_utf8(monkeypatch, tmp_path):
+    # on a Chinese Windows console text=True decoded MinerU's output as GBK and the reader thread raised UnicodeDecodeError
+    seen = {}
+
+    def fake_run(cmd, **kw):
+        seen.update(kw)
+        (tmp_path / 'out.zip').write_bytes(b'')
+        class R:
+            returncode = 1
+            stderr = 'boom'
+        return R()
+
+    monkeypatch.setattr(mb.subprocess, 'run', fake_run)
+    try:
+        mb.run('x.pdf', tmp_path, python='py')
+    except SystemExit:
+        pass
+    assert seen.get('encoding') == 'utf-8' and seen.get('errors') == 'replace'
+    assert seen['env']['PYTHONIOENCODING'] == 'utf-8'

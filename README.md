@@ -6,9 +6,9 @@ English | [中文](README.zh.md)
 
 ![The top of a reading page: thesis, the reader's brief and questions, and the argument map](assets/readme/page-top.png)
 
-![A close-read paragraph with its formula cropped from the PDF, rendered in KaTeX and explained](assets/readme/page-formula.png)
+![A table cropped from the PDF under the paragraph that cites it, the formula rendered in KaTeX, and its symbols explained](assets/readme/page-formula.png)
 
-The demo pages above come from an OpenStax statistics chapter (CC BY). The skill follows the open [Agent Skills](https://agentskills.io) format, so it works in any agent that supports skills; the scripts are plain Python and the page is a single file that works offline.
+The screenshots come from a guide to Ioannidis (2005), [Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124), PLoS Medicine 2(8): e124 (CC BY). The skill follows the open [Agent Skills](https://agentskills.io) format, so it works in any agent that supports skills; the scripts are plain Python and the page is a single file that works offline.
 
 ## Installation (30-second setup)
 
@@ -40,7 +40,7 @@ npx skills@latest add Liangzhen-Chen/literature-guide-read
 pip install pdfplumber beautifulsoup4   # beautifulsoup4 is only needed for open versions (arXiv)
 ```
 
-The installer asks which agents to install to; `-g` installs for your user instead of the current project.
+The installer asks which agents to install to; the default is the current project, and `-g` installs at user level.
 </details>
 
 <details>
@@ -73,7 +73,7 @@ python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json
 If `check.py` reports errors, paste them back to the model and ask it to fix them.
 </details>
 
-**Optional, for scans and formula-heavy readings:** Tesseract (`eng`, `chi_sim`) and Poppler for OCR; [MinerU](https://github.com/opendatalab/MinerU) for layout analysis (`pip install "mineru>=4,<5" && mineru-kit models download --tier basic`, about 0.8 GB, CPU is fine). `segment.py` uses MinerU automatically when it is installed; see [Extraction tiers](#extraction-tiers).
+Optional, for scans and formula-heavy readings: Tesseract (`eng`, `chi_sim`) and Poppler for OCR; [MinerU](https://github.com/opendatalab/MinerU) for layout analysis (`pip install "mineru>=4,<5" && mineru-kit models download --tier basic`, about 0.8 GB, CPU is fine). `segment.py` uses MinerU automatically when it is installed; see [Extraction tiers](#extraction-tiers).
 
 ## Usage
 
@@ -83,22 +83,22 @@ If `check.py` reports errors, paste them back to the model and ask it to fix the
 
 What you get on the page:
 
-- **Your brief** at the top: purpose, familiarity, and each of your questions answered from the text with links to the paragraphs.
-- **Argument map**: the conclusion on top, each part linked to it by a typed relation (supports, explains, qualifies, extends, …); click a part to see its reasoning steps. "Guess the relations" hides the relations so you work them out first.
-- **The original text in order.** Close-read paragraphs open with a one-line "read for" prompt. Skim and skip paragraphs lead with a note that restates them; the original is one click away. The **Gist** view folds everything but the notes.
-- **Highlights** inside the original for definitions, claims, evidence, figures, formulas and qualifications; every defined term and symbol shows its definition on hover wherever it recurs.
-- **Formulas and tables** cropped from the PDF under the paragraph that cites them; formulas are also rendered in KaTeX with a symbol table and a one-line explanation, folded until you want it.
-- **Recall questions** at the end of each part, answers hidden.
+- A brief at the top: purpose, familiarity, and each of your questions answered from the text with links to the paragraphs.
+- An argument map: the conclusion on top, each part linked to it by a typed relation (supports, explains, qualifies, extends, …); click a part to see its reasoning steps. "Guess the relations" hides the relations so you work them out first.
+- The original text in order. Close-read paragraphs open with a one-line "read for" prompt. Skim and skip paragraphs lead with a note that restates them; the original is one click away. The Gist view folds everything but the notes.
+- Highlights inside the original for definitions, claims, evidence, figures, formulas and qualifications; every defined term and symbol shows its definition on hover wherever it recurs.
+- Formulas and tables cropped from the PDF under the paragraph that cites them; formulas are also rendered in KaTeX with a symbol table and a one-line explanation, folded until you want it.
+- Recall questions at the end of each part, answers hidden.
 - A sidebar with every paragraph's role, the terms and the evidence; Chinese, English or both with a switch.
 
 While you read, ask the agent about any paragraph ("what is P23 saying?"), correct a tier or a note, or say "walk me through it" to go part by part.
 
 ## How it works
 
-1. `segment.py` splits the PDF into fixed paragraph ids (P1, P2, …), recognises headings, captions and footnotes, removes running heads, records printed page numbers, links footnotes to the paragraphs that cite them, and crops every display equation and table region. Two-column layouts, scans (OCR) and Chinese headings and footnotes are handled.
+1. `segment.py` splits the PDF into fixed paragraph ids (P1, P2, …), recognises headings, captions and footnotes, removes running heads, records printed page numbers, links footnotes to the paragraphs that cite them, and crops every display equation and table region. Single- and two-column layouts (three columns or a side column need MinerU), scans (OCR) and Chinese headings and footnotes are handled.
 2. `sources.py` (optional) fetches the arXiv HTML or TeX version of a paper for clean figures, tables and formulas.
 3. The agent reads every paragraph and writes the guide data: parts and claims, the relations between parts, a tier and a note or "read for" line per paragraph, elements anchored to verbatim spans, formula transcriptions checked against the crops, recall questions.
-4. `check.py` reports an error, and `render.py` writes no page, when a paragraph has no entry, parts do not cover the text in order, an anchor is not verbatim in the paragraph, a number in a note is not in the source, or LaTeX braces are unbalanced. It only warns about numbers inside a formula's `tex`, a close-read share above the density cap, and notes that describe instead of restate.
+4. `check.py` reports an error, and `render.py` writes no page, when a paragraph has no entry, parts do not cover the text in order, an anchor is not verbatim in the paragraph, a number in a note is not in the source, or LaTeX braces are unbalanced. It only warns about numbers inside a formula's `tex`, a close-read share above the density cap, and notes that only describe a paragraph without restating its content.
 5. `render.py` builds the single-file page.
 
 The rules the agent follows are in `references/method.md`, `elements.md`, `genres.md` and `schema.md`; they are plain text and meant to be edited as you learn what your readings need.
@@ -118,11 +118,11 @@ Measured on a private set of 11 readings (seven real publications, scans and a t
 
 The design follows published studies of reading interfaces and learning:
 
-- Faceted highlights let readers find information faster without losing accuracy, but wrong or dense highlights cost trust ([Scim, Allen AI](https://dl.acm.org/doi/fullHtml/10.1145/3581641.3584034)). Hence sparse, validated highlights and a Gist view.
-- Definitions at the point of use help readers of dense papers ([ScholarPhi](https://dl.acm.org/doi/fullHtml/10.1145/3411764.3445648)). Hence hover definitions.
-- Argument mapping improves critical thinking, and the gain comes from working the map out, not from looking at it ([van Gelder](https://www.reasoninglab.com/wp-content/uploads/2013/10/TvG-Using-argument-mapping-to-improve-critical-thinking-skills-2015.pdf)). Hence "guess the relations".
-- Pre-questions help on the material they target ([prequestion meta-analysis](https://link.springer.com/article/10.3758/s13423-023-02353-8)) and retrieval practice is the best-supported study method ([Dunlosky et al. 2013](https://doi.org/10.1177/1529100612453266)). Hence specific "read for" prompts and recall questions.
-- Explaining a worked example to yourself beats reading the explanation ([self-explanation](https://link.aps.org/doi/10.1103/PhysRevPhysEducRes.18.010136)). Hence formula explanations folded until asked.
+- Faceted highlights let readers find information faster without losing accuracy, but wrong or dense highlights cost trust ([Scim, Allen AI](https://dl.acm.org/doi/fullHtml/10.1145/3581641.3584034)). So the page has sparse, validated highlights and a Gist view.
+- Definitions at the point of use help readers of dense papers ([ScholarPhi](https://dl.acm.org/doi/fullHtml/10.1145/3411764.3445648)). So definitions show on hover.
+- Argument mapping improves critical thinking, and the gain comes from working the map out yourself ([van Gelder](https://www.reasoninglab.com/wp-content/uploads/2013/10/TvG-Using-argument-mapping-to-improve-critical-thinking-skills-2015.pdf)). So there is a "guess the relations" switch.
+- Pre-questions help on the material they target ([prequestion meta-analysis](https://link.springer.com/article/10.3758/s13423-023-02353-8)) and retrieval practice is the best-supported study method ([Dunlosky et al. 2013](https://doi.org/10.1177/1529100612453266)). So the "read for" prompts are specific and each part ends with recall questions.
+- Explaining a worked example to yourself beats reading the explanation ([self-explanation](https://link.aps.org/doi/10.1103/PhysRevPhysEducRes.18.010136)). So formula explanations stay folded until you open them.
 
 ## Files
 
@@ -147,7 +147,8 @@ Tests: `python -m pytest tests/unit` (Python 3.9 and 3.12). Every fix to the scr
 ## Known limits
 
 - Segmentation is heuristic on the default tier: equations, tables, metadata and unusual layouts can still split or merge paragraphs. Spot-check the part files before the guide is written; the paragraph ids are frozen after that.
-- Inline formulas inside prose stay as the PDF text layer gives them unless MinerU's formula model is installed. The original paragraph is never edited; display formulas are shown as crops beside their transcription.
+- The default tier handles single- and two-column layouts only. Three columns or a side column (for example the 2005 PLOS Medicine layout) need MinerU.
+- With MinerU, inline formulas in prose appear in the original paragraph as the LaTeX source MinerU returns; the page does not render them, and the original paragraph is never edited. Without MinerU's formula model they stay as the PDF text layer gives them. Display formulas are shown as crops beside their transcription.
 - Open versions are fetched only for arXiv papers, and only where the network allows.
 - A page embeds the full text of the PDF it was built from. Keep pages made from copyrighted readings to yourself; use openly licensed papers for public demos.
 

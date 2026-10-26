@@ -248,6 +248,22 @@ def test_formula_double_backslash_before_brace_is_not_an_escape(clean):
     assert not any('braces' in e for e in errors)
 
 
+def test_json_eaten_latex_backslash_is_an_error(clean):
+    doc, g = clean
+    g['paras']['P1']['note'] = {'zh': 'ok', 'en': 'ok'}
+    g['paras']['P1']['why'] = 'bad $\x08eta^{n}$'
+    errors, _, _ = run_checks(doc, g)
+    assert any('paras.P1.why' in e and 'double backslash' in e for e in errors)
+    doc, g = _formula(clean, tex='\theta + 1')
+    errors, _, _ = run_checks(doc, g)
+    assert any('paras.P1.els[1].tex' in e and 'double backslash' in e for e in errors)
+    del g['paras']['P1']['why']
+    doc, g = _formula(clean, tex='\\theta + 1')
+    g['paras']['P1']['els'][0]['x'] = 'first line\nsecond line'
+    errors, _, _ = run_checks(doc, g)
+    assert not any('double backslash' in e for e in errors)
+
+
 def test_formula_tex_numbers_must_come_from_the_source(clean):
     # 3 and 5 are in the paragraph; 7 is not. Sub- and superscripts are notation, not data.
     _, warns, _ = run_checks(*_formula(clean, tex='s_1 = \\frac{3}{5} x^{2}'))
