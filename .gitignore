@@ -24,3 +24,6 @@ tests/*.json
 tests/*.py
 tests/*.lock
 !tests/conftest.py
+
+# local agent tooling
+.claude/
