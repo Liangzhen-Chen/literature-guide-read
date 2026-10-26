@@ -4,11 +4,29 @@ Add an entry at the top for every change to the rules or the workflow: version, 
 
 ## 0.7.0 (2026-10-27)
 
-Close reads get an after-reading summary.
+Close reads get an after-reading summary, and the reading page is redesigned. Two real readings prompted it, Ioannidis (2005) and the DPO paper (Rafailov et al. 2023, arXiv 2305.18290), and so did the author's verdict on the old page: too cluttered. Both readings were run end to end with the skill, and the page showed far more than a reader could use.
+
+Page (assets/template.html), laid out after the Hallmark design skill's long-document rules (MIT, see THIRD_PARTY_NOTICES.md). The test for every element was whether it helps the reader remember the paper.
+
+- Removed: the sidebar with its evidence table, the overview paragraph under the conclusion, the purpose and familiarity lines, the map legend and its explanatory text, the four view buttons, the role label, element sub-labels and tier text on each paragraph, the category badges before highlights, and the seven highlight colours. The data stays in the JSON; only the page no longer shows it.
+- Merged: the vertical argument map and the "whole argument" block became one SVG mind map (no library) that doubles as the contents: one row per part, click to open the part's steps, dashed line for `qualifies`, plain line for every other relation (the name is in the tooltip). The four views became two, full text and summaries only. The seven highlight colours became one faint highlight, with the category in the tooltip. The side contents list is gone too: the map is the only contents.
+- Folded: the reader's questions (one line, "your N questions"), the "guess the relations" switch, skip paragraphs (one line, original folded), and the PDF crop, explanation and symbol table of a display formula ("check the original"). Terms moved into a lookup button; hover definitions stay.
+- Reading: a serif for everything the reader reads and a sans for headings and controls, a column of about 66 characters, and a thin bar with back to the map, full text or summaries, terms and a progress line. Part headings and claims sit in the left margin. Simple inline formulas are set as text in the body font; complex ones go to KaTeX. Dark mode, the language switch and the single offline file stay.
+- Inline LaTeX is rendered in the original text, mind map nodes, claims, flow steps, recall questions and element fields. A highlight never splits a formula, and terms are not matched inside one.
+- Close-read paragraphs show `note` as the folded after-reading summary, below the original and its formulas.
+
+Rules and checks.
+
+- method.md section 9a, plain wording: no denial before the statement, no dash as connector, "is" instead of "serves as", no closing line that only sums up, no lists padded to three, no inflating words. check.py warns on the first four patterns in every field the agent writes (anchors excluded).
+- check.py: decimal section numbers ("Section 3.2", "3.2.1", "第3.2节") are not data in the number check.
+- render.py: a bilingual `meta` title, author or source shows in the page's default language.
+- SKILL.md asks for schema.md to be read before any guide data is written.
+
+Close reads and segmentation.
 
 - Close-read paragraphs now carry `note` next to `read`. `read` stays a one-line prompt with no spoilers; `note` restates the paragraph under the same rules as a skim note (the claim, the numbers, the qualification). It is meant to be shown below the original, folded, so the original is still read first and a reader who only has the page still gets the argument.
 - check.py: a close entry without `note` is a warning (old guides still pass); a close `note` gets the same checks as a skim note (numbers must be in the source text, warning for notes that describe instead of restate).
-- method.md, schema.md, SKILL.md describe the new field. render.py already passed `note` through for every tier; the template does not show it for close paragraphs yet.
+- method.md, schema.md, SKILL.md describe the new field. render.py already passed `note` through for every tier.
 - segment.py: old PDFs whose text layer leaves a space after a ligature ("signifi cant", "fi eld", "confl icts") are rejoined before paragraphs.json is written, in both engines. It only acts when the document has at least 3 such splits, and leaves a split alone when the tail is a word used elsewhere in the text. Prompted by the Ioannidis (2005) sample, about 200 splits.
 
 ## 0.6.1 (2026-10-26)

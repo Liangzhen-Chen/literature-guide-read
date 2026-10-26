@@ -607,10 +607,12 @@ __KATEX__
       art.appendChild(pid);
       if (g.read) { var rf = el("p", "readfor"); rf.appendChild(el("b", null, u.readFor)); withNums(rf, L(g.read)); art.appendChild(rf); }
       art.appendChild(orig(VIEW !== "gist" || !hasNote));
-      if (hasNote) {
+      mediaInto(art, id, g);
+      if (hasNote) {  // the summary comes after the paragraph's formulas and crops: read, then check
         var nd = el("details", "nd"); nd.appendChild(el("summary", null, u.note)); nd.appendChild(withNums(el("p", "note"), L(g.note)));
         nd.open = VIEW === "gist"; art.appendChild(nd);
       }
+      return art;
     } else {
       art.appendChild(pid); art.appendChild(withNums(el("p", "note"), L(g.note)));
       art.appendChild(orig(false));

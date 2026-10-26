@@ -4,11 +4,11 @@
 
 **把一篇课程读物变成一张教你怎么读它的页面。** 给 AI agent 一份 PDF，得到一个离线 HTML：论证画成图，每一段分成精读、略读、可跳过，关键句在原文上标出，公式和表格从 PDF 上裁下来并加解释，每部分末尾有回想题。笔记可以是中文或英文。
 
-![页面顶部：核心论点、读者的阅读目的和问题、论证地图](assets/readme/page-top.png)
+![页面顶部：标题、结论和思维导图](assets/readme/page-top.zh.png)
 
-![从 PDF 裁下的表格挂在引用它的段落下，公式用 KaTeX 渲染，符号逐个解释](assets/readme/page-formula.png)
+![DPO 论文的一个精读段，中文笔记：读时注意、和正文同字体的行内公式、KaTeX 渲染的行间公式，以及折叠的原式裁图和读后小结](assets/readme/page-formula.png)
 
-截图来自 Ioannidis（2005）[Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124) 的导读页，PLoS Medicine 2(8): e124（CC BY）。这个 skill 遵循开放的 [Agent Skills](https://agentskills.io) 格式，任何支持 skill 的 agent 都能用；脚本是普通 Python，页面是单个文件，离线可用。
+截图来自两篇论文的导读页：Ioannidis（2005）[Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124)，PLoS Medicine 2(8): e124（CC BY）；Rafailov 等（2023）[Direct Preference Optimization](https://arxiv.org/abs/2305.18290)（CC BY 4.0）。这个 skill 遵循开放的 [Agent Skills](https://agentskills.io) 格式，任何支持 skill 的 agent 都能用；脚本是普通 Python，页面是单个文件，离线可用。
 
 ## 安装（30 秒）
 
@@ -83,13 +83,15 @@ python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json
 
 页面上有：
 
-- 顶部是你的简报：目的、熟悉程度，以及你的每个问题从原文作答并链接到段落。
-- 论证地图：结论在最上方，各部分用带类型的关系（支持、解释、限定、推广……）连到结论；点一个部分看它内部的推理步骤。"先猜关系"把关系藏起来让你先自己判断。
-- 按原文顺序排的正文。精读段上方有一行"读时注意"；略读和可跳过段先显示复述笔记，原文一键可见。粗读视图只留笔记。
-- 原文里的高亮：定义、论点、证据、图表、公式、限定；每个定义过的术语和符号在后文出现时悬停显示定义。
-- 公式和表格从 PDF 裁出，挂在引用它们的段落下；公式另用 KaTeX 渲染，配符号表和一句话解释，默认折叠。
-- 每部分末尾的回想题，答案折叠。
-- 左侧栏列出每段的作用、术语表、证据清单；中文、英文或双语切换。
+- 标题、一行出处（段数、精读段数）和一句话结论。下面是一张思维导图，同时当目录用：每个部分一行，点开看它的推理步骤，限定关系用虚线。你的问题（从原文作答并链接到段落）和"先猜关系"开关在导图下方。
+- 按原文顺序排的正文。精读段有"读时注意"和折叠的读后小结；略读段先给复述，原文折叠；跳过段只占一行。可以切换全文或只看小结。
+- 一种高亮样式，标出定义和关键论点。定义过的术语和符号悬停显示释义。
+- 简单公式按正文排；复杂公式用 KaTeX 渲染，PDF 裁图、解释和符号表折叠在下面。图表挂在首次引用它们的段落。
+- 每部分末尾的回想题，答案折叠。中文、英文或双语，支持亮色和暗色。
+
+### 一篇读物要花多少
+
+用 Claude Sonnet 从 PDF 一路跑到页面的实测：Ioannidis（2005），6 页、40 段、中英双语笔记，约 13.4 万 token、约 7 分钟。DPO 论文（arXiv 2305.18290），正文 10 页、52 段、11 条行间公式、中文笔记，约 17.2 万 token、约 10 分钟。这是 Claude Code 统计的总量，包含每一轮重复读取的上下文；按量计费时，缓存的输入更便宜。
 
 阅读过程中可以问 agent 任何一段（"P23 在说什么？"），改某段的档位或笔记，或者说"带我过一遍"让它逐部分讲。
 
@@ -118,10 +120,10 @@ Agent 遵守的规则在 `references/method.md`、`elements.md`、`genres.md`、
 
 设计依据是已发表的阅读界面和学习研究：
 
-- 分面高亮让读者更快找到信息且不降低准确率，但错误或过密的高亮会损害信任（[Scim, Allen AI](https://dl.acm.org/doi/fullHtml/10.1145/3581641.3584034)）。所以高亮稀疏、经过校验，并提供粗读视图。
+- 分面高亮让读者更快找到信息且不降低准确率，但错误或过密的高亮会损害信任（[Scim, Allen AI](https://dl.acm.org/doi/fullHtml/10.1145/3581641.3584034)）。所以只用一种高亮样式，稀疏并经过校验，另有只看小结的视图。
 - 在用到的位置给定义对读密集论文有帮助（[ScholarPhi](https://dl.acm.org/doi/fullHtml/10.1145/3411764.3445648)）。所以有悬停释义。
 - 论证图能提升批判性思维，收益来自自己动手画图（[van Gelder](https://www.reasoninglab.com/wp-content/uploads/2013/10/TvG-Using-argument-mapping-to-improve-critical-thinking-skills-2015.pdf)）。所以有"先猜关系"。
-- 前置问题对它指向的内容有效（[prequestion 元分析](https://link.springer.com/article/10.3758/s13423-023-02353-8)），提取练习是证据最强的学习方法（[Dunlosky 等 2013](https://doi.org/10.1177/1529100612453266)）。所以"读时注意"写得具体，每部分有回想题。
+- 前置问题对它指向的内容有效（[prequestion 元分析](https://link.springer.com/article/10.3758/s13423-023-02353-8)），提取练习是证据最强的学习方法（[Dunlosky 等 2013](https://doi.org/10.1177/1529100612453266)）。所以"读时注意"写得具体，每部分有回想题。精读段另有折叠的读后小结，让你先回想这一段，再对照核对。
 - 自己解释工作示例比读解释有效（[self-explanation](https://link.aps.org/doi/10.1103/PhysRevPhysEducRes.18.010136)）。所以公式解释默认折叠。
 
 ## 文件
@@ -149,6 +151,7 @@ Agent 遵守的规则在 `references/method.md`、`elements.md`、`genres.md`、
 - 默认档的切段是启发式的：公式、表格、元数据和特殊版式仍可能切错或合并段落。写导读前先抽查 part 文件，之后段落编号固定。
 - 默认档只处理单栏和双栏。三栏或带侧栏的版式（例如 2005 年 PLOS Medicine 的排版）要装 MinerU。
 - 用 MinerU 时，正文里的行内公式以 MinerU 给出的 LaTeX 源码显示在原文段落中，页面不渲染它们，原文段落也不做编辑。没有 MinerU 的公式模型时，行内公式按 PDF 文字层原样保留。行间公式以裁剪图配转写显示。
+- 三栏版式经 MinerU 处理后，段落可能在分栏或分页处被切开。目前没有合并工具，笔记按切开后的段落写。
 - 开放版本只对 arXiv 论文抓取，且需要网络允许。
 - 页面里嵌有生成它的 PDF 的全文。用受版权保护的读物生成的页面只留给自己看；公开演示请用开放许可的论文。
 

@@ -24,6 +24,10 @@ KaTeX 0.16.11 (MIT licence, Khan Academy and contributors) is vendored under `as
 
 MinerU is an optional dependency that the user installs separately. `scripts/mineru_backend.py` calls it through a subprocess. This repository does not distribute MinerU; its licence is at https://github.com/opendatalab/MinerU/blob/master/LICENSE.md.
 
+## Hallmark
+
+The layout of the reading page follows the rules of the Hallmark design skill (MIT, Copyright (c) 2026 Hallmark contributors, https://github.com/Nutlope/hallmark). None of its code is bundled; the first line of the template's CSS names the source.
+
 ## Writing rules
 
 The wording rules in `references/method.md` (section 9a) draw on blader/humanizer (MIT, https://github.com/blader/humanizer) and Wikipedia's "Signs of AI writing". No text from either was copied.

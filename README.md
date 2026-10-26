@@ -4,11 +4,11 @@ English | [中文](README.zh.md)
 
 **Turn a course reading into a page that teaches you how to read it.** Give an AI agent a PDF; get back one offline HTML page with the argument mapped, every paragraph sorted into close read / skim / skip, the key sentences highlighted in the original, formulas and tables cropped from the PDF and explained, and recall questions at the end of each part. Notes in English or Chinese.
 
-![The top of a reading page: thesis, the reader's brief and questions, and the argument map](assets/readme/page-top.png)
+![The top of a reading page: title, conclusion and the mind map](assets/readme/page-top.png)
 
-![A table cropped from the PDF under the paragraph that cites it, the formula rendered in KaTeX, and its symbols explained](assets/readme/page-formula.png)
+![A close-read paragraph of the DPO paper with Chinese notes: the read-for prompt, inline maths set in the text, the display formula in KaTeX, and the folded PDF crop and summary](assets/readme/page-formula.png)
 
-The screenshots come from a guide to Ioannidis (2005), [Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124), PLoS Medicine 2(8): e124 (CC BY). The skill follows the open [Agent Skills](https://agentskills.io) format, so it works in any agent that supports skills; the scripts are plain Python and the page is a single file that works offline.
+The screenshots come from guides to Ioannidis (2005), [Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124), PLoS Medicine 2(8): e124 (CC BY), and Rafailov et al. (2023), [Direct Preference Optimization](https://arxiv.org/abs/2305.18290) (CC BY 4.0). The skill follows the open [Agent Skills](https://agentskills.io) format, so it works in any agent that supports skills; the scripts are plain Python and the page is a single file that works offline.
 
 ## Installation (30-second setup)
 
@@ -83,13 +83,15 @@ Optional, for scans and formula-heavy readings: Tesseract (`eng`, `chi_sim`) and
 
 What you get on the page:
 
-- A brief at the top: purpose, familiarity, and each of your questions answered from the text with links to the paragraphs.
-- An argument map: the conclusion on top, each part linked to it by a typed relation (supports, explains, qualifies, extends, …); click a part to see its reasoning steps. "Guess the relations" hides the relations so you work them out first.
-- The original text in order. Close-read paragraphs open with a one-line "read for" prompt. Skim and skip paragraphs lead with a note that restates them; the original is one click away. The Gist view folds everything but the notes.
-- Highlights inside the original for definitions, claims, evidence, figures, formulas and qualifications; every defined term and symbol shows its definition on hover wherever it recurs.
-- Formulas and tables cropped from the PDF under the paragraph that cites them; formulas are also rendered in KaTeX with a symbol table and a one-line explanation, folded until you want it.
-- Recall questions at the end of each part, answers hidden.
-- A sidebar with every paragraph's role, the terms and the evidence; Chinese, English or both with a switch.
+- A title, a source line (paragraph count, how many are close reads) and a one-sentence conclusion. Under it a mind map that doubles as the contents: one row per part, click a row to open its reasoning steps, dashed lines for qualifications. Your questions, answered from the text with paragraph links, and a "guess the relations" switch sit below.
+- The original in order. Close-read paragraphs carry a "read for" prompt and a folded after-reading summary. Skim paragraphs lead with a restatement and fold the original. Skip paragraphs take one line. A switch shows full text or summaries only.
+- One highlight style for definitions and key claims. Defined terms and symbols show their definition on hover.
+- Simple formulas are set as text; complex ones render in KaTeX, with the PDF crop, an explanation and the symbol table folded under them. Figures and tables hang on the paragraph that first cites them.
+- Recall questions at the end of each part, answers folded. Chinese, English or both, light and dark mode.
+
+### What one reading costs
+
+Measured with Claude Sonnet, running the skill from the PDF to the finished page: Ioannidis (2005), 6 pages, 40 paragraphs, notes in Chinese and English, took about 134,000 tokens and 7 minutes. The DPO paper (arXiv 2305.18290), 10 pages of main text, 52 paragraphs, 11 display equations, notes in Chinese, took about 172,000 tokens and 10 minutes. These are the totals Claude Code reports, which count the context it re-reads on every turn; with pay-per-token billing, cached input is cheaper.
 
 While you read, ask the agent about any paragraph ("what is P23 saying?"), correct a tier or a note, or say "walk me through it" to go part by part.
 
@@ -118,10 +120,10 @@ Measured on a private set of 11 readings (seven real publications, scans and a t
 
 The design follows published studies of reading interfaces and learning:
 
-- Faceted highlights let readers find information faster without losing accuracy, but wrong or dense highlights cost trust ([Scim, Allen AI](https://dl.acm.org/doi/fullHtml/10.1145/3581641.3584034)). So the page has sparse, validated highlights and a Gist view.
+- Faceted highlights let readers find information faster without losing accuracy, but wrong or dense highlights cost trust ([Scim, Allen AI](https://dl.acm.org/doi/fullHtml/10.1145/3581641.3584034)). So the page has one highlight style, sparse and validated, and a summaries-only view.
 - Definitions at the point of use help readers of dense papers ([ScholarPhi](https://dl.acm.org/doi/fullHtml/10.1145/3411764.3445648)). So definitions show on hover.
 - Argument mapping improves critical thinking, and the gain comes from working the map out yourself ([van Gelder](https://www.reasoninglab.com/wp-content/uploads/2013/10/TvG-Using-argument-mapping-to-improve-critical-thinking-skills-2015.pdf)). So there is a "guess the relations" switch.
-- Pre-questions help on the material they target ([prequestion meta-analysis](https://link.springer.com/article/10.3758/s13423-023-02353-8)) and retrieval practice is the best-supported study method ([Dunlosky et al. 2013](https://doi.org/10.1177/1529100612453266)). So the "read for" prompts are specific and each part ends with recall questions.
+- Pre-questions help on the material they target ([prequestion meta-analysis](https://link.springer.com/article/10.3758/s13423-023-02353-8)) and retrieval practice is the best-supported study method ([Dunlosky et al. 2013](https://doi.org/10.1177/1529100612453266)). So the "read for" prompts are specific and each part ends with recall questions. Each close read also has a folded after-reading summary, so you try to recall the paragraph before you check it.
 - Explaining a worked example to yourself beats reading the explanation ([self-explanation](https://link.aps.org/doi/10.1103/PhysRevPhysEducRes.18.010136)). So formula explanations stay folded until you open them.
 
 ## Files
@@ -149,6 +151,7 @@ Tests: `python -m pytest tests/unit` (Python 3.9 and 3.12). Every fix to the scr
 - Segmentation is heuristic on the default tier: equations, tables, metadata and unusual layouts can still split or merge paragraphs. Spot-check the part files before the guide is written; the paragraph ids are frozen after that.
 - The default tier handles single- and two-column layouts only. Three columns or a side column (for example the 2005 PLOS Medicine layout) need MinerU.
 - With MinerU, inline formulas in prose appear in the original paragraph as the LaTeX source MinerU returns; the page does not render them, and the original paragraph is never edited. Without MinerU's formula model they stay as the PDF text layer gives them. Display formulas are shown as crops beside their transcription.
+- On three-column layouts, MinerU can cut a paragraph at a column or page break. There is no tool to merge the pieces yet, so the notes are written for the paragraphs as cut.
 - Open versions are fetched only for arXiv papers, and only where the network allows.
 - A page embeds the full text of the PDF it was built from. Keep pages made from copyrighted readings to yourself; use openly licensed papers for public demos.
 
