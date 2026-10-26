@@ -341,3 +341,25 @@ def load_guide(paths):
             else:
                 guide[k] = v
     return guide
+
+
+def drop_cap_for(text, box, words, body, tol=4.0):
+    """Find the drop cap that a paragraph's text lost. A drop cap is one enlarged capital letter set beside the first
+    lines of a paragraph; text extraction and layout models both tend to leave it out, so the paragraph then starts
+    with a lowercase fragment ("ublished research ..."). `box` is the paragraph's (x0, top, x1, bottom) in PDF points,
+    `words` the page's words (dicts with text/x0/x1/top/bottom/size, as segment.get_words returns) and `body` the body
+    font size. Returns the word to put back, or None when the paragraph does not look truncated."""
+    s = text.lstrip(" \"'\u201c\u2018([")
+    if not s or not s[0].islower() or not box:
+        return None
+    x0, top, x1, bottom = box
+    best = None
+    for w in words:
+        t = w["text"]
+        if len(t) != 1 or not ("A" <= t <= "Z") or w["size"] < 1.7 * body:
+            continue
+        h = w["bottom"] - w["top"]
+        if (x0 - 1.5 * w["size"] <= w["x0"] <= x0 + tol and top - tol <= w["top"] <= top + 0.5 * h
+                and (best is None or w["size"] > best["size"])):
+            best = w
+    return best

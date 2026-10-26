@@ -18,8 +18,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import use_utf8  # noqa: E402
-from segment import NUM_HEAD_RE, join_text, link_notes  # noqa: E402
+from common import drop_cap_for, use_utf8  # noqa: E402
+from segment import NUM_HEAD_RE, body_size, get_words, join_text, link_notes  # noqa: E402
 
 MASTHEAD_LINE_RE = re.compile(r"\b(vol\.|volume|issue|no\.)\s*[\dIVXLCM]+", re.I)
 
@@ -106,15 +106,48 @@ def run(pdf_path, out_dir, pages=None, python=None):
     return out_dir / "mineru" / "structured_content.json"
 
 
+def _text_layer(path):
+    """page number -> (words, width, height, body size) from the PDF's own text layer; None when there is none."""
+    cache, pdf = {}, []
+
+    def get(page):
+        if page not in cache:
+            cache[page] = None
+            try:
+                if not pdf:
+                    import pdfplumber
+                    pdf.append(pdfplumber.open(path))
+                pg = pdf[0].pages[page - 1]
+                words = get_words(pg)
+                if words:
+                    cache[page] = (words, float(pg.width), float(pg.height), body_size(words))
+            except Exception:
+                pass
+        return cache[page]
+    return get
+
+
+def _restore_drop_cap(text, bbox, info):
+    """MinerU leaves out a drop cap; MinerU boxes are fractions of the page, the text layer is in points."""
+    if not info or not bbox:
+        return text
+    words, w, h, body = info
+    cap = drop_cap_for(text, (bbox[0] * w, bbox[1] * h, bbox[2] * w, bbox[3] * h), words, body)
+    return cap["text"] + text.lstrip() if cap else text
+
+
 def convert(sc, source_name, source_path):
     """MinerU structured_content.json -> the skill's paragraphs.json dict."""
     blocks, labels, n_refs, headers = [], [], 0, Counter()
+    layer = _text_layer(source_path)
     for pg in sc["pages"]:
         page = pg["page_idx"] + 1
         pblocks = pg["blocks"]
         for k, b in enumerate(pblocks):
             t, c = b["type"], b.get("content")
             text = clean(c) if isinstance(c, str) else ""
+            if t == "text" and text:
+                text = _restore_drop_cap(text, b.get("bbox"), layer(page))
             base = {"page": page, "bbox": b.get("bbox")}
             if t == "page_number":
                 m = re.match(r"^\s*(\d{1,4})", text)

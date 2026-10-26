@@ -22,7 +22,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import clean_text, fix_split_ligatures, is_cjk, use_utf8  # noqa: E402
+from common import clean_text, drop_cap_for, fix_split_ligatures, is_cjk, use_utf8  # noqa: E402
 
 CAPTION_RE = re.compile(r"^(fig(ure)?s?\.?|table|tab\.|exhibit|chart|plate|图|表)\s*[\dIVX]+(\.\d+)?\s*([.:：|]|$)", re.I)
 NUM_HEAD_RE = re.compile(r"^(\d+(\.\d+){0,3}|[IVXLC]+|[A-H])[.)]?\s+(\S)")
@@ -521,6 +521,28 @@ def figure_boxes(page):
     return [m for m in boxes if (m[2] - m[0]) * (m[3] - m[1]) > 0.01 * W * H]
 
 
+def split_drop_caps(words, body):
+    """(words without drop caps, the drop caps): an enlarged single capital with a lowercase word right beside it."""
+    caps = [w for w in words if len(w["text"]) == 1 and "A" <= w["text"] <= "Z" and w["size"] >= 1.7 * body
+            and any(o["text"][:1].islower() and o["size"] < 0.7 * w["size"] and 0 <= o["x0"] - w["x1"] < 0.5 * w["size"]
+                    and w["top"] - 4 <= o["top"] <= w["bottom"] for o in words)]
+    return [w for w in words if not any(w is c for c in caps)], caps
+
+
+def restore_drop_caps(page_blocks, words, body):
+    """Put a drop cap back at the head of the paragraph that lost it, and remove the lone-letter block it left behind."""
+    gone = set()
+    for i, b in enumerate(page_blocks):
+        w = drop_cap_for(b["text"], (b["x0"], b["top"], b["x1"], b["bottom"]), words, body)
+        if w is None:
+            continue
+        b["text"] = w["text"] + b["text"].lstrip()
+        b["x0"], b["top"] = min(b["x0"], w["x0"]), min(b["top"], w["top"])
+        gone |= {j for j, o in enumerate(page_blocks) if j != i and o["text"].strip() == w["text"]
+                 and abs(o["top"] - w["top"]) < 2}
+    return [b for j, b in enumerate(page_blocks) if j not in gone]
+
+
 def from_pdf_text(pdf, pnos, columns):
     pages = []
     for pno in pnos:
@@ -528,6 +550,8 @@ def from_pdf_text(pdf, pnos, columns):
         pages.append({"pno": pno, "w": float(page.width), "h": float(page.height),
                       "words": get_words(page), "figs": figure_boxes(page)})
     body = body_size([w for p in pages for w in p["words"]])
+    for p in pages:  # a drop cap would stretch the first lines into one tall row; set it aside, restore it below
+        p["words"], p["caps"] = split_drop_caps(p["words"], body)
     two_col = 0
     for p in pages:
         segs = make_lines(p["words"], gap_split=True)
@@ -546,6 +570,7 @@ def from_pdf_text(pdf, pnos, columns):
     blocks = []
     for p in pages:
         page_blocks = build_blocks(p["lines"], p["pno"], body) if p["lines"] else []
+        page_blocks = restore_drop_caps(page_blocks, p["caps"], body)
         for b in page_blocks:
             b["pw"], b["ph"] = p["w"], p["h"]
             if p.get("sidebar") is not None and b["x1"] <= p["sidebar"] + 2:
