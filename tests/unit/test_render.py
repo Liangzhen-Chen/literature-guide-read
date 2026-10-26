@@ -27,8 +27,8 @@ def test_roundtrip(clean,tmp_path):
     a,b=tmp_path/'a.html',tmp_path/'b.html'
     r.render(doc,g,a,args)
     r.dump(a,tmp_path/'dump')
-    r.render(json.loads((tmp_path/'dump/paragraphs.json').read_text()),json.loads((tmp_path/'dump/guide.json').read_text()),b,args)
-    assert json.loads(r.DATA_RE.search(a.read_text()).group(1)) == json.loads(r.DATA_RE.search(b.read_text()).group(1))
+    r.render(json.loads((tmp_path/'dump/paragraphs.json').read_text(encoding='utf-8')),json.loads((tmp_path/'dump/guide.json').read_text(encoding='utf-8')),b,args)
+    assert json.loads(r.DATA_RE.search(a.read_text(encoding='utf-8')).group(1)) == json.loads(r.DATA_RE.search(b.read_text(encoding='utf-8')).group(1))
 
 
 def _with_formula(clean, bbox=True):
@@ -60,11 +60,11 @@ def test_render_inlines_katex_only_with_tex(clean, tmp_path):
     args = SimpleNamespace(density=None, force=False, sources=None, no_page_images=True, pdf=None, lang=None)
     doc, g = clean
     r.render(doc, g, tmp_path / 'plain.html', args)
-    plain = (tmp_path / 'plain.html').read_text()
+    plain = (tmp_path / 'plain.html').read_text(encoding='utf-8')
     assert 'data:font/woff2' not in plain and '__KATEX__' not in plain and 'function(e,t)' not in plain
     doc, g = _with_formula(clean, bbox=False)
     r.render(doc, g, tmp_path / 'math.html', args)
-    html = (tmp_path / 'math.html').read_text()
+    html = (tmp_path / 'math.html').read_text(encoding='utf-8')
     assert 'KaTeX' in html and 'data:font/woff2' in html and '__KATEX__' not in html
 
 
@@ -75,8 +75,8 @@ def test_roundtrip_tex(clean, tmp_path):
     a, b = tmp_path / 'a.html', tmp_path / 'b.html'
     r.render(doc, g, a, args)
     r.dump(a, tmp_path / 'dump')
-    r.render(json.loads((tmp_path / 'dump/paragraphs.json').read_text()), json.loads((tmp_path / 'dump/guide.json').read_text()), b, args)
-    assert json.loads(r.DATA_RE.search(a.read_text()).group(1)) == json.loads(r.DATA_RE.search(b.read_text()).group(1))
+    r.render(json.loads((tmp_path / 'dump/paragraphs.json').read_text(encoding='utf-8')), json.loads((tmp_path / 'dump/guide.json').read_text(encoding='utf-8')), b, args)
+    assert json.loads(r.DATA_RE.search(a.read_text(encoding='utf-8')).group(1)) == json.loads(r.DATA_RE.search(b.read_text(encoding='utf-8')).group(1))
 
 
 def test_roundtrip_crops(clean, tmp_path):
@@ -89,11 +89,11 @@ def test_roundtrip_crops(clean, tmp_path):
     a = tmp_path / 'a.html'
     r.render(doc, g, a, args, work_dir=work)
     r.dump(a, tmp_path / 'dump')
-    d2 = json.loads((tmp_path / 'dump/paragraphs.json').read_text())
+    d2 = json.loads((tmp_path / 'dump/paragraphs.json').read_text(encoding='utf-8'))
     assert d2['crops'] == {'P1': 'crops/P1.png'} and (tmp_path / 'dump/crops/P1.png').read_bytes() == png
     b = tmp_path / 'b.html'
-    r.render(d2, json.loads((tmp_path / 'dump/guide.json').read_text()), b, args, work_dir=tmp_path / 'dump')
-    assert json.loads(r.DATA_RE.search(a.read_text()).group(1))['crops'] == json.loads(r.DATA_RE.search(b.read_text()).group(1))['crops']
+    r.render(d2, json.loads((tmp_path / 'dump/guide.json').read_text(encoding='utf-8')), b, args, work_dir=tmp_path / 'dump')
+    assert json.loads(r.DATA_RE.search(a.read_text(encoding='utf-8')).group(1))['crops'] == json.loads(r.DATA_RE.search(b.read_text(encoding='utf-8')).group(1))['crops']
 
 
 def test_table_crop_attaches_to_citing_paragraph(clean):
@@ -113,7 +113,7 @@ def test_katex_placeholder_in_text_does_not_break_page(clean, tmp_path):
     g['paras']['P2']['note'] = 'Says __KATEX__.'
     out = tmp_path / 'k.html'
     r.render(doc, g, out, args)
-    html = out.read_text()
+    html = out.read_text(encoding='utf-8')
     assert html.count('<script id="guide-data"') == 1
     assert json.loads(r.DATA_RE.search(html).group(1))['items']['P2']['text'].endswith('__DATA__.')
 
@@ -137,9 +137,9 @@ def test_roundtrip_recall(clean, tmp_path):
     a, b = tmp_path / 'a.html', tmp_path / 'b.html'
     r.render(doc, g, a, args)
     r.dump(a, tmp_path / 'dump')
-    assert json.loads((tmp_path / 'dump/guide.json').read_text())['parts'][0]['recall'][0]['q'] == {'en': 'Who chose?'}
-    r.render(json.loads((tmp_path / 'dump/paragraphs.json').read_text()), json.loads((tmp_path / 'dump/guide.json').read_text()), b, args)
-    assert json.loads(r.DATA_RE.search(a.read_text()).group(1))['parts'] == json.loads(r.DATA_RE.search(b.read_text()).group(1))['parts']
+    assert json.loads((tmp_path / 'dump/guide.json').read_text(encoding='utf-8'))['parts'][0]['recall'][0]['q'] == {'en': 'Who chose?'}
+    r.render(json.loads((tmp_path / 'dump/paragraphs.json').read_text(encoding='utf-8')), json.loads((tmp_path / 'dump/guide.json').read_text(encoding='utf-8')), b, args)
+    assert json.loads(r.DATA_RE.search(a.read_text(encoding='utf-8')).group(1))['parts'] == json.loads(r.DATA_RE.search(b.read_text(encoding='utf-8')).group(1))['parts']
 
 
 def test_build_reader_brief(clean):
@@ -194,3 +194,13 @@ def test_equation_crop_skips_label_only_paragraph(clean):
     _, _, comp = run_checks(doc, g)
     d = r.build_data(doc, g, comp, None, {}, 'en', crops={'F1': 'data:image/png;base64,AAAA'})
     assert d['frag_crops'] == {'P1': ['F1']}
+
+
+def test_page_has_no_source_path(clean,tmp_path):
+    doc,g=clean
+    doc['source_path']='C:/Users/someone/a.pdf'
+    args=SimpleNamespace(density=None,force=False,sources=None,no_page_images=True,pdf=None,lang=None)
+    out=tmp_path/'o.html'
+    r.render(doc,g,out,args)
+    data=json.loads(r.DATA_RE.search(out.read_text(encoding='utf-8')).group(1))
+    assert 'source_path' not in data['doc'] and 'someone' not in out.read_text(encoding='utf-8')

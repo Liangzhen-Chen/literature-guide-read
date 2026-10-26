@@ -18,6 +18,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from common import use_utf8  # noqa: E402
 from segment import NUM_HEAD_RE, join_text, link_notes  # noqa: E402
 
 MASTHEAD_LINE_RE = re.compile(r"\b(vol\.|volume|issue|no\.)\s*[\dIVXLCM]+", re.I)
@@ -274,6 +275,7 @@ def _labels(pairs, pnos):
 
 
 def main():
+    use_utf8()
     ap = argparse.ArgumentParser(description="Run MinerU for segment.py")
     sub = ap.add_subparsers(dest="cmd")
     sub.required = True

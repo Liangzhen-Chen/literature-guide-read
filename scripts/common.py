@@ -22,6 +22,13 @@ DASHES = {c: "-" for c in "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"}
 DROP = set("\u00ad\u200b\u200c\u200d\u2060\ufeff")
 
 
+def use_utf8():
+    """Console encodings such as cp1252 cannot print the Chinese messages; replace what they cannot show."""
+    for s in (sys.stdout, sys.stderr):
+        if hasattr(s, "reconfigure"):
+            s.reconfigure(encoding="utf-8", errors="replace")
+
+
 def clean_text(s):
     """Basic cleanup of extracted text: split ligatures, drop soft hyphens and zero-width marks."""
     s = "".join(LIGATURES.get(c, c) for c in s if c not in DROP)

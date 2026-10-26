@@ -22,6 +22,9 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from common import use_utf8  # noqa: E402
+
 ARXIV_RE = re.compile(r"(?:arxiv\.org/(?:abs|pdf|html|src)/|arXiv:\s?)(\d{4}\.\d{4,5}|[a-z\-]+(?:\.[A-Z]{2})?/\d{7})(v\d+)?", re.I)
 DOI_RE = re.compile(r"\b(10\.\d{4,9}/[^\s\"<>]+)", re.I)
 CAP_RE = re.compile(r"^\s*(?:(?P<fig>fig(?:ure)?\.?|图)|(?P<tab>table|表))\s*(?P<n>\d+)", re.I)
@@ -303,6 +306,7 @@ def parse_tex(folder, out, paras):
 
 
 def main():
+    use_utf8()
     ap = argparse.ArgumentParser(description="Optional open version of a reading")
     sub = ap.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("detect")

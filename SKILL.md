@@ -1,6 +1,6 @@
 ---
 name: reading-guide
-description: Guided reading for course PDFs in English or Chinese. Maps the argument, sorts paragraphs into close/skim/skip, highlights key elements, and builds an HTML reading page. 导读、精读。
+description: Guided reading page for a course PDF, paper or textbook chapter (English/Chinese). Use when the user gives a reading and wants a reading guide, close reading or study help. 导读、精读。
 ---
 
 # Reading guide

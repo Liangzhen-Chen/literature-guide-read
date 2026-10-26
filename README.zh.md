@@ -37,10 +37,10 @@ pip install -r ~/.codex/skills/reading-guide/requirements.txt
 
 ```bash
 npx skills@latest add Liangzhen-Chen/literature-guide-read
-pip install pdfplumber
+pip install pdfplumber beautifulsoup4   # beautifulsoup4 只在用开放版本（arXiv）时需要
 ```
 
-安装器会问装到哪些 agent；加 `-g` 装到用户级而不是当前项目。
+安装器会问装到哪些 agent；默认装到当前项目，加 `-g` 装到用户级。
 </details>
 
 <details>
@@ -98,7 +98,7 @@ python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json
 1. `segment.py` 把 PDF 切成固定编号的段落（P1、P2……），识别标题、图注、脚注，去掉页眉，记下印刷页码，把脚注挂到引用它的段落上，并把每条行间公式和表格区域裁成图。支持双栏、扫描件 OCR、中文标题和脚注。
 2. `sources.py`（可选）抓取 arXiv 的 HTML 或 TeX 版本，取干净的图、表、公式。
 3. Agent 读完每一段，写导读数据：分部分和分论点、部分之间的关系、每段的档位和笔记或"读时注意"、逐字锚定的要素、对照裁剪图核对过的公式转写、回想题。
-4. `check.py` 拒绝一切它核实不了的东西：每段都有条目、各部分按顺序覆盖全文、锚句逐字存在、导读里每个数字都在原文里、LaTeX 括号配平、精读比例不超上限、笔记是复述而不是描述。
+4. 下列情况 `check.py` 报错，`render.py` 不生成页面：某段没有条目、各部分没按顺序覆盖全文、锚句在该段里找不到原文、笔记里的数字不在原文、LaTeX 括号不配平。公式 `tex` 里的数字、精读比例超过上限、笔记只描述段落没有复述内容，这三种只给警告。
 5. `render.py` 生成单文件页面。
 
 Agent 遵守的规则在 `references/method.md`、`elements.md`、`genres.md`、`schema.md`，都是纯文本，可以随着你的读物调整。
@@ -112,7 +112,7 @@ Agent 遵守的规则在 `references/method.md`、`elements.md`、`genres.md`、
 | 行间公式 | 启发式定位后裁图 | 版面模型定位后裁图；装了公式模型还会转成 LaTeX |
 | CPU 上的速度 | 每篇几秒 | 每篇 1 到 3 分钟 |
 
-11 篇读物（七篇真实文献、扫描件和一章教材）的实测：在人工核对页上 MinerU 在 8 篇里 7 篇持平或更好，JSTOR 扫描件里默认档误判成标题的 30 处页眉全部去掉，约 800 行散落的表格行变成 111 张表。四篇公式密集的论文（机器学习、计量经济学、量子计算、纯数学）上 MinerU 找到的行间公式约是默认档的两倍。不装 MinerU 的 577 MB 公式模型时，公式以裁剪图输出、由 agent 转写，速度快 40% 到 75%。
+在一组私有的 11 篇读物（七篇真实文献、扫描件和一章教材；这组读物不随仓库分发，数字无法用本仓库复现）上的实测：在人工核对页上 MinerU 在 8 篇里 7 篇持平或更好，JSTOR 扫描件里默认档误判成标题的 30 处页眉全部去掉，约 800 行散落的表格行变成 111 张表。四篇公式密集的论文（机器学习、计量经济学、量子计算、纯数学）上 MinerU 找到的行间公式约是默认档的两倍。不装 MinerU 的 577 MB 公式模型时，公式以裁剪图输出、由 agent 转写，速度快 40% 到 75%。
 
 ## 为什么这样读
 
@@ -120,7 +120,7 @@ Agent 遵守的规则在 `references/method.md`、`elements.md`、`genres.md`、
 
 - 分面高亮让读者更快找到信息且不降低准确率，但错误或过密的高亮会损害信任（[Scim, Allen AI](https://dl.acm.org/doi/fullHtml/10.1145/3581641.3584034)）。所以高亮稀疏、经过校验，并提供粗读视图。
 - 在用到的位置给定义对读密集论文有帮助（[ScholarPhi](https://dl.acm.org/doi/fullHtml/10.1145/3411764.3445648)）。所以有悬停释义。
-- 论证图能提升批判性思维，收益来自自己把图做出来，而不是看现成的（[van Gelder](https://www.reasoninglab.com/wp-content/uploads/2013/10/TvG-Using-argument-mapping-to-improve-critical-thinking-skills-2015.pdf)）。所以有"先猜关系"。
+- 论证图能提升批判性思维，收益来自读者自己动手画图，看现成的图得不到（[van Gelder](https://www.reasoninglab.com/wp-content/uploads/2013/10/TvG-Using-argument-mapping-to-improve-critical-thinking-skills-2015.pdf)）。所以有"先猜关系"。
 - 前置问题对它指向的内容有效（[prequestion 元分析](https://link.springer.com/article/10.3758/s13423-023-02353-8)），提取练习是证据最强的学习方法（[Dunlosky 等 2013](https://doi.org/10.1177/1529100612453266)）。所以"读时注意"写得具体，每部分有回想题。
 - 自己解释工作示例比读解释有效（[self-explanation](https://link.aps.org/doi/10.1103/PhysRevPhysEducRes.18.010136)）。所以公式解释默认折叠。
 

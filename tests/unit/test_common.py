@@ -37,36 +37,36 @@ def test_numbers():
 
 def test_merge(tmp_path):
     a,b = tmp_path/'a.json',tmp_path/'b.json'
-    a.write_text(json.dumps({'meta':{},'paras':{'P1':{'tier':'skim'}}}))
-    b.write_text(json.dumps({'paras':{'P2':{'tier':'close'}}}))
+    a.write_text(json.dumps({'meta':{},'paras':{'P1':{'tier':'skim'}}}), encoding='utf-8')
+    b.write_text(json.dumps({'paras':{'P2':{'tier':'close'}}}), encoding='utf-8')
     assert set(c.load_guide([a,b])['paras']) == {'P1','P2'}
     assert c.load_guide([a,a])['meta'] == {}
-    b.write_text(json.dumps({'paras':{'P1':{'tier':'close'}}}))
+    b.write_text(json.dumps({'paras':{'P1':{'tier':'close'}}}), encoding='utf-8')
     with pytest.raises(SystemExit, match='different content'): c.load_guide([a,b])
 
 @pytest.mark.parametrize('data,message', [('[]','top level'), ('{"paras": []}', 'must be an object'), ('{bad','JSON error')])
 def test_bad_json(tmp_path,data,message):
-    p=tmp_path/'bad.json'; p.write_text(data)
+    p=tmp_path/'bad.json'; p.write_text(data, encoding='utf-8')
     with pytest.raises(SystemExit,match=message): c.load_guide([p])
 
 def test_meta_conflict(tmp_path):
     a,b=tmp_path/'a.json',tmp_path/'b.json'
-    a.write_text('{"title":"a"}'); b.write_text('{"title":"b"}')
+    a.write_text('{"title":"a"}', encoding='utf-8'); b.write_text('{"title":"b"}', encoding='utf-8')
     with pytest.raises(SystemExit,match='field title'): c.load_guide([a,b])
 
 def test_elements(tmp_path,monkeypatch):
     assert len(c.load_elements()) == 19
     (tmp_path/'references').mkdir()
-    (tmp_path/'references/elements.md').write_text('### good | Good | 好 | 2 | facts\nDescription\n### malformed\nIgnored\n')
+    (tmp_path/'references/elements.md').write_text('### good | Good | 好 | 2 | facts\nDescription\n### malformed\nIgnored\n', encoding='utf-8')
     monkeypatch.setattr(c,'SKILL_DIR',tmp_path)
     assert c.load_elements() == {'good':{'en':'Good','zh':'好','level':2,'family':'facts','desc':'Description'}}
     assert c.skill_version() == '?'
-    (tmp_path/'CHANGELOG.md').write_text('## 0.3.0\n')
+    (tmp_path/'CHANGELOG.md').write_text('## 0.3.0\n', encoding='utf-8')
     assert c.skill_version() == '0.3.0'
 
 def test_elements_malformed_level_skipped(tmp_path,monkeypatch):
     (tmp_path/'references').mkdir()
-    (tmp_path/'references/elements.md').write_text('### bad | Bad | 错 | nope | facts\nIgnored\n### good | Good | 好 | 2 | facts\nKept\n')
+    (tmp_path/'references/elements.md').write_text('### bad | Bad | 错 | nope | facts\nIgnored\n### good | Good | 好 | 2 | facts\nKept\n', encoding='utf-8')
     monkeypatch.setattr(c,'SKILL_DIR',tmp_path)
     assert set(c.load_elements()) == {'good'}
 

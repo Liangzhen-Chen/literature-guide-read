@@ -19,7 +19,7 @@ def test_security_payload_remains_literal(clean, tmp_path):
     out = tmp_path/'security.html'
     args = SimpleNamespace(density=None,force=True,sources=None,no_page_images=True,pdf=None,lang=None)
     r.render(doc, guide, out, args)
-    d = json.loads(r.DATA_RE.search(out.read_text()).group(1))
+    d = json.loads(r.DATA_RE.search(out.read_text(encoding='utf-8')).group(1))
     assert d['items']['P1']['text'].endswith(attack)
-    assert out.read_text().count('</script>') == 2
-    assert 'innerHTML' not in (r.SKILL_DIR/'assets/template.html').read_text()
+    assert out.read_text(encoding='utf-8').count('</script>') == 2
+    assert 'innerHTML' not in (r.SKILL_DIR/'assets/template.html').read_text(encoding='utf-8')

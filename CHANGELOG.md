@@ -2,6 +2,18 @@
 
 Add an entry at the top for every change to the rules or the workflow: version, date, what changed, and what prompted it (which reading, what went wrong).
 
+## 0.6.1 (2026-10-26)
+
+Pre-release fixes found while auditing the skill before publishing it.
+
+- render.py: the page no longer embeds the absolute path of the PDF (it showed the local folder structure to anyone the page was shared with). Pass `--pdf` when re-rendering a page recovered with `--dump`, to get page images again.
+- All scripts print UTF-8 whatever the console encoding; segment.py no longer stops with UnicodeEncodeError on an English Windows console (cp1252).
+- assets/katex/LICENSE holds the KaTeX MIT licence text, and inlined KaTeX carries a one-line version and licence comment.
+- SKILL.md description is under 200 characters and says when to use the skill (a reading plus a request for a guide, close reading or study help).
+- requirements.txt lists Pillow; the README install line adds beautifulsoup4, needed only for open versions (arXiv). THIRD_PARTY_NOTICES.md covers MinerU and the test data, and no longer mentions files that are not in the repository.
+- README: check.py's errors and warnings are listed as they are; the MinerU measurements say the reading set is not distributed.
+- Tests: file reads and writes name their encoding; the MinerU fixture text is from a CC BY paper (Ioannidis 2005).
+
 ## 0.6.0 (2026-10-15)
 
 Prompted by Kőszegi and Rabin (2006), a JSTOR scan read with the brief "core claims only, bilingual": notes full of $c_1$, $p_{\max}$ and $\mu(x) = \eta x$ written as plain text looked wrong, and the MinerU converter mis-handled three things on the scan.

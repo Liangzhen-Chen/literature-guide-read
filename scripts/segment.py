@@ -22,7 +22,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import clean_text, is_cjk  # noqa: E402
+from common import clean_text, is_cjk, use_utf8  # noqa: E402
 
 CAPTION_RE = re.compile(r"^(fig(ure)?s?\.?|table|tab\.|exhibit|chart|plate|图|表)\s*[\dIVX]+(\.\d+)?\s*([.:：|]|$)", re.I)
 NUM_HEAD_RE = re.compile(r"^(\d+(\.\d+){0,3}|[IVXLC]+|[A-H])[.)]?\s+(\S)")
@@ -1069,6 +1069,7 @@ def write_outputs(doc, out, chunk_chars):
 
 
 def main():
+    use_utf8()
     ap = argparse.ArgumentParser(description="把读物切成编号段落")
     ap.add_argument("input")
     ap.add_argument("--out", required=True, help="工作目录")

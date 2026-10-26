@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check import report, run_checks  # noqa: E402
-from common import inline_math_spans, SKILL_DIR, as_lang, load_elements, load_guide, load_json, skill_version  # noqa: E402
+from common import inline_math_spans, SKILL_DIR, as_lang, load_elements, load_guide, load_json, skill_version, use_utf8  # noqa: E402
 
 DATA_RE = re.compile(r'<script id="guide-data" type="application/json">(.*?)</script>', re.S)
 NUMBER = r"(?P<{0}>\d+|(?=[IVXLC])M{{0,3}}(?:CM|CD|D?C{{0,3}})(?:XC|XL|L?X{{0,3}})(?:IX|IV|V?I{{0,3}}))"
@@ -208,7 +208,7 @@ def build_data(doc, guide, comp, sources, imgs, lang, crops=None):
     return {
         "v": 2, "skill_version": skill_version(), "generated": datetime.date.today().isoformat(),
         "langs": langs, "default_lang": lang if lang in langs else langs[0],
-        "doc": {k: doc.get(k) for k in ("source", "source_path", "mode", "page_count", "title_guess")},
+        "doc": {k: doc.get(k) for k in ("source", "mode", "page_count", "title_guess")},
         "meta": meta, "thesis": as_lang(guide.get("thesis"), primary), "overview": as_lang(guide.get("overview"), primary),
         "parts": parts, "order": order, "items": items, "page_labels": doc.get("page_labels") or {},
         "guide": entries, "figs": figs, "table_pages": table_pages, "page_images": imgs,
@@ -258,7 +258,8 @@ def katex_bundle():
     css = re.sub(r"url\((fonts/[^)]+\.woff2)\)", font, css)
     css = re.sub(r",url\(fonts/[^)]+\.(?:woff|ttf)\) format\(\"(?:woff|truetype)\"\)", "", css)
     js = (base / "katex.min.js").read_text(encoding="utf-8").replace("</script", "<\\/script")
-    return f"<style>{css}</style>\n<script>{js}</script>"
+    note = "KaTeX v" + (base / "VERSION").read_text(encoding="utf-8").strip() + " | MIT License | https://katex.org"
+    return f"<style>/* {note} */{css}</style>\n<script>/* {note} */{js}</script>"
 
 
 def render(doc, guide, out_path, args, work_dir=None):
@@ -328,6 +329,7 @@ def dump(html_path, out_dir):
 
 
 def main():
+    use_utf8()
     ap = argparse.ArgumentParser(description="Build the reading page")
     ap.add_argument("files", nargs="*")
     ap.add_argument("--out", required=True)

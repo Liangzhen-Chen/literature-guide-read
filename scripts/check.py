@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (DENSITY, DENSITY_ALIASES, LANGS, TIER_ALIASES, TIERS, as_lang, compress,  # noqa: E402
-                    find_anchor, fmt_num, load_elements, load_guide, load_json, numbers_in,
+                    find_anchor, fmt_num, use_utf8, load_elements, load_guide, load_json, numbers_in,
                     parse_range, pnum, source_numbers, suggest_anchor)
 
 DESCRIPTIVE = {
@@ -382,6 +382,7 @@ def report(errors, warns, computed):
 
 
 def main():
+    use_utf8()
     ap = argparse.ArgumentParser(description="Validate guide data")
     ap.add_argument("paragraphs")
     ap.add_argument("guide", nargs="+")

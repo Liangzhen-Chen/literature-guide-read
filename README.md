@@ -37,7 +37,7 @@ pip install -r ~/.codex/skills/reading-guide/requirements.txt
 
 ```bash
 npx skills@latest add Liangzhen-Chen/literature-guide-read
-pip install pdfplumber
+pip install pdfplumber beautifulsoup4   # beautifulsoup4 is only needed for open versions (arXiv)
 ```
 
 The installer asks which agents to install to; `-g` installs for your user instead of the current project.
@@ -98,7 +98,7 @@ While you read, ask the agent about any paragraph ("what is P23 saying?"), corre
 1. `segment.py` splits the PDF into fixed paragraph ids (P1, P2, …), recognises headings, captions and footnotes, removes running heads, records printed page numbers, links footnotes to the paragraphs that cite them, and crops every display equation and table region. Two-column layouts, scans (OCR) and Chinese headings and footnotes are handled.
 2. `sources.py` (optional) fetches the arXiv HTML or TeX version of a paper for clean figures, tables and formulas.
 3. The agent reads every paragraph and writes the guide data: parts and claims, the relations between parts, a tier and a note or "read for" line per paragraph, elements anchored to verbatim spans, formula transcriptions checked against the crops, recall questions.
-4. `check.py` refuses anything it cannot verify: every paragraph has an entry, parts cover the text in order, anchors exist verbatim, every number in the guide appears in the source, LaTeX braces balance, close reads stay within the density cap, notes restate rather than describe.
+4. `check.py` reports an error, and `render.py` writes no page, when a paragraph has no entry, parts do not cover the text in order, an anchor is not verbatim in the paragraph, a number in a note is not in the source, or LaTeX braces are unbalanced. It only warns about numbers inside a formula's `tex`, a close-read share above the density cap, and notes that describe instead of restate.
 5. `render.py` builds the single-file page.
 
 The rules the agent follows are in `references/method.md`, `elements.md`, `genres.md` and `schema.md`; they are plain text and meant to be edited as you learn what your readings need.
@@ -112,7 +112,7 @@ The rules the agent follows are in `references/method.md`, `elements.md`, `genre
 | Display formulas | located by heuristics, cropped | located by the layout model, cropped; transcribed to LaTeX when the formula model is installed |
 | Speed on a CPU | seconds per paper | 1 to 3 minutes per paper |
 
-Measured on 11 readings (seven real publications, scans and a textbook chapter): on independently reviewed pages MinerU ties or beats the default on 7 of 8, removes all 30 running heads the default used to turn into headings on a JSTOR scan, and turns about 800 loose table rows into 111 tables. On four formula-heavy papers (machine learning, econometrics, quantum computing, pure mathematics) MinerU found about twice as many display equations as the default. Without MinerU's 577 MB formula model, formulas come out as crops that the agent transcribes; that run is 40% to 75% faster.
+Measured on a private set of 11 readings (seven real publications, scans and a textbook chapter; the set is not distributed with this repository, so the figures cannot be re-run from it): on manually reviewed pages MinerU ties or beats the default on 7 of 8, removes all 30 running heads the default used to turn into headings on a JSTOR scan, and turns about 800 loose table rows into 111 tables. On four formula-heavy papers (machine learning, econometrics, quantum computing, pure mathematics) MinerU found about twice as many display equations as the default. Without MinerU's 577 MB formula model, formulas come out as crops that the agent transcribes; that run is 40% to 75% faster.
 
 ## Why it reads this way
 

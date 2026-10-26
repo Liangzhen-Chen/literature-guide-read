@@ -82,18 +82,18 @@ def test_outer_caption_and_svg_object(tmp_path, monkeypatch):
     import json
     monkeypatch.setattr(s, 'get', lambda url: (b'<svg/>', url, 'image/svg+xml'))
     p = tmp_path/'open.html'
-    p.write_text('<figure><figure><figcaption>(a) Child</figcaption><object type="image/svg+xml" data="x.svg"></object></figure><figcaption>Figure 3. Parent</figcaption></figure>')
+    p.write_text('<figure><figure><figcaption>(a) Child</figcaption><object type="image/svg+xml" data="x.svg"></object></figure><figcaption>Figure 3. Parent</figcaption></figure>', encoding='utf-8')
     s.parse_html(p, tmp_path, 'https://arxiv.org/html/2401.04088', None)
-    f = json.loads((tmp_path/'sources.json').read_text())['figures'][0]
+    f = json.loads((tmp_path/'sources.json').read_text(encoding='utf-8'))['figures'][0]
     assert f['num'] == 3
     assert f['img'].startswith('data:image/svg+xml;base64,')
 
 
 def test_tex_bracket_display_equations(tmp_path):
     import json
-    (tmp_path/'main.tex').write_text(r'\documentclass{article}\[x=1\]\begin{equation}y=2\end{equation}\[z=3\]')
+    (tmp_path/'main.tex').write_text(r'\documentclass{article}\[x=1\]\begin{equation}y=2\end{equation}\[z=3\]', encoding='utf-8')
     s.parse_tex(tmp_path, tmp_path, None)
-    assert json.loads((tmp_path/'sources.json').read_text())['equations'] == [{'tex':'x=1'}, {'tex':'y=2'}, {'tex':'z=3'}]
+    assert json.loads((tmp_path/'sources.json').read_text(encoding='utf-8'))['equations'] == [{'tex':'x=1'}, {'tex':'y=2'}, {'tex':'z=3'}]
 
 
 def test_detect_rotated_arxiv_margin(tmp_path, monkeypatch, capsys):
@@ -109,16 +109,16 @@ def test_detect_rotated_arxiv_margin(tmp_path, monkeypatch, capsys):
         def __exit__(self, *args): pass
     monkeypatch.setattr(pdfplumber, 'open', lambda p: PDF())
     paras = tmp_path/'paragraphs.json'
-    paras.write_text(json.dumps({'items': [], 'source_path': str(pdfpath)}))
+    paras.write_text(json.dumps({'items': [], 'source_path': str(pdfpath)}), encoding='utf-8')
     s.detect(paras)
     assert json.loads(capsys.readouterr().out)['arxiv'] == ['2401.04088']
 
 
 def test_tex_wrapped_table_preserves_caption_numbering(tmp_path):
     import json
-    (tmp_path/'main.tex').write_text(r'\documentclass{article}\begin{wrapfigure}{r}{3cm}\begin{tabular}{cc}A & B\end{tabular}\captionof{table}{Architecture}\end{wrapfigure}\begin{table}\caption{Results}\end{table}')
+    (tmp_path/'main.tex').write_text(r'\documentclass{article}\begin{wrapfigure}{r}{3cm}\begin{tabular}{cc}A & B\end{tabular}\captionof{table}{Architecture}\end{wrapfigure}\begin{table}\caption{Results}\end{table}', encoding='utf-8')
     s.parse_tex(tmp_path, tmp_path, None)
-    figs = json.loads((tmp_path/'sources.json').read_text())['figures']
+    figs = json.loads((tmp_path/'sources.json').read_text(encoding='utf-8'))['figures']
     assert [(f['kind'], f['num'], f['caption']) for f in figs] == [('table',1,'Architecture'),('table',2,'Results')]
     assert figs[0]['rows'] == [['A','B']]
 
@@ -127,24 +127,24 @@ def test_tex_wrapped_table_preserves_caption_numbering(tmp_path):
 def test_compare_joined_words_are_not_missing_prose(tmp_path, ocr, html):
     import json
     text = 'The researchers explain that this model is a ' + ocr + ' model with several layers and carefully evaluated experimental results.'
-    p=tmp_path/'p.json';p.write_text(json.dumps({'items':[{'id':'P1','type':'para','text':text}]}))
+    p=tmp_path/'p.json';p.write_text(json.dumps({'items':[{'id':'P1','type':'para','text':text}]}), encoding='utf-8')
     assert s.compare_text(p,[text.replace(ocr,html)]) == []
 
 
 def test_html_comparison_excludes_note_and_math_alternatives(tmp_path):
     import json
     text = 'The researchers release this model under the Apache license for academic and commercial usage and set K = 2 for every token.'
-    p=tmp_path/'p.json';p.write_text(json.dumps({'items':[{'id':'P1','type':'para','text':text}]}))
+    p=tmp_path/'p.json';p.write_text(json.dumps({'items':[{'id':'P1','type':'para','text':text}]}), encoding='utf-8')
     html=text.replace('license','license<span class="ltx_note">1 https://example.org/the-footnote</span>').replace('K = 2','<math><semantics><mrow><mi>K</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">K = 2</annotation></semantics></math>')
-    h=tmp_path/'open.html';h.write_text('<p>'+html+'</p>')
+    h=tmp_path/'open.html';h.write_text('<p>'+html+'</p>', encoding='utf-8')
     s.parse_html(h,tmp_path,None,p)
-    assert json.loads((tmp_path/'sources.json').read_text())['text_check'] == []
+    assert json.loads((tmp_path/'sources.json').read_text(encoding='utf-8'))['text_check'] == []
 
 
 def test_normalized_html_still_reports_real_removed_phrase(tmp_path):
     import json
     text = 'The researchers carefully evaluated this model with several experimental methods before publishing their results in the scientific journal.'
-    p=tmp_path/'p.json';p.write_text(json.dumps({'items':[{'id':'P1','type':'para','text':text}]}))
-    h=tmp_path/'open.html';h.write_text('<p>'+text.replace('experimental methods','experimental independent validation methods')+'<span class="ltx_note">an unrelated footnote</span></p>')
+    p=tmp_path/'p.json';p.write_text(json.dumps({'items':[{'id':'P1','type':'para','text':text}]}), encoding='utf-8')
+    h=tmp_path/'open.html';h.write_text('<p>'+text.replace('experimental methods','experimental independent validation methods')+'<span class="ltx_note">an unrelated footnote</span></p>', encoding='utf-8')
     s.parse_html(h,tmp_path,None,p)
-    assert json.loads((tmp_path/'sources.json').read_text())['text_check'][0]['missing'] == ['independent validation']
+    assert json.loads((tmp_path/'sources.json').read_text(encoding='utf-8'))['text_check'][0]['missing'] == ['independent validation']
