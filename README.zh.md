@@ -4,6 +4,8 @@
 
 **把一篇课程读物变成一张教你怎么读它的页面。** 给 AI agent 一份 PDF，得到一个离线 HTML：论证画成图，每一段分成精读、略读、可跳过，关键句在原文上标出，公式和表格从 PDF 上裁下来并加解释，每部分末尾有回想题。笔记可以是中文或英文。
 
+直接打开做好的页面：[Ioannidis（2005），中英双语笔记](https://liangzhen-chen.github.io/literature-guide-read/)，或 [DPO 论文（2023），中文笔记](https://liangzhen-chen.github.io/literature-guide-read/dpo.html)。
+
 ![页面顶部：标题、结论和思维导图](assets/readme/page-top.zh.png)
 
 ![DPO 论文的一个精读段，中文笔记：读时注意、和正文同字体的行内公式、KaTeX 渲染的行间公式，以及折叠的原式裁图和读后小结](assets/readme/page-formula.png)

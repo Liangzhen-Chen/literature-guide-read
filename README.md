@@ -4,6 +4,8 @@ English | [中文](README.zh.md)
 
 **Turn a course reading into a page that teaches you how to read it.** Give an AI agent a PDF; get back one offline HTML page with the argument mapped, every paragraph sorted into close read / skim / skip, the key sentences highlighted in the original, formulas and tables cropped from the PDF and explained, and recall questions at the end of each part. Notes in English or Chinese.
 
+Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://liangzhen-chen.github.io/literature-guide-read/), or [the DPO paper (2023), notes in Chinese](https://liangzhen-chen.github.io/literature-guide-read/dpo.html).
+
 ![The top of a reading page: title, conclusion and the mind map](assets/readme/page-top.png)
 
 ![A close-read paragraph of the DPO paper with Chinese notes: the read-for prompt, inline maths set in the text, the display formula in KaTeX, and the folded PDF crop and summary](assets/readme/page-formula.png)
