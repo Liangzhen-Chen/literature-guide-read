@@ -14,7 +14,7 @@ Builds a reading page for one reading (a PDF or plain text). The page helps the 
 - a sidebar with what each paragraph does, a list of terms and a list of evidence;
 - figures and tables shown on the paragraph that first cites them, with the whole PDF page one click away.
 
-Read `references/method.md` and `references/elements.md` before writing any guide data.
+Read `references/method.md`, `references/elements.md` and `references/schema.md` before writing any guide data.
 
 `SKILL_DIR` is the folder holding this file. `WORK` is any writable folder, such as `./guide-<slug>/`. `OUT` is where the user collects files: `/mnt/user-data/outputs/` on claude.ai, otherwise `WORK`. Requirements are in `requirements.txt`: Python 3.9+ and pdfplumber; scanned PDFs also need tesseract (eng, chi_sim for Chinese) and poppler; open versions need network access and beautifulsoup4.
 

@@ -201,6 +201,11 @@ def build_data(doc, guide, comp, sources, imgs, lang, crops=None):
                or any(e.get("tex") for g in entries.values() for e in g["els"])
                or any(q.get("tex") for q in (sources or {}).get("equations", [])))
     meta = dict(guide.get("meta") or {})
+    default_lang = lang if lang in langs else langs[0]
+    for f in ("title", "author", "source"):  # a string, or {"zh": ..., "en": ...}; the page shows the default language
+        if isinstance(meta.get(f), dict):
+            v = as_lang(meta[f], primary)
+            meta[f] = v.get(default_lang) or v.get(primary) or next(iter(v.values()), "")
     for f in ("genre", "purpose", "familiarity"):
         if f in meta:
             meta[f] = as_lang(meta[f], primary)
@@ -276,7 +281,7 @@ def render(doc, guide, out_path, args, work_dir=None):
     imgs = page_images(pdf, {p for p in pages if p}) if pages else {}
     data = build_data(doc, guide, comp, sources, imgs, args.lang, crops=crop_images(doc, work_dir))
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
-    title = (guide.get("meta") or {}).get("title") or doc.get("title_guess") or doc.get("source") or "Reading guide"
+    title = data["meta"].get("title") or doc.get("title_guess") or doc.get("source") or "Reading guide"
     tpl = (SKILL_DIR / "assets" / "template.html").read_text(encoding="utf-8")
     # fill the KaTeX slot first: once the JSON payload is in, its text must never be scanned for placeholders
     page = tpl.replace("__KATEX__", katex_bundle() if data["has_tex"] else "").replace("__TITLE__", html.escape(title))

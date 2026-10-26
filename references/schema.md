@@ -2,7 +2,7 @@
 
 Write the guide into the working folder as `guide.json` (meta, thesis, overview, parts) plus `paras_01.json`, `paras_02.json`, ... with about 40 paragraph entries each under a single key `paras`. check.py and render.py merge them.
 
-Text fields take either a plain string, meaning the first language in `meta.notes_lang`, or an object such as `{"zh": "...", "en": "..."}` when the notes are bilingual.
+Text fields take either a plain string, meaning the first language in `meta.notes_lang`, or an object such as `{"zh": "...", "en": "..."}` when the notes are bilingual. `meta.title`, `meta.author` and `meta.source` take the same two forms; the page shows the default language.
 
 ## guide.json
 
@@ -105,6 +105,7 @@ Field rules:
 - `els[].t` comes from elements.md. Types of level 2 or 3 need `a`, copied verbatim from the paragraph; check.py reports the closest sentence when an anchor is not found.
 - `els[].s` is the argument-map label; `els[].x` the longer explanation; `els[].term` the term a definition defines.
 - `formula` elements: `tex` is the LaTeX (copied from the open version, from MinerU, or transcribed by you from `WORK/crops/<id>.png`); `syms` lists every symbol; `x` says the equation in words; `why` is optional. A formula element without `tex` gets a warning.
+- Fragments (ids F1, F2, ...: displayed equations, table bodies) get no entry of their own. The page shows a fragment under the paragraph it follows, which is usually the sentence that introduces it. Write the `formula` element in that paragraph and anchor `a` to the introducing sentence, since the fragment text itself is not in the paragraph.
 - Footnote entries use the footnote's id (N1, N2, ...) from paragraphs.json and are optional.
 - Numbers in any text field must appear in the source text (method.md section 6).
 - Any text field may hold inline LaTeX between single dollar signs (`"note": "Two goods: $c_1 \\in \\{0,1\\}$ ..."`); the page renders it. A dollar sign followed by a digit is money, not math. In JSON write every LaTeX backslash twice (`"\\beta"`): with one backslash, `\b`, `\f`, `\t`, `\n` and `\r` turn into control characters, and check.py reports them.
