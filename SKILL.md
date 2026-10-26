@@ -7,11 +7,12 @@ description: Guided reading page for a course PDF, paper or textbook chapter (En
 
 Builds a reading page for one reading (a PDF or plain text). The page helps the reader read the original and gives a summary of each paragraph, so a reader short on time still gets the argument:
 
-- a title, a source line, a one-sentence conclusion, and a mind map under it that doubles as the contents: one row per part, click to open its reasoning steps, dashed lines for qualifications;
+- a title, a source line, a one-sentence conclusion, and a mind map under it that stops at the parts (dashed lines for qualifications);
+- a left margin that follows the reader: the current part's claim, its reasoning steps (click to jump) and the terms first defined there, with a Terms button for the full index;
 - the reader's questions and the "guess the relations" switch below the conclusion;
-- the original text in order: close-read paragraphs with a "read for" prompt and a folded after-reading summary, skim paragraphs led by a restatement with the original folded, skip paragraphs on one line;
+- the original text in order, in a serif, while the guide's own text is in a smaller, lighter sans: close-read paragraphs with a "read for" prompt and a folded after-reading summary, skim paragraphs led by a restatement with the original folded, skip paragraphs on one line;
 - one highlight style for definitions and key claims, simple inline formulas set as text, complex ones in KaTeX with the PDF crop, explanation and symbol table folded under them;
-- figures and tables on the paragraph that first cites them, recall questions at the end of each part, a full-text or summaries-only switch, terms on hover.
+- figures and tables on the paragraph that first cites them, recall questions at the end of each part, a full-text or summaries-only switch, term definitions on hover.
 
 Read `references/method.md`, `references/elements.md` and `references/schema.md` before writing any guide data.
 
