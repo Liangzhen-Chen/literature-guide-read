@@ -280,3 +280,24 @@ def test_inline_math_subscripts_are_notation_not_numbers(clean):
     g['paras']['P2']['note'] = 'Two goods: $c_1 = 9$.'
     errors, _, _ = run_checks(doc, g)
     assert [e for e in errors if 'P2' in e and '9' in e]
+
+
+def test_close_without_note_warns(clean):
+    doc,g=clean
+    del g['paras']['P1']['note']
+    errors,warnings,_=run_checks(doc,g)
+    assert errors==[] and any('P1' in w and "close read has no 'note'" in w for w in warnings), warnings
+
+
+def test_close_note_number_not_in_source_is_error(clean):
+    doc,g=clean
+    g['paras']['P1']['note']='99 buyers chose the smaller reward.'
+    errors,_,_=run_checks(doc,g)
+    assert any('P1 note' in e and 'numbers not in the source' in e for e in errors), errors
+
+
+def test_close_note_descriptive_warns(clean):
+    doc,g=clean
+    g['paras']['P1']['note']='This paragraph explains choices.'
+    _,warnings,_=run_checks(doc,g)
+    assert any('P1 note' in w and 'instead of restating' in w for w in warnings), warnings

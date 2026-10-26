@@ -204,3 +204,11 @@ def test_page_has_no_source_path(clean,tmp_path):
     r.render(doc,g,out,args)
     data=json.loads(r.DATA_RE.search(out.read_text(encoding='utf-8')).group(1))
     assert 'source_path' not in data['doc'] and 'someone' not in out.read_text(encoding='utf-8')
+
+
+def test_build_close_para_carries_note(clean):
+    doc,g=clean
+    _,_,comp=run_checks(doc,g)
+    d=r.build_data(doc,g,comp,None,{},None)
+    e=d['guide']['P1'] if 'guide' in d else d['entries']['P1']
+    assert e['tier']=='close' and e['read']=={'en':'Track the choices.'} and e['note']=={'en':'Buyers choose the smaller reward.'}

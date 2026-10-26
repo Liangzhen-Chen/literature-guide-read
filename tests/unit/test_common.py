@@ -76,3 +76,36 @@ def test_inline_math_spans_versus_money():
     assert [m.group(1) for m in inline_math_spans('between $1 + \\eta$ and $1 + \\eta\\lambda$, except at $0$, and $1 - p_M$')] == ['1 + \\eta', '1 + \\eta\\lambda', '0', '1 - p_M']
     assert inline_math_spans('a salary of $50,000 against $60,000 expected') == []
     assert inline_math_spans('paid $5 - $3 more') == []
+
+
+SPLIT_DOC = ['Most scientifi c fi ndings in this fi eld are false.',
+             'A signifi cant effect; the confl icts of interest, of fi ve authors.',
+             'Wi fi network and fl oz are untouched, off ice stays.']
+
+
+def test_split_ligatures_rejoined():
+    out = c.fix_split_ligatures(SPLIT_DOC)
+    assert out[0] == 'Most scientific findings in this field are false.'
+    assert out[1] == 'A significant effect; the conflicts of interest, of five authors.'
+
+
+def test_split_ligatures_normal_boundaries_kept():
+    out = c.fix_split_ligatures(SPLIT_DOC)[2]
+    assert out == SPLIT_DOC[2]
+    assert c.fix_split_ligatures(SPLIT_DOC + ['The ice is thick.'])[2] == SPLIT_DOC[2]
+
+
+def test_split_ligatures_ff_needs_intact_word():
+    base = SPLIT_DOC[:2]
+    assert 'diff erent' in c.fix_split_ligatures(base + ['diff erent here'])[2]
+    assert c.fix_split_ligatures(base + ['diff erent here, a different one'])[2] == 'different here, a different one'
+
+
+def test_split_ligatures_no_sign_no_change():
+    texts = ['If fine weather holds, of flow and off ice, the staff only.', 'One scientifi c case.']
+    assert c.fix_split_ligatures(texts) == texts
+
+
+def test_split_ligatures_single_letter_tail():
+    texts = SPLIT_DOC[:2] + ['A scientifi c claim, vitamin c and c.']
+    assert 'scientific claim' in c.fix_split_ligatures(texts)[2]

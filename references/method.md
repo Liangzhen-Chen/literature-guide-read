@@ -1,6 +1,6 @@
 # Method
 
-The page helps a reader read the original; the notes support that reading and do not replace it. It serves three uses:
+The page helps a reader read the original and gives an after-reading summary of every paragraph, so a reader without time still gets the whole argument. It serves three uses:
 
 1. Short on time: the argument map at the top shows the whole argument on one screen.
 2. Reading the text: the original runs in order. Close-read paragraphs are open with a "read for" prompt; skim and skip paragraphs show a note first, with the original one click away.
@@ -49,7 +49,7 @@ The share of close reads is capped by `meta.density`: low 15%, medium 25%, high 
 
 ## 4 What to write for each tier
 
-- close, `read`: one line on what to watch for in the original, such as "How reversibility is stated, and how the offers trace each curve". Do not summarise; the reader is about to read it.
+- close, `read` and `note`. `read` is one line on what to watch for in the original, such as "How reversibility is stated, and how the offers trace each curve"; it must not give away the content, because the reader is about to read it. `note` is the after-reading summary: restate the paragraph under the same rules as a skim note (the claim or result, the specific numbers, the definition itself, the qualification). The page shows it below the original, folded, so the reader reads the original first. A close entry without `note` is a warning.
 - skim, `note`: restate the content: the claim or result, the specific numbers, the definition itself, the conclusion. A reader who skips the original must still know what it said and on what basis. Never describe what the paragraph does ("introduces", "discusses", "这段介绍了"). Length follows content: one sentence for a transition, three or four for a paragraph of data.
 - skip, `note` in one line, plus `why`.
 - every paragraph, `role`: what it does, in a few words ("Experiment 2 results"). The sidebar shows these.

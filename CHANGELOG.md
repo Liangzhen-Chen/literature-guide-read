@@ -2,6 +2,15 @@
 
 Add an entry at the top for every change to the rules or the workflow: version, date, what changed, and what prompted it (which reading, what went wrong).
 
+## 0.7.0 (2026-10-27)
+
+Close reads get an after-reading summary.
+
+- Close-read paragraphs now carry `note` next to `read`. `read` stays a one-line prompt with no spoilers; `note` restates the paragraph under the same rules as a skim note (the claim, the numbers, the qualification). It is meant to be shown below the original, folded, so the original is still read first and a reader who only has the page still gets the argument.
+- check.py: a close entry without `note` is a warning (old guides still pass); a close `note` gets the same checks as a skim note (numbers must be in the source text, warning for notes that describe instead of restate).
+- method.md, schema.md, SKILL.md describe the new field. render.py already passed `note` through for every tier; the template does not show it for close paragraphs yet.
+- segment.py: old PDFs whose text layer leaves a space after a ligature ("signifi cant", "fi eld", "confl icts") are rejoined before paragraphs.json is written, in both engines. It only acts when the document has at least 3 such splits, and leaves a split alone when the tail is a word used elsewhere in the text. Prompted by the Ioannidis (2005) sample, about 200 splits.
+
 ## 0.6.1 (2026-10-26)
 
 Pre-release fixes found while auditing the skill before publishing it.

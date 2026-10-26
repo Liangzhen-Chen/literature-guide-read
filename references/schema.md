@@ -65,6 +65,7 @@ Rules: `parts` cover P1 to the last paragraph in order; ranges are written `P3-P
       "tier": "close",
       "role": "Three core concepts",
       "read": "The exact wording of the three definitions, and the claim that the first two are manifestations of loss aversion.",
+      "note": "Three concepts are defined: the endowment effect (owners demand much more to give up an object than they would pay to acquire it), status quo bias and loss aversion; the first two are presented as manifestations of the third.",
       "els": [
         {"t": "def", "term": "endowment effect", "a": "people often demand much more to give up an object than they would be willing to pay to acquire it",
          "x": "Demanding much more to give up an object than one would pay to acquire it", "s": "Endowment effect"},
@@ -82,6 +83,7 @@ Rules: `parts` cover P1 to the last paragraph in order; ranges are written `P3-P
       "tier": "close",
       "role": "The estimating equation",
       "read": "What enters X, and that g is a probit link.",
+      "note": "The chance of trading is modelled as a probit function g of a constant and subject characteristics X, so experience can be tested with the other characteristics held fixed.",
       "els": [
         {"t": "formula", "a": "trade = g(α + β′X)", "tex": "\\mathrm{trade} = g(\\alpha + \\beta' X)",
          "syms": [{"s": "trade", "m": "1 if the subject traded"}, {"s": "X", "m": "subject characteristics: experience, income, age"}, {"s": "g", "m": "the probit link"}],
@@ -92,13 +94,14 @@ Rules: `parts` cover P1 to the last paragraph in order; ranges are written `P3-P
     },
     "P35": {"tier": "skip", "role": "Transition", "note": "Leads into the two wage questions.", "why": "the next two questions carry the data"},
     "N4": {"tier": "close", "role": "Footnote 3: scope", "read": "A scope condition that is easy to miss when citing the paper.",
+           "note": "Loss aversion is expected to mainly affect owners of goods bought for use, so ordinary trade is unaffected.",
            "els": [{"t": "limit", "a": "Loss aversion is expected to primarily affect owners of goods that had been bought for use", "s": "Note 3: ordinary trade unaffected"}]}
   }
 }
 ```
 
 Field rules:
-- `tier`: close, skim or skip. close needs `read`; skim needs `note`; skip needs `note` and `why`. Every entry needs `role`.
+- `tier`: close, skim or skip. close needs `read` and should have `note` (the after-reading summary, a restatement under the same rules as a skim note; missing is a warning); skim needs `note`; skip needs `note` and `why`. Every entry needs `role`.
 - `els[].t` comes from elements.md. Types of level 2 or 3 need `a`, copied verbatim from the paragraph; check.py reports the closest sentence when an anchor is not found.
 - `els[].s` is the argument-map label; `els[].x` the longer explanation; `els[].term` the term a definition defines.
 - `formula` elements: `tex` is the LaTeX (copied from the open version, from MinerU, or transcribed by you from `WORK/crops/<id>.png`); `syms` lists every symbol; `x` says the equation in words; `why` is optional. A formula element without `tex` gets a warning.

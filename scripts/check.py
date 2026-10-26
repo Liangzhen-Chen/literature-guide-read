@@ -257,6 +257,12 @@ def run_checks(doc, guide, density=None):
         if tier == "close":
             d = need(eid, g.get("read"), "read")
             longer(f"{eid} read", d, "read")
+            if g.get("note") is None or not any(as_lang(g.get("note"), primary).values()):
+                warns.append(f"{eid}: close read has no 'note' (the after-reading summary); add one so a reader who only has the page gets the argument (method.md section 4)")
+            else:
+                cn = need(eid, g.get("note"), "note")
+                nums_ok(f"{eid} note", cn, allowed)
+                style(f"{eid} note", cn)
         else:
             d = need(eid, g.get("note"), "note")
             if tier == "skim" and len(it["text"]) >= 600:

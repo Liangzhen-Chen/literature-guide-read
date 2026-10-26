@@ -5,10 +5,10 @@ description: Guided reading page for a course PDF, paper or textbook chapter (En
 
 # Reading guide
 
-Builds a reading page for one reading (a PDF or plain text). The page helps the reader read the original; it does not replace it:
+Builds a reading page for one reading (a PDF or plain text). The page helps the reader read the original and gives a summary of each paragraph, so a reader short on time still gets the argument:
 
 - a logic map at the top, for readers short on time: the conclusion, each part linked to it by a typed relation, and the reasoning steps inside each part;
-- the original text in order, with close-read paragraphs open under a one-line "read for" prompt;
+- the original text in order, with close-read paragraphs open under a one-line "read for" prompt and an after-reading summary folded below;
 - skim and skip paragraphs led by a note that restates them, with the original one click away;
 - definitions, claims, evidence, figures, formulas and qualifications highlighted inside the original;
 - a sidebar with what each paragraph does, a list of terms and a list of evidence;
@@ -43,7 +43,7 @@ In the chat reply, give the thesis in one sentence, the answers to the reader's 
 
 - Every paragraph has an entry; parts cover all paragraphs in order.
 - Skim notes restate the content, with its numbers, definitions and conclusion; they never just say what the paragraph does.
-- Close-read paragraphs get a "read for" line, not a summary.
+- Close-read paragraphs get a "read for" line (no spoilers) and a `note` after-reading summary that restates the paragraph; the page shows it folded below the original.
 - Anchors are verbatim. Every number in the guide appears in the source.
 - Keep close reads within `meta.density` (low, medium, high: 15%, 25%, 40%).
 - Do not grade the authors or add information the text does not contain.

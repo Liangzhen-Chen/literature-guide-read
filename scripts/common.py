@@ -36,6 +36,48 @@ def clean_text(s):
     return re.sub(r" {2,}", " ", s).strip()
 
 
+# Old PDFs sometimes put a space after a ligature glyph: "signifi cant", "fi eld", "confl icts".
+# The fix runs over the whole document, never one string, so it can ask for proof first.
+_LIG_SPLIT = re.compile(r"(?<![A-Za-z])([A-Za-z]*(?:ffi|ffl|fi|fl|ff)) ([a-z]+)(?![A-Za-z])")
+_LIG_NOT_SPLIT = {("wi", "fi"), ("hi", "fi"), ("sci", "fi"), ("fl", "oz")}  # Wi Fi, hi fi, sci fi, fl oz
+
+
+def _is_ff(left):
+    return left.endswith("ff")
+
+
+def fix_split_ligatures(texts, min_hits=3):
+    """Rejoin 'fi'/'fl'/'ffi'/'ffl'/'ff' ligatures that a text layer split from the rest of the word.
+    texts: list of strings; returns a new list. Nothing changes unless the document shows the defect:
+    at least min_hits fi/fl-type candidates in total (a bare 'ff' like "staff only" does not count). A candidate is skipped when its right part also occurs
+    elsewhere as a word of its own (so "off ice" stays when "ice" is used), and an 'ff' candidate needs
+    the joined word to occur intact elsewhere ("diff erent" is rejoined only if "different" appears)."""
+    blob = "\n".join(texts)
+    cands = list(_LIG_SPLIT.finditer(blob))
+    if sum(not _is_ff(m.group(1)) for m in cands) < min_hits:
+        return list(texts)
+    rest, last = [], 0
+    for m in cands:
+        rest.append(blob[last:m.start()])
+        last = m.end()
+    rest.append(blob[last:])
+    words = set(re.findall(r"[A-Za-z]+", "\n".join(rest)))
+
+    def join(m):
+        left, right = m.group(1), m.group(2)
+        if right in words and len(right) > 1:  # a lone letter such as 'c' is always somewhere in a paper
+            return m.group(0)
+        prev = re.findall(r"[A-Za-z]+", m.string[max(0, m.start() - 6):m.start()])
+        if (left.lower(), right) in _LIG_NOT_SPLIT or (prev and (prev[-1].lower(), left.lower()) in _LIG_NOT_SPLIT):
+            return m.group(0)
+        if _is_ff(left) and left + right not in words:
+            return m.group(0)
+        return left + right
+
+    # candidates inside a longer run are judged one by one, so a fixed list stays aligned with texts
+    return [_LIG_SPLIT.sub(join, t) for t in texts]
+
+
 def is_cjk(ch):
     return bool(ch) and ("\u3000" <= ch <= "\u9fff" or "\uf900" <= ch <= "\ufaff"
                          or "\uff00" <= ch <= "\uffef")

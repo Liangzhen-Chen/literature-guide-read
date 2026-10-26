@@ -22,7 +22,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import clean_text, is_cjk, use_utf8  # noqa: E402
+from common import clean_text, fix_split_ligatures, is_cjk, use_utf8  # noqa: E402
 
 CAPTION_RE = re.compile(r"^(fig(ure)?s?\.?|table|tab\.|exhibit|chart|plate|图|表)\s*[\dIVX]+(\.\d+)?\s*([.:：|]|$)", re.I)
 NUM_HEAD_RE = re.compile(r"^(\d+(\.\d+){0,3}|[IVXLC]+|[A-H])[.)]?\s+(\S)")
@@ -1033,6 +1033,9 @@ def page_tag(it, labels):
 
 
 def write_outputs(doc, out, chunk_chars):
+    its = [i for i in doc["items"] if isinstance(i.get("text"), str)]
+    for i, t in zip(its, fix_split_ligatures([i["text"] for i in its])):
+        i["text"] = t
     out.mkdir(parents=True, exist_ok=True)
     (out / "paragraphs.json").write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
     for old in out.glob("paragraphs_part*.txt"):
