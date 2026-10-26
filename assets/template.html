@@ -7,7 +7,7 @@
 <style>
 :root {
   --paper: #F7F8FA; --panel: #FFFFFF; --ink: #1E2330; --muted: #5E6778; --faint: #7C8494; --rule: #DCE0E7; --soft: #EEF1F5;
-  --accent: #2E4FB8; --hl: #E3E9FB; --accent2: #0E7A6D; --line: #9AA3B2;
+  --accent: #2E4FB8; --hl: rgba(46, 79, 184, 0.28); --hl-on: rgba(46, 79, 184, 0.62); --accent2: #0E7A6D; --line: #9AA3B2;
   --flash: #FFF2B8; --scrim: rgba(20, 24, 32, 0.72);
   --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Noto Sans CJK SC",
           "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
@@ -18,13 +18,13 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --paper: #171A21; --panel: #1E222A; --ink: #E4E7ED; --muted: #A0A8B6; --faint: #868E9C; --rule: #333A46; --soft: #252A33;
-    --accent: #9BB0FF; --hl: #2A3456; --accent2: #5FD0BF; --line: #6B7484;
+    --accent: #9BB0FF; --hl: rgba(155, 176, 255, 0.45); --hl-on: rgba(155, 176, 255, 0.8); --accent2: #5FD0BF; --line: #6B7484;
     --flash: #4A4220; --scrim: rgba(0, 0, 0, 0.8); color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --paper: #171A21; --panel: #1E222A; --ink: #E4E7ED; --muted: #A0A8B6; --faint: #868E9C; --rule: #333A46; --soft: #252A33;
-  --accent: #9BB0FF; --hl: #2A3456; --accent2: #5FD0BF; --line: #6B7484;
+  --accent: #9BB0FF; --hl: rgba(155, 176, 255, 0.45); --hl-on: rgba(155, 176, 255, 0.8); --accent2: #5FD0BF; --line: #6B7484;
   --flash: #4A4220; --scrim: rgba(0, 0, 0, 0.8); color-scheme: dark;
 }
 *, *::before, *::after { box-sizing: inherit; }
@@ -61,18 +61,20 @@ details > summary { cursor: pointer; }
 .mm-lines { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .mm-lines path { fill: none; stroke: var(--line); stroke-width: 1.5; }
 .mm-lines path.dash { stroke-dasharray: 5 4; }
-.mm-root { display: block; width: 100%; text-align: left; background: var(--panel); border: 1.5px solid var(--accent); border-radius: 8px; padding: 9px 12px; cursor: pointer; font-weight: 600; font-size: 14.5px; line-height: 1.5; }
-.mm-root:not(.full) .mm-rt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.mm-root { display: block; width: 100%; text-align: left; background: var(--panel); border: 1.5px solid var(--accent); border-radius: 8px; padding: 7px 12px; cursor: pointer; font-weight: 600; font-size: 14.5px; line-height: 1.5; }
+.mm-root .mm-rt { display: none; margin-top: 4px; font-weight: 400; }
+.mm-root.full .mm-rt { display: block; }
+.mm.list .mm-root { display: none; }
 .mm-row { display: flex; align-items: center; gap: 4px; }
 .mm-node { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; text-align: left; background: var(--panel); border: 1px solid var(--rule); border-radius: 7px; padding: 6px 10px; cursor: pointer; }
 .mm-node:hover, .mm-step:hover, .mm-root:hover { border-color: var(--muted); }
 .mm-node .mm-t { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.mm-node[aria-expanded]::after { content: ""; flex: none; width: 6px; height: 6px; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); transition: transform .15s; }
-.mm-node[aria-expanded="true"] { border-color: var(--accent); }
-.mm-node[aria-expanded="true"]::after { transform: rotate(45deg) translate(-2px, -2px); }
-.mm-jump { flex: 0 0 2.8em; text-align: left; background: none; border: 0; padding: 4px 2px; color: var(--muted); font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--rule); }
+.mm-tog { flex: none; width: 30px; align-self: stretch; display: flex; align-items: center; justify-content: center; background: var(--panel); border: 1px solid var(--rule); border-radius: 7px; cursor: pointer; padding: 0; }
+.mm-tog:hover { border-color: var(--muted); }
+.mm-tog::after { content: ""; width: 6px; height: 6px; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); transition: transform .15s; }
+.mm-tog[aria-expanded="true"] { border-color: var(--accent); }
+.mm-tog[aria-expanded="true"]::after { transform: rotate(45deg) translate(-2px, -2px); }
 .mm-step { display: block; width: 100%; text-align: left; background: none; border: 1px solid var(--rule); border-radius: 6px; padding: 5px 9px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
-.mm-step .sid { color: var(--muted); font-size: 12px; margin-right: 6px; }
 .mm-guess { position: absolute; left: 0; bottom: 0; }
 .mm.list .mm-guess { position: static; margin-top: 10px; }
 .mm.list .mm-lines { display: none; }
@@ -128,7 +130,7 @@ details > summary { cursor: pointer; }
 body.v-gist .t-close > .ow > summary, .t-close > .ow:not([open]) > summary { display: list-item; }
 .nd { margin-top: 12px; }
 .nd .note { margin-top: 4px; }
-body.v-gist .t-close > .readfor { display: none; }
+body.v-gist .t-close > .readfor, body.v-gist .ahead { display: none; }
 body.v-gist .para.t-close { display: flex; flex-direction: column; }
 body.v-gist .t-close > .nd { order: -1; margin: 0 0 4px; }
 .skipd > summary { list-style: none; color: var(--faint); }
@@ -136,7 +138,8 @@ body.v-gist .t-close > .nd { order: -1; margin: 0 0 4px; }
 .skipd > summary::after { content: ""; display: inline-block; width: 5px; height: 5px; margin-left: 8px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg) translateY(-2px); }
 .skipd[open] > summary::after { transform: rotate(45deg) translateY(-3px); }
 .skipd[open] .orig { color: var(--ink); }
-mark.hl { color: inherit; background: var(--hl); border-radius: 2px; padding: 0 1px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+mark.hl { color: inherit; background: none; text-decoration: underline 2px var(--hl); text-underline-offset: 0.3em; text-decoration-skip-ink: none; transition: text-decoration-color .15s; }
+mark.hl:hover { text-decoration-color: var(--hl-on); }
 .term { border-bottom: 1px dotted var(--accent2); cursor: help; position: relative; }
 .term:hover::after, .term:focus::after { content: attr(data-def); position: absolute; left: 0; top: 1.6em; z-index: 6; background: var(--panel); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 9px; font: 13.5px/1.5 var(--sans); min-width: 180px; max-width: 320px; white-space: normal; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
 .gap { font-size: 13px; color: var(--muted); margin: 4px 0; }
@@ -200,9 +203,9 @@ body.v-gist .crop, body.v-gist .figcard, body.v-gist .fx { display: none; }
   .skipd .pid { float: none; }
   .figcard { margin-left: 0; }
 }
-@media (prefers-reduced-motion: reduce) { .flash { animation: none; outline: 2px solid var(--accent); } .side, .mm-node::after { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .flash { animation: none; outline: 2px solid var(--accent); } .side, .mm-tog::after, mark.hl { transition: none; } }
 @media print {
-  .toolbar, .side, .langbtn, .pagebtn, .mm-guess, .mm-jump, .lookup, #progress { display: none !important; }
+  .toolbar, .side, .langbtn, .pagebtn, .mm-guess, .mm-tog, .lookup, #progress { display: none !important; }
   .layout { display: block; border: 0; } .reader { max-width: none; }
   .para { break-inside: avoid; } body { background: #fff; }
 }
@@ -251,7 +254,7 @@ __KATEX__
       fromPdf: "PDF 原文", check: "核对原式", explain: "解释", fwhy: "作用", recall: "回想", answer: "答案",
       guess: "先猜关系", reveal: "显示关系", questions: function (n) { return "你的 " + n + " 个问题"; },
       stats: function (n, m) { return n + " 段，精读 " + m + " 段"; }, lookup: "查阅", lookupTitle: "术语", toc: "目录",
-      map: "论证结构", parts: "目录", root: "结论", partN: function (n) { return "第 " + n + " 部分"; }, jumpTo: function (p) { return "跳到 " + p; },
+      map: "论证结构", parts: "目录", root: "结论", partN: function (n) { return "第 " + n + " 部分"; }, jumpTo: function (p) { return "点击跳到 " + p; }, steps: function (t) { return "展开步骤：" + t; },
       noTerms: "这篇没有标出术语。" },
     en: { other: "中文", full: "Full text", gist: "Summaries only", readFor: "Read for", orig: "Original text", note: "Summary", fn: "Note",
       page: function (a, b) { return a === b ? "p. " + a : "pp. " + a + "–" + b; },
@@ -260,7 +263,7 @@ __KATEX__
       fromPdf: "From the PDF", check: "Check against the PDF", explain: "Explanation", fwhy: "Role", recall: "Recall", answer: "Answer",
       guess: "Guess the links", reveal: "Show the links", questions: function (n) { return n === 1 ? "Your question" : "Your " + n + " questions"; },
       stats: function (n, m) { return n + " paragraphs, " + m + " to read closely"; }, lookup: "Terms", lookupTitle: "Terms", toc: "Contents",
-      map: "Argument structure", parts: "Contents", root: "Conclusion", partN: function (n) { return "Part " + n; }, jumpTo: function (p) { return "Go to " + p; },
+      map: "Argument structure", parts: "Contents", root: "Conclusion", partN: function (n) { return "Part " + n; }, jumpTo: function (p) { return "Click to go to " + p; }, steps: function (t) { return "Show the steps: " + t; },
       noTerms: "No terms are marked in this reading." }
   };
   var REL = { supports: ["支持", "supports"], explains: ["解释", "explains"], qualifies: ["限定", "qualifies"], extends: ["推广", "extends"],
@@ -561,7 +564,7 @@ __KATEX__
     var mm = $("mm"), u = UI[LANG], flows = (D.logic && D.logic.flows) || {}, rels = (D.logic && D.logic.rels) || {};
     mm.textContent = ""; mm.classList.toggle("guess", GUESS);
     var NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"); svg.setAttribute("class", "mm-lines"); svg.setAttribute("aria-hidden", "true"); mm.appendChild(svg);
-    var root = btn("mm-root", null, function () { var on = !root.classList.contains("full"); root.classList.toggle("full", on); root.setAttribute("aria-expanded", on ? "true" : "false"); layoutMap(); });
+    var root = btn("mm-root", u.root, function () { var on = !root.classList.contains("full"); root.classList.toggle("full", on); root.setAttribute("aria-expanded", on ? "true" : "false"); layoutMap(); });
     root.setAttribute("aria-expanded", "false"); root.title = bare(L(D.thesis));
     withNums(root.appendChild(el("span", "mm-rt")), L(D.thesis)); mm.appendChild(root);
     var ul = el("ul", "mm-parts");
@@ -571,25 +574,24 @@ __KATEX__
       var li = el("li", "mm-part"); li.dataset.id = p.id; li.dataset.rel = main ? main.type : "";
       var row = el("div", "mm-row"), b = btn("mm-node");
       b.appendChild(el("span", "pn", String(partNo(p)))); withNums(b.appendChild(el("span", "mm-t")), L(p.title));
-      var tip = [bare(L(p.title)), bare(L(p.claim))]; if (!GUESS) tip.push(relTip(p));
+      var tip = [bare(L(p.title)), bare(L(p.claim)), p.claim_p ? u.jumpTo(p.claim_p) : ""]; if (!GUESS) tip.push(relTip(p));
       b.title = tip.filter(Boolean).join("\n");
-      row.appendChild(b);
+      b.addEventListener("click", function () { if (p.claim_p) jump(p.claim_p); });
+      row.appendChild(b); li.appendChild(row);
       if (fl.length) {
-        var sl = el("ul", "mm-steps"); sl.id = "mm-s-" + p.id; sl.hidden = !OPEN[p.id];
-        b.setAttribute("aria-expanded", OPEN[p.id] ? "true" : "false"); b.setAttribute("aria-controls", sl.id);
-        b.addEventListener("click", function () { OPEN[p.id] = !OPEN[p.id]; sl.hidden = !OPEN[p.id]; b.setAttribute("aria-expanded", OPEN[p.id] ? "true" : "false"); layoutMap(); });
-        if (p.claim_p) { var j = btn("mm-jump", p.claim_p, function () { jump(p.claim_p); }); j.title = u.jumpTo(p.claim_p); j.setAttribute("aria-label", u.jumpTo(p.claim_p)); row.appendChild(j); }
+        var sl = el("ul", "mm-steps"), tg = btn("mm-tog"); sl.id = "mm-s-" + p.id; sl.hidden = !OPEN[p.id];
+        tg.setAttribute("aria-expanded", OPEN[p.id] ? "true" : "false"); tg.setAttribute("aria-controls", sl.id);
+        tg.setAttribute("aria-label", u.steps(bare(L(p.title)))); tg.title = u.steps(bare(L(p.title)));
+        tg.addEventListener("click", function () { OPEN[p.id] = !OPEN[p.id]; sl.hidden = !OPEN[p.id]; tg.setAttribute("aria-expanded", OPEN[p.id] ? "true" : "false"); layoutMap(); });
+        row.appendChild(tg);
         fl.forEach(function (s) {
           var sli = el("li", "mm-stepli"); sli.dataset.rel = s.rel || "";
           var sb = btn("mm-step", null, function () { jump(s.p); });
-          sb.appendChild(el("span", "sid", idLabel(s.p))); withNums(sb, short(L(s.x)));
-          sb.title = (s.rel && !GUESS ? rname(s.rel) + (LANG === "zh" ? "：" : ": ") : "") + bare(L(s.x));
+          withNums(sb, short(L(s.x)));
+          sb.title = idLabel(s.p) + "　" + (s.rel && !GUESS ? rname(s.rel) + (LANG === "zh" ? "：" : ": ") : "") + bare(L(s.x));
           sli.appendChild(sb); sl.appendChild(sli);
         });
-        li.appendChild(row); li.appendChild(sl);
-      } else {
-        b.addEventListener("click", function () { if (p.claim_p) jump(p.claim_p); });
-        li.appendChild(row);
+        li.appendChild(sl);
       }
       ul.appendChild(li);
     });
@@ -605,7 +607,7 @@ __KATEX__
     while (svg.firstChild) svg.removeChild(svg.firstChild);
     mm.style.height = "";
     if (list) return;
-    var g = 52, w0 = Math.min(300, Math.round(W * 0.27)), w1 = Math.min(330, Math.round(W * 0.29)), x1 = w0 + g, x2 = x1 + w1 + g, w2 = Math.min(420, W - x2);
+    var g = 52, w0 = mm.querySelector(".mm-root.full") ? Math.min(300, Math.round(W * 0.27)) : 120, w1 = Math.min(330, Math.round(W * 0.29)), x1 = w0 + g, x2 = x1 + w1 + g, w2 = Math.min(420, W - x2);
     function place(n, x, w) { n.style.position = "absolute"; n.style.left = x + "px"; n.style.width = w + "px"; }
     var y = 0, rows = [], gapP = 7, gapS = 6;
     mm.querySelectorAll(".mm-part").forEach(function (li) {
