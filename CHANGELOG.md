@@ -24,6 +24,13 @@ Second round of the page, after the author looked at the demo pages. The feedbac
 - segment.py, mineru_backend.py: a drop cap that MinerU drops is restored (the second paragraph of Ioannidis began "ublished"), and in the pdfplumber path a drop cap no longer scrambles the lines of a row.
 - method.md: Chinese notes keep English terms, model and method names (PPV, reward model, policy); a term appears once as 中文（English） at first mention if it has a common Chinese rendering, then in one form.
 
+Third round, after the author compared four layouts side by side. The feedback: the margin mixed title, steps and terms together; the reading column was too narrow; with everything open the notes and the original still looked alike; and the steps only named what happens ("Eq. 3 has a closed-form solution Eq. 4") without saying why.
+
+- Left margin: three light boxes, "Part n" with the title and claim, "This part's structure" with numbered steps (the current step's number turns the accent colour), and "Terms". Steps and terms wrap in full instead of being cut off with an ellipsis.
+- Width: the reading column takes the rest of the row next to the margin.
+- Everything the guide writes ("read for" prompts, summaries, skim restatements, opened formula explanations, recall answers, skip lines) sits on a pale tinted block with a 3px accent bar and a small label. The paper's text stays plain.
+- method.md section 10: a flow step is one sentence (about 45 Chinese characters or 25 English words) that says what the step claims, why it follows and how it leads on; it defines its symbols where they first appear, never leans on a bare equation number, gives numbers their setting, and covers every item when the paper enumerates them.
+
 Rules and checks.
 
 - method.md section 9a, plain wording: no denial before the statement, no dash as connector, "is" instead of "serves as", no closing line that only sums up, no lists padded to three, no inflating words. check.py warns on the first four patterns in every field the agent writes (anchors excluded).

@@ -115,7 +115,14 @@ The argument map at the top of the page is drawn from two fields on each part.
 
 Add secondary entries only for links a reader must see (Part 4 `explains` Parts 2 and 3). Give each a short `label` saying what the link is about: "the endowment effect survives market experience", not "supports the thesis".
 
-`flow` lists three to six steps inside the part, in reading order. Each step names a paragraph (or one of its footnotes) and says in one line what it adds, and every step after the first has a `rel` describing how it relates to the step before it: supports, challenges, answers, rules out, implies, explains, qualifies, extends, names, raises or concludes. The flow is the part's reasoning ("objection, answered by the mug results, which rule out buyers' reluctance, which implies..."), not a list of every paragraph.
+`flow` lists three to six steps inside the part, in reading order. Each step names a paragraph (or one of its footnotes) and says in one sentence (about 45 Chinese characters or 25 English words) what it adds, and every step after the first has a `rel` describing how it relates to the step before it: supports, challenges, answers, rules out, implies, explains, qualifies, extends, names, raises or concludes. The flow is the part's reasoning ("objection, answered by the mug results, which rule out buyers' reluctance, which implies..."), not a list of every paragraph.
+
+A step explains the move, so a reader can follow it without the paper open:
+
+- Say what is claimed and why it follows (the reason, the idea of the derivation, or the evidence), and how it leads to the next step. Bad: "Eq. 3 的 optimal policy 有闭式解 Eq. 4". Better: "带 KL 惩罚（强度 β）的目标有闭式最优解，所以 reward 可写成 β log(π/π_ref) 加只依赖 x 的项". Name the idea of a formula; do not spell it out in words.
+- Define each symbol or abbreviation in the step where it first appears in the part: "β（KL 惩罚的强度）". Never lean on a bare equation number; say what the equation states.
+- A number carries its setting: which scenario, sample or table it comes from.
+- When the paper lists items ("six corollaries"), the steps cover all of them or say which are left out.
 
 Test: reading the flows in order should tell the argument with its turns: where an objection comes in, what answers it, where the explanation stops working.
 

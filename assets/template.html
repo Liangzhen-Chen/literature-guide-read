@@ -13,14 +13,14 @@
   --color-rule: oklch(86% 0.009 85); --color-rule-2: oklch(64% 0.010 80);
   --color-accent: oklch(49% 0.130 152); --color-accent-ink: oklch(98% 0.005 88); --color-focus: oklch(52% 0.135 152);
   --color-mark: oklch(90% 0.050 152 / 0.48); --color-flash: oklch(92% 0.060 152); --color-plate: oklch(99% 0.003 86);
-  --color-scrim: oklch(18% 0.010 280 / 0.78); --color-on-scrim: oklch(96% 0.005 86); --color-note: oklch(38% 0.012 280);
+  --color-scrim: oklch(18% 0.010 280 / 0.78); --color-on-scrim: oklch(96% 0.005 86); --color-note: oklch(38% 0.012 280); --color-guide: oklch(94.5% 0.022 152);
   --font-display: "Avenir Next", "Seravek", "Bahnschrift", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", sans-serif;
   --font-body: "Charter", "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Source Serif 4", "Noto Serif", "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
   --font-note: var(--font-display);
   --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
   --text-xs: clamp(12.5px, calc(0.15vw + 10.6px), 15px); --text-sm: clamp(13px, calc(0.2vw + 11px), 15px); --text-md: clamp(15px, calc(0.3vw + 11.8px), 18px); --text-note: 17px; --text-read: clamp(17px, calc(0.45vw + 12.5px), 22px); --text-lead: clamp(19px, calc(0.5vw + 13.6px), 24px); --text-head: clamp(19px, calc(0.4vw + 14px), 24px); --text-title: clamp(28px, 2.6vw, 52px);
-  --gutter: clamp(16px, 4vw, 64px); --measure: calc(38 * var(--text-read)); --measure-wide: calc(1.3 * var(--measure));
-  --nav: clamp(14rem, 24vw, 36rem); --gap: clamp(var(--space-xl), 6vw, 160px); --cols: minmax(0, var(--nav)) var(--gap) minmax(0, var(--measure-wide)); --rule-hair: 1px; --rule-heavy: 4px; --bar-h: 49px;
+  --gutter: clamp(16px, 4vw, 64px); --measure: calc(46 * var(--text-read));
+  --nav: clamp(14rem, 24vw, 36rem); --gap: clamp(var(--space-xl), 4vw, 88px); --cols: minmax(0, var(--nav)) var(--gap) minmax(0, 1fr); --rule-hair: 1px; --rule-heavy: 4px; --bar-h: 49px;
   --dur-micro: 120ms; --dur-short: 220ms; --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   color-scheme: light;
 }
@@ -31,7 +31,7 @@
     --color-rule: oklch(31% 0.010 80); --color-rule-2: oklch(48% 0.010 80);
     --color-accent: oklch(74% 0.110 152); --color-accent-ink: oklch(18% 0.010 152); --color-focus: oklch(76% 0.120 152);
     --color-mark: oklch(38% 0.060 152 / 0.65); --color-flash: oklch(34% 0.060 152); --color-plate: oklch(92% 0.004 86);
-    --color-scrim: oklch(8% 0.006 280 / 0.85); --color-note: oklch(78% 0.008 86);
+    --color-scrim: oklch(8% 0.006 280 / 0.85); --color-note: oklch(78% 0.008 86); --color-guide: oklch(22.5% 0.024 152);
     color-scheme: dark;
   }
 }
@@ -41,7 +41,7 @@
   --color-rule: oklch(31% 0.010 80); --color-rule-2: oklch(48% 0.010 80);
   --color-accent: oklch(74% 0.110 152); --color-accent-ink: oklch(18% 0.010 152); --color-focus: oklch(76% 0.120 152);
   --color-mark: oklch(38% 0.060 152 / 0.65); --color-flash: oklch(34% 0.060 152); --color-plate: oklch(92% 0.004 86);
-  --color-scrim: oklch(8% 0.006 280 / 0.85); --color-note: oklch(78% 0.008 86);
+  --color-scrim: oklch(8% 0.006 280 / 0.85); --color-note: oklch(78% 0.008 86); --color-guide: oklch(22.5% 0.024 152);
   color-scheme: dark;
 }
 *, *::before, *::after { box-sizing: border-box; }
@@ -56,7 +56,7 @@ p { text-wrap: pretty; }
 :focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 ::selection { background: var(--color-mark); }
 html { scrollbar-color: var(--color-rule-2) var(--color-paper); }
-.container { max-width: calc(var(--nav) + var(--gap) + var(--measure-wide) + 2 * var(--gutter)); margin-inline: auto; padding-inline: var(--gutter); }
+.container { max-width: calc(var(--nav) + var(--gap) + var(--measure) + 2 * var(--gutter)); margin-inline: auto; padding-inline: var(--gutter); }
 b.num { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--color-ink); }
 
 /* inline maths: simple formulas are set as text in the face around them; KaTeX takes the rest at the text's own size and colour */
@@ -128,22 +128,26 @@ details > summary { cursor: pointer; }
 .phead { grid-column: 1; align-self: start; position: sticky; top: calc(var(--bar-h) + var(--space-lg)); scroll-margin-top: calc(var(--bar-h) + var(--space-lg));
   max-height: calc(100dvh - var(--bar-h) - var(--space-2xl)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding-right: var(--space-xs); }
 .pnav-d > summary { display: none; font: 500 var(--text-xs)/1.6 var(--font-display); color: var(--color-muted); width: max-content; }
-.psteps, .pterms { list-style: none; margin: var(--space-md) 0 0; padding: 0; }
-.pstep { border-left: var(--rule-hair) solid var(--color-rule); padding-left: var(--space-sm); }
+.pbox { border: var(--rule-hair) solid var(--color-rule); padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md); }
+.pbox + .pbox, .pnav-d .pbox { margin-top: var(--space-md); }
+.plab { margin: 0 0 var(--space-xs); font: 500 var(--text-xs)/1.4 var(--font-display); color: var(--color-muted); }
+.psteps, .pterms { list-style: none; margin: 0; padding: 0; }
+.psteps { counter-reset: st; }
+.pstep { counter-increment: st; border-left: var(--rule-hair) solid var(--color-rule); padding-left: var(--space-sm); }
 .pstep[data-rel="qualifies"] { border-left-style: dashed; border-left-color: var(--color-rule-2); }
 body.guess .pstep[data-rel="qualifies"] { border-left-style: solid; border-left-color: var(--color-rule); }
 .pstep button, .pterm { display: block; width: 100%; text-align: left; background: none; border: 0; padding: var(--space-3xs) 0; cursor: pointer;
-  font: 400 var(--text-xs)/1.55 var(--font-note); color: var(--color-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--dur-short) var(--ease-out); }
+  font: 400 var(--text-xs)/1.55 var(--font-note); color: var(--color-muted); overflow-wrap: break-word; transition: color var(--dur-short) var(--ease-out); }
+.pstep button { padding-left: 1.6em; text-indent: -1.6em; }  /* steps wrap in full; the number hangs in the margin */
+.pstep button::before { content: counter(st); display: inline-block; min-width: 1.6em; text-indent: 0; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--color-ink-2); }
 .pstep button:hover, .pterm:hover { color: var(--color-ink); }
 .pstep.on { border-left-color: var(--color-ink); }
 .pstep.on button { color: var(--color-ink); }
-.pterms { padding-top: var(--space-sm); border-top: var(--rule-hair) solid var(--color-rule); }
-.pterms .pterms { margin: 0; padding: 0; border: 0; }
+.pstep.on button::before { color: var(--color-accent); }
 .pterm b { font-weight: 500; color: var(--color-ink-2); margin-right: var(--space-xs); }
 .pmore > summary { font: 400 var(--text-xs)/1.6 var(--font-display); color: var(--color-muted); width: max-content; }
 .pmore > summary:hover { color: var(--color-ink); }
-.ptitle { margin: 0; font-size: var(--text-head); line-height: 1.3; display: flex; gap: var(--space-sm); align-items: baseline; }
-.ptitle .n { font-weight: 400; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.ptitle { margin: 0; font-size: var(--text-head); line-height: 1.3; }
 .pclaim { margin: var(--space-sm) 0 0; font: 400 var(--text-md)/1.6 var(--font-note); color: var(--color-note); }
 .pbody { grid-column: 3; min-width: 0; font-size: var(--text-read); }
 .orig, .readfor, .note, .ahead, .recall, .gap, .fx > p, .fx dl, .skipd > summary, .figcard > .cap, .phead-n { max-width: var(--measure); }
@@ -154,8 +158,12 @@ body.guess .pstep[data-rel="qualifies"] { border-left-style: solid; border-left-
 .t-close .pid { color: var(--color-ink); font-weight: 600; }
 .para.fn { margin-left: var(--space-lg); }
 .readfor { margin: 0 0 var(--space-sm); font: 400 var(--text-md)/1.65 var(--font-note); color: var(--color-note); }
-.readfor b { font-weight: 400; font-size: var(--text-sm); color: var(--color-muted); margin-right: var(--space-xs); }
 .note { margin: 0; font: 400 var(--text-md)/1.7 var(--font-note); color: var(--color-note); }
+/* everything the guide wrote sits in one tinted box with an accent bar and a small label; the paper's own text stays plain */
+.readfor, .t-skim > .note, .skipd > summary, .nd[open], .fx[open], .recall[open] { background: var(--color-guide); border-left: 3px solid var(--color-accent); padding: var(--space-xs) var(--space-md) var(--space-sm); }
+.recall[open] { border-top: 0; }
+.glab { display: block; font-weight: 500; }
+.glab, .nd[open] > summary, .fx[open] > summary, .recall[open] > summary { margin: 0 0 var(--space-3xs); font: 500 var(--text-xs)/1.6 var(--font-display); color: var(--color-accent); }
 .orig { margin: var(--space-2xs) 0 0; font: 400 var(--text-read)/1.75 var(--font-body); color: var(--color-ink); overflow-wrap: break-word; hyphens: manual; }
 .t-skip .orig, .fn .orig { font-size: var(--text-md); }
 .ow, .nd { margin: var(--space-xs) 0 0; }
@@ -168,12 +176,11 @@ body.v-gist .t-close > .ow > summary, .t-close > .ow:not([open]) > summary { dis
 body.v-gist .t-close > .readfor, body.v-gist .ahead { display: none; }
 body.v-gist .para.t-close { display: flex; flex-direction: column; }
 body.v-gist .t-close > .nd { order: -1; margin: 0 0 var(--space-2xs); }
-body.v-gist .t-close > .nd > summary { display: none; }
-.t-skip .skipd > summary { list-style: none; font: 400 var(--text-sm)/1.6 var(--font-note); color: var(--color-muted); }
+.t-skip .skipd > summary { list-style: none; font: 400 var(--text-sm)/1.6 var(--font-note); color: var(--color-note); }
 .skipd > summary::-webkit-details-marker { display: none; }
 .skipd > summary::after { content: ""; display: inline-block; width: 5px; height: 5px; margin-left: var(--space-xs); border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-3px) rotate(45deg); }
 .skipd[open] > summary::after { transform: translateY(0) rotate(-135deg); }
-.skipd > summary:hover { color: var(--color-ink-2); }
+.skipd > summary:hover { color: var(--color-ink); }
 mark.hl { color: inherit; background: linear-gradient(to bottom, transparent 0.42em, var(--color-mark) 0.42em, var(--color-mark) 1.12em, transparent 1.12em); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .term { text-decoration: underline dotted var(--rule-hair) var(--color-rule-2); text-underline-offset: 0.22em; cursor: help; position: relative; }
 .term::after { content: attr(data-def); position: absolute; left: 0; top: 1.7em; z-index: 25; width: max-content; max-width: min(320px, 80vw); padding: var(--space-xs) var(--space-sm);
@@ -237,9 +244,9 @@ body.v-gist .crop, body.v-gist .figcard, body.v-gist .fx { display: none; }
   .part { display: block; }
   .phead { position: static; max-height: none; overflow: visible; margin-bottom: var(--space-lg); max-width: var(--measure); padding-right: 0; }
   .pnav-d > summary { display: list-item; margin-top: var(--space-sm); }
-  .pnav-d .psteps { margin-top: var(--space-xs); }
+  .pnav-d .pbox:has(> .psteps) > .plab { display: none; }
   .reading .container { padding-left: calc(var(--gutter) + var(--space-xl)); }
-  .pbody { max-width: var(--measure-wide); }
+  .pbody { max-width: var(--measure); }
   .mm { margin-top: var(--space-lg); }
   .mm-parts { border-top: 0; border-left: var(--rule-hair) solid var(--color-rule-2); margin-left: var(--space-xs); }
   .mm-part { border-bottom: 0; padding-left: var(--space-md); }
@@ -250,7 +257,7 @@ body.v-gist .crop, body.v-gist .figcard, body.v-gist .fx { display: none; }
   :root { --gutter: 16px; --text-read: 17px; --text-lead: 19px; }
   .reading .container { padding-left: var(--gutter); }
   .pid { position: static; float: left; margin-right: var(--space-xs); line-height: 1.75; top: 0; }
-  .t-skip .pid { float: none; }
+  .t-skip .pid, .pid:has(+ .note, + .readfor) { float: none; display: block; }
   .bar-in { gap: var(--space-md); }
   .para.fn { margin-left: var(--space-md); }
 }
@@ -611,7 +618,7 @@ __KATEX__
     } else if (tier === "close") {
       var hasNote = !!L(g.note);
       art.appendChild(pid);
-      if (g.read) { var rf = el("p", "readfor"); rf.appendChild(el("b", null, u.readFor)); withNums(rf, L(g.read)); art.appendChild(rf); }
+      if (g.read) { var rf = el("p", "readfor"); rf.appendChild(el("b", "glab", u.readFor)); withNums(rf, L(g.read)); art.appendChild(rf); }
       art.appendChild(orig(VIEW !== "gist" || !hasNote));
       mediaInto(art, id, g);
       if (hasNote) {  // the summary comes after the paragraph's formulas and crops: read, then check
@@ -620,7 +627,8 @@ __KATEX__
       }
       return art;
     } else {
-      art.appendChild(pid); art.appendChild(withNums(el("p", "note"), L(g.note)));
+      var sn = el("p", "note"); sn.appendChild(el("b", "glab", u.note));
+      art.appendChild(pid); art.appendChild(withNums(sn, L(g.note)));
       art.appendChild(orig(false));
     }
     mediaInto(art, id, g);
@@ -757,6 +765,7 @@ __KATEX__
     var defs = ALL.filter(function (x) { return x.part === p && x.e.t === "def" && L(x.e.term); });
     if (!fl.length && !defs.length) return;
     var d = el("details", "pnav-d"); d.appendChild(el("summary", null, u.structure));
+    function box(lab, list) { var b = el("div", "pbox"); b.appendChild(el("p", "plab", lab)); b.appendChild(list); d.appendChild(b); }
     if (fl.length) {
       var ol = el("ol", "psteps");
       fl.forEach(function (s) {
@@ -767,7 +776,7 @@ __KATEX__
         b.title = GUESS ? b.dataset.tipBare : b.dataset.tip;
         li.appendChild(b); ol.appendChild(li);
       });
-      d.appendChild(ol);
+      box(u.structure, ol);
     }
     if (defs.length) {
       var ul = el("ul", "pterms"), more = null, moreUl = null;
@@ -781,7 +790,7 @@ __KATEX__
         moreUl.appendChild(li);
       });
       if (more) { var mli = el("li"); mli.appendChild(more); ul.appendChild(mli); }
-      d.appendChild(ul);
+      box(u.lookup, ul);
     }
     d.open = !NARROW.matches;
     hd.appendChild(d);
@@ -804,10 +813,11 @@ __KATEX__
     function open(p) {
       var sec = el("section", "part");
       if (p) {
-        var hd = el("div", "phead"), t = el("h2", "ptitle"); hd.id = "part-" + p.id;
-        if (!p.skip) t.appendChild(el("span", "n", String(partNo(p))));
-        withNums(t.appendChild(el("span")), L(p.title)); hd.appendChild(t);
-        if (p.claim) hd.appendChild(withNums(el("p", "pclaim"), L(p.claim)));
+        var hd = el("div", "phead"), bx = el("div", "pbox"), t = el("h2", "ptitle"); hd.id = "part-" + p.id;
+        if (!p.skip) bx.appendChild(el("p", "plab", UI[LANG].partN(partNo(p))));
+        withNums(t, L(p.title)); bx.appendChild(t);
+        if (p.claim) bx.appendChild(withNums(el("p", "pclaim"), L(p.claim)));
+        hd.appendChild(bx);
         navInto(hd, p);
         sec.appendChild(hd);
       }
