@@ -2,17 +2,28 @@
 
 # reading-guide
 
-**把一篇课程读物变成一张教你怎么读它的页面。** 给 AI agent 一份 PDF，得到一个离线 HTML：论证画成图，每一段分成精读、略读、可跳过，关键句在原文上标出，公式和表格从 PDF 上裁下来并加解释，每部分末尾有回想题。笔记可以是中文或英文。
+**把论文交给 AI agent，拿回一张页面：哪段要精读、哪段略读、哪段可以跳过，一眼看清。**
+
+reading-guide 是一个读课程读物和论文用的 agent skill。Agent 先把整份 PDF 读完，再围绕原文做出一张离线网页，笔记可以是中文、英文或双语。Claude Code、Codex、claude.ai 和其他支持 [Agent Skills](https://agentskills.io) 的工具都能用。
 
 直接打开做好的页面：[Ioannidis（2005），中英双语笔记](https://liangzhen-chen.github.io/literature-guide-read/)，或 [DPO 论文（2023），中文笔记](https://liangzhen-chen.github.io/literature-guide-read/dpo.html)。
 
 ![页面顶部：标题、结论和思维导图](assets/readme/page-top.zh.png)
 
-![DPO 论文的一个部分，中文笔记：左栏是这部分的论点、推理步骤和术语；右侧是一个精读段，有读时注意、KaTeX 渲染的行间公式和展开的读后小结](assets/readme/page-formula.png)
+## 你会得到什么
 
-截图来自两篇论文的导读页：Ioannidis（2005）[Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124)，PLoS Medicine 2(8): e124（CC BY）；Rafailov 等（2023）[Direct Preference Optimization](https://arxiv.org/abs/2305.18290)（CC BY 4.0）。这个 skill 遵循开放的 [Agent Skills](https://agentskills.io) 格式，任何支持 skill 的 agent 都能用；脚本是普通 Python，页面是单个文件，离线可用。
+- **先看结论。** 页面最上面一句话写清结论，下面一张思维导图，画出各部分怎样支撑它。
+- **知道时间花在哪。** 每段都标好精读、略读或可跳过。时间不够就切到"只看小结"，照样能跟上论证。
+- **左栏帮你记住读到哪。** 读的时候，左栏显示当前部分的论点、带编号的推理步骤（每步一句）和这一部分定义的术语，点一下步骤就跳到原文。
+- **原文一字不改。** 导读写的内容都放在浅色底的框里，任何时候都分得清哪句是作者说的。
+- **公式看得懂。** 关键公式渲染出来并加解释，附符号表和 PDF 上的裁图，方便核对。
+- **边读边练。** 精读段有"读时注意"，读完可以展开小结对一下；每部分末尾有回想题。
+- **回答你的问题。** 开始前告诉 agent 你想弄清什么，页面从原文里作答，并链接到对应段落。
+- **笔记可信。** 生成页面前，检查脚本会拦下两种错误：笔记里出现原文没有的数字，或者标出的句子和原文对不上。
 
-## 安装（30 秒）
+![DPO 论文的一个部分，中文笔记：左栏是这部分的论点、推理步骤和术语；右侧是一个精读段，有读时注意、渲染好的公式和展开的读后小结](assets/readme/page-formula.png)
+
+## 安装
 
 <details open>
 <summary><b>Claude Code</b></summary>
@@ -21,8 +32,6 @@
 git clone https://github.com/Liangzhen-Chen/literature-guide-read ~/.claude/skills/reading-guide
 pip install -r ~/.claude/skills/reading-guide/requirements.txt
 ```
-
-然后在任意项目里附上或指明一份 PDF，说"帮我做这篇的导读"。
 </details>
 
 <details>
@@ -39,16 +48,16 @@ pip install -r ~/.codex/skills/reading-guide/requirements.txt
 
 ```bash
 npx skills@latest add Liangzhen-Chen/literature-guide-read
-pip install pdfplumber beautifulsoup4   # beautifulsoup4 只在用开放版本（arXiv）时需要
+pip install pdfplumber beautifulsoup4
 ```
 
-安装器会问装到哪些 agent；默认装到当前项目，加 `-g` 装到用户级。
+安装器会问装到哪些 agent；加 `-g` 装到用户级，不加则装到当前项目。
 </details>
 
 <details>
 <summary><b>claude.ai</b></summary>
 
-把文件夹打成 ZIP，从 Skills 入口上传（如果你的方案有）。那里只能跑默认提取档（沙箱下不了模型）；扫描件和公式多的读物在本地 agent 里效果更好。
+从 [最新 Release](https://github.com/Liangzhen-Chen/literature-guide-read/releases/latest) 下载 `reading-guide.zip`，在 Settings → Capabilities → Skills 上传。扫描件和公式多的论文在本地 agent 里效果更好。
 </details>
 
 <details>
@@ -75,89 +84,41 @@ python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json
 `check.py` 报错就把错误贴回给模型让它改。
 </details>
 
-可选，用于扫描件和公式密集的读物：Tesseract（`eng`、`chi_sim`）和 Poppler 做 OCR；[MinerU](https://github.com/opendatalab/MinerU) 做版面分析（`pip install "mineru>=4,<5" && mineru-kit models download --tier basic`，约 0.8 GB，CPU 即可）。装了 MinerU 后 `segment.py` 自动使用，见[两档提取](#两档提取)。
+<details>
+<summary><b>可选：扫描件、三栏排版、公式很多的论文</b></summary>
+
+扫描件需要 Tesseract（`eng`、`chi_sim`）和 Poppler。三栏排版和公式多的论文装上 [MinerU](https://github.com/opendatalab/MinerU) 效果更好，装好后 skill 会自动使用（约 0.8 GB，CPU 即可）：
+
+```bash
+pip install "mineru>=4,<5" && mineru-kit models download --tier basic
+```
+</details>
+
+更新：在 skill 文件夹里运行 `git pull`，或重新运行一次 `npx` 那行，claude.ai 上则重新上传新的 zip。
 
 ## 用法
 
-1. 给 agent 一份 PDF，让它做导读。
-2. 它先问一轮：笔记语言；阅读目的（整体理解、只要核心论点、只看方法设计、找证据引用、备考）；对这个领域的熟悉程度；有没有想弄清的问题。说"你定"就按默认来。
-3. 它切段、通读、写导读、校验，然后把页面给你。
+1. 给 agent 一份 PDF，说"帮我做这篇的导读"。
+2. 它先问几个问题：笔记用中文还是英文；为什么读（整体理解、只要核心论点、看方法、找证据引用、备考）；对这个领域熟不熟；有没有想弄清的问题。说"你定"就按默认来。
+3. 几分钟后拿到页面。用 Claude Sonnet 实测：6 页的论文约 7 分钟、13.4 万 token；10 页、11 条公式的论文约 10 分钟、17.2 万 token。
 
-页面上有：
+读的时候可以问 agent 任何一段（"P23 在说什么？"），让它改某条笔记，或者说"带我过一遍"让它逐部分讲。
 
-- 标题、一行出处（段数、精读段数）和一句话结论。下面是一张只到部分的思维导图：每个部分一行，限定关系用虚线。你的问题（从原文作答并链接到段落）和"先猜关系"开关在导图下方。
-- 左侧页边跟着正文走，分三个细框：当前部分的标题和论点；带编号的推理步骤，每步一句，说清这一步做了什么、为什么成立（点击跳转，当前所在步骤的编号变绿）；本节首次定义的术语（先显示 4 个，其余折叠）。"术语"按钮是全部术语的索引。窄屏时左栏收进"本节结构"开关。
-- 论文原文（正文段落、图注、论文自己的小节标题）用衬线字体；导读自己写的内容（读时注意、读后小结、略读复述、论点、回想答案）用无衬线字体，放在浅色底框里，左边一条色线加小标签，全部展开时也能一眼分开。正文占满左栏以外的宽度；页面宽度和字号随屏幕调整，超宽屏两侧留白。
-- 按原文顺序排的正文。精读段有"读时注意"和折叠的读后小结；略读段先给复述，原文折叠；跳过段只占一行。可以切换全文或只看小结。
-- 一种高亮样式，标出定义和关键论点。定义过的术语和符号在再次出现时悬停显示释义。
-- 简单公式按正文排；复杂公式用 KaTeX 渲染，PDF 裁图、解释和符号表折叠在下面。图表挂在首次引用它们的段落。
-- 每部分末尾的回想题，答案折叠。中文、英文或双语，支持亮色和暗色。
+## 依据阅读研究设计
 
-### 一篇读物要花多少
-
-用 Claude Sonnet 从 PDF 一路跑到页面的实测：Ioannidis（2005），6 页、40 段、中英双语笔记，约 13.4 万 token、约 7 分钟。DPO 论文（arXiv 2305.18290），正文 10 页、52 段、11 条行间公式、中文笔记，约 17.2 万 token、约 10 分钟。这是 Claude Code 统计的总量，包含每一轮重复读取的上下文；按量计费时，缓存的输入更便宜。
-
-阅读过程中可以问 agent 任何一段（"P23 在说什么？"），改某段的档位或笔记，或者说"带我过一遍"让它逐部分讲。
-
-## 原理
-
-1. `segment.py` 把 PDF 切成固定编号的段落（P1、P2……），识别标题、图注、脚注，去掉页眉，记下印刷页码，把脚注挂到引用它的段落上，并把每条行间公式和表格区域裁成图。支持单栏和双栏（三栏或带侧栏要用 MinerU）、扫描件 OCR、中文标题和脚注。
-2. `sources.py`（可选）抓取 arXiv 的 HTML 或 TeX 版本，取干净的图、表、公式。
-3. Agent 读完每一段，写导读数据：分部分和分论点、部分之间的关系、每段的档位和笔记或"读时注意"、逐字锚定的要素、对照裁剪图核对过的公式转写、回想题。
-4. 下列情况 `check.py` 报错，`render.py` 不生成页面：某段没有条目、各部分没按顺序覆盖全文、锚句在该段里找不到原文、笔记里的数字不在原文、LaTeX 括号不配平。公式 `tex` 里的数字、精读比例超过上限、笔记只描述段落没有复述内容，这三种只给警告。
-5. `render.py` 生成单文件页面。
-
-Agent 遵守的规则在 `references/method.md`、`elements.md`、`genres.md`、`schema.md`，都是纯文本，可以随着你的读物调整。
-
-## 两档提取
-
-| | 默认 | 装 MinerU |
-| --- | --- | --- |
-| 安装 | `pip install pdfplumber` | 再装 MinerU 和基础模型（约 0.8 GB） |
-| 页眉、标题、表格 | 文字层上的启发式规则 | 版面分析；表格成结构 |
-| 行间公式 | 启发式定位后裁图 | 版面模型定位后裁图；装了公式模型还会转成 LaTeX |
-| CPU 上的速度 | 每篇几秒 | 每篇 1 到 3 分钟 |
-
-在一组私有的 11 篇读物（七篇真实文献、扫描件和一章教材；这组读物不随仓库分发，数字无法用本仓库复现）上的实测：在人工核对页上 MinerU 在 8 篇里 7 篇持平或更好，JSTOR 扫描件里默认档误判成标题的 30 处页眉全部去掉，约 800 行散落的表格行变成 111 张表。四篇公式密集的论文（机器学习、计量经济学、量子计算、纯数学）上 MinerU 找到的行间公式约是默认档的两倍。不装 MinerU 的 577 MB 公式模型时，公式以裁剪图输出、由 agent 转写，速度快 40% 到 75%。
-
-## 为什么这样读
-
-设计依据是已发表的阅读界面和学习研究：
-
-- 分面高亮让读者更快找到信息且不降低准确率，但错误或过密的高亮会损害信任（[Scim, Allen AI](https://dl.acm.org/doi/fullHtml/10.1145/3581641.3584034)）。所以只用一种高亮样式，稀疏并经过校验，另有只看小结的视图。
-- 在用到的位置给定义对读密集论文有帮助（[ScholarPhi](https://dl.acm.org/doi/fullHtml/10.1145/3411764.3445648)）。所以有悬停释义。
-- 论证图能提升批判性思维，收益来自自己动手画图（[van Gelder](https://www.reasoninglab.com/wp-content/uploads/2013/10/TvG-Using-argument-mapping-to-improve-critical-thinking-skills-2015.pdf)）。所以有"先猜关系"。
-- 前置问题对它指向的内容有效（[prequestion 元分析](https://link.springer.com/article/10.3758/s13423-023-02353-8)），提取练习是证据最强的学习方法（[Dunlosky 等 2013](https://doi.org/10.1177/1529100612453266)）。所以"读时注意"写得具体，每部分有回想题。精读段另有折叠的读后小结，让你先回想这一段，再对照核对。
-- 自己解释工作示例比读解释有效（[self-explanation](https://link.aps.org/doi/10.1103/PhysRevPhysEducRes.18.010136)）。所以公式解释默认折叠。
-
-## 文件
-
-| 文件 | 内容 | 什么时候改 |
-| --- | --- | --- |
-| `SKILL.md` | 流程和 agent 必须遵守的规则 | 流程变化时 |
-| `references/method.md` | 方法：分部分、档位、笔记、要素、数字、回想题 | 调整方法时（大多数修改在这里） |
-| `references/elements.md` | 要素类型；`check.py` 和页面从这里读 | 增删类型时 |
-| `references/genres.md` | 按体裁的调整 | 遇到新体裁时 |
-| `references/schema.md` | 导读数据格式和示例 | 很少 |
-| `scripts/segment.py` | 切段 | 切段出错时 |
-| `scripts/mineru_backend.py` | 可选的 MinerU 引擎及其输出的处理规则 | MinerU 输出需要新规则时 |
-| `scripts/crops.py` | 公式和表格区域的裁剪 | 裁剪尺寸变化时 |
-| `scripts/sources.py` | 开放版本 | 开放版本处理变化时 |
-| `scripts/check.py` | 校验 | 加检查项时 |
-| `scripts/render.py` | 页面组装；`--dump` 从页面恢复数据 | 很少 |
-| `assets/template.html` | 页面 | 改页面时 |
-| `CHANGELOG.md` | 每次修改和起因 | 每次修改 |
-
-测试：`python -m pytest tests/unit`（Python 3.9 和 3.12）。脚本的每处修改都有一条先失败后通过的回归测试。
+- 只用一种高亮，而且标得少，另有只看小结的视图：过密或标错的高亮会让读者不再信任它（[Scim](https://dl.acm.org/doi/fullHtml/10.1145/3581641.3584034)）。
+- 术语在用到的地方悬停显示释义（[ScholarPhi](https://dl.acm.org/doi/fullHtml/10.1145/3411764.3445648)）。
+- 思维导图有"先猜关系"开关：论证图在自己动手推的时候最有用（[van Gelder](https://www.reasoninglab.com/wp-content/uploads/2013/10/TvG-Using-argument-mapping-to-improve-critical-thinking-skills-2015.pdf)）。
+- "读时注意"写得具体，每部分有回想题，小结要先回想再展开：依据前置问题（[元分析](https://link.springer.com/article/10.3758/s13423-023-02353-8)）和提取练习（[Dunlosky 等 2013](https://doi.org/10.1177/1529100612453266)）的研究。
+- 公式解释默认折叠，让你先自己试着解释这一步（[self-explanation](https://link.aps.org/doi/10.1103/PhysRevPhysEducRes.18.010136)）。
 
 ## 已知限制
 
-- 默认档的切段是启发式的：公式、表格、元数据和特殊版式仍可能切错或合并段落。写导读前先抽查 part 文件，之后段落编号固定。
-- 默认档只处理单栏和双栏。三栏或带侧栏的版式（例如 2005 年 PLOS Medicine 的排版）要装 MinerU。
-- 装了 MinerU 的公式模型时，正文里的行内公式以 LaTeX 给出，页面会渲染它们；这些 LaTeX 可能带少量识别错误，原文段落不做编辑去修正。没有公式模型时，行内公式按 PDF 文字层原样保留。行间公式有转写时用 KaTeX 渲染，PDF 裁图折叠在下方供核对。
-- 三栏版式经 MinerU 处理后，段落可能在分栏或分页处被切开。目前没有合并工具，笔记按切开后的段落写。
-- 开放版本只对 arXiv 论文抓取，且需要网络允许。
-- 页面里嵌有生成它的 PDF 的全文。用受版权保护的读物生成的页面只留给自己看；公开演示请用开放许可的论文。
+- 最适合有文字层的单栏或双栏 PDF。版式特殊时，个别段落可能被切成两段或和下一段连在一起；agent 写导读前会先抽查切段。
+- MinerU 识别的行内公式可能带少量识别错误。行间公式都附有 PDF 裁图，可以对照核对。
+- 页面里嵌有生成它的 PDF 的全文。用受版权保护的读物生成的页面只留给自己看。
+
+Agent 遵守的规则是 `references/` 里的纯文本；读得多了，可以直接改，也可以告诉 agent 哪里不对。演示用的两篇论文都是开放许可：Ioannidis（2005）[Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124)（CC BY），Rafailov 等（2023）[Direct Preference Optimization](https://arxiv.org/abs/2305.18290)（CC BY 4.0）。
 
 ## 许可
 

@@ -2,17 +2,28 @@ English | [中文](README.zh.md)
 
 # reading-guide
 
-**Turn a course reading into a page that teaches you how to read it.** Give an AI agent a PDF; get back one offline HTML page with the argument mapped, every paragraph sorted into close read / skim / skip, the key sentences highlighted in the original, formulas and tables cropped from the PDF and explained, and recall questions at the end of each part. Notes in English or Chinese.
+**Give your AI agent a paper. Get back a page that tells you what to read closely, what to skim and what to skip.**
+
+reading-guide is an agent skill for course readings and papers. The agent reads the whole PDF first, then builds one offline page around the original text, with notes in English, Chinese or both. It works in Claude Code, Codex, claude.ai and any agent that supports [Agent Skills](https://agentskills.io).
 
 Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://liangzhen-chen.github.io/literature-guide-read/), or [the DPO paper (2023), notes in Chinese](https://liangzhen-chen.github.io/literature-guide-read/dpo.html).
 
 ![The top of a reading page: title, conclusion and the mind map](assets/readme/page-top.png)
 
-![A part of the DPO paper with Chinese notes: the margin holds the part's claim, steps and terms; on the right a close-read paragraph with its read-for prompt, the display formula in KaTeX and the opened after-reading summary](assets/readme/page-formula.png)
+## What you get
 
-The screenshots come from guides to Ioannidis (2005), [Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124), PLoS Medicine 2(8): e124 (CC BY), and Rafailov et al. (2023), [Direct Preference Optimization](https://arxiv.org/abs/2305.18290) (CC BY 4.0). The skill follows the open [Agent Skills](https://agentskills.io) format, so it works in any agent that supports skills; the scripts are plain Python and the page is a single file that works offline.
+- **The point first.** The conclusion in one sentence at the top, and a mind map of how the parts of the argument support it.
+- **Where to spend your time.** Every paragraph is marked close read, skim or skip. Short on time? Switch to summaries only and still follow the argument.
+- **A margin that keeps your place.** While you read, the margin shows the current part's claim, its reasoning in short numbered steps and the terms it defines. Click a step to jump to it.
+- **The original stays untouched.** The paper's text is never edited. Everything the guide adds sits in a tinted box, so you always know which words are the author's.
+- **Formulas you can follow.** Key equations are rendered and explained, with a symbol table and the crop from the PDF to check against.
+- **Practice built in.** Close reads come with a "read for" prompt and a folded summary to check yourself against. Each part ends with recall questions.
+- **Your questions answered.** Tell the agent what you want to know before it starts; the page answers from the text and links to the paragraphs.
+- **Notes you can trust.** Before the page is built, a checker rejects any note whose numbers are not in the paper and any highlight that is not word for word in the original.
 
-## Installation (30-second setup)
+![A part of the DPO paper with Chinese notes: the margin holds the part's claim, steps and terms; on the right a close-read paragraph with its read-for prompt, the rendered formula and the opened after-reading summary](assets/readme/page-formula.png)
+
+## Install
 
 <details open>
 <summary><b>Claude Code</b></summary>
@@ -21,8 +32,6 @@ The screenshots come from guides to Ioannidis (2005), [Why Most Published Resear
 git clone https://github.com/Liangzhen-Chen/literature-guide-read ~/.claude/skills/reading-guide
 pip install -r ~/.claude/skills/reading-guide/requirements.txt
 ```
-
-Then open any project, attach or name a PDF, and say "give me a reading guide for this".
 </details>
 
 <details>
@@ -39,16 +48,16 @@ pip install -r ~/.codex/skills/reading-guide/requirements.txt
 
 ```bash
 npx skills@latest add Liangzhen-Chen/literature-guide-read
-pip install pdfplumber beautifulsoup4   # beautifulsoup4 is only needed for open versions (arXiv)
+pip install pdfplumber beautifulsoup4
 ```
 
-The installer asks which agents to install to; the default is the current project, and `-g` installs at user level.
+The installer asks which agents to install to; add `-g` to install for your user instead of the current project.
 </details>
 
 <details>
 <summary><b>claude.ai</b></summary>
 
-Zip the folder and upload it through the Skills control if your plan has one. Only the default extraction tier runs there (the sandbox cannot download models); scans and formula-heavy readings do better in a local agent.
+Download `reading-guide.zip` from the [latest release](https://github.com/Liangzhen-Chen/literature-guide-read/releases/latest) and upload it under Settings, Capabilities, Skills. Scans and formula-heavy papers come out better in a local agent.
 </details>
 
 <details>
@@ -75,89 +84,41 @@ python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json
 If `check.py` reports errors, paste them back to the model and ask it to fix them.
 </details>
 
-Optional, for scans and formula-heavy readings: Tesseract (`eng`, `chi_sim`) and Poppler for OCR; [MinerU](https://github.com/opendatalab/MinerU) for layout analysis (`pip install "mineru>=4,<5" && mineru-kit models download --tier basic`, about 0.8 GB, CPU is fine). `segment.py` uses MinerU automatically when it is installed; see [Extraction tiers](#extraction-tiers).
+<details>
+<summary><b>Optional: scanned PDFs, three-column layouts, many formulas</b></summary>
 
-## Usage
+Scans need Tesseract (`eng`, `chi_sim`) and Poppler. Three-column layouts and formula-heavy papers do better with [MinerU](https://github.com/opendatalab/MinerU), which the skill uses automatically once installed (about 0.8 GB, a CPU is enough):
 
-1. Give the agent a PDF and ask for a reading guide.
-2. It asks one round of questions first: the language of the notes, what you are reading for (the whole argument, core claims only, method and design, evidence to cite, exam revision), how familiar you are with the field, and any questions you want answered. Say "you decide" to take the defaults.
-3. It segments the PDF, reads everything, writes the guide, validates it and hands you the page.
+```bash
+pip install "mineru>=4,<5" && mineru-kit models download --tier basic
+```
+</details>
 
-What you get on the page:
+To update, run `git pull` in the skill folder, run the `npx` line again, or upload the new zip on claude.ai.
 
-- A title, a source line (paragraph count, how many are close reads) and a one-sentence conclusion. Under it a mind map that stops at the parts: one row per part, dashed lines for qualifications. Your questions, answered from the text with paragraph links, and a "guess the relations" switch sit below.
-- A left margin that follows you through the text, in three light boxes: the current part's title and claim; its numbered reasoning steps, one sentence each on what the step adds and why it follows (click to jump, the number of the step you are in turns green); and the terms first defined there (four shown, the rest folded). The "Terms" button indexes all terms. On a narrow screen the margin folds into a "This part's structure" toggle.
-- The paper's own text (paragraphs, captions, its section headings) is set in a serif. What the guide adds (reading prompts, after-reading summaries, restatements, claims, recall answers) is set in a sans on a pale tinted block with a coloured bar and a small label, so the two are told apart at a glance even with everything open. The reading column takes the width the margin leaves; page width and type size follow the screen, with margins on very wide ones.
-- The original in order. Close-read paragraphs carry a "read for" prompt and a folded after-reading summary. Skim paragraphs lead with a restatement and fold the original. Skip paragraphs take one line. A switch shows full text or summaries only.
-- One highlight style for definitions and key claims. Defined terms and symbols show their definition on hover once they recur.
-- Simple formulas are set as text; complex ones render in KaTeX, with the PDF crop, an explanation and the symbol table folded under them. Figures and tables hang on the paragraph that first cites them.
-- Recall questions at the end of each part, answers folded. Chinese, English or both, light and dark mode.
+## Use it
 
-### What one reading costs
+1. Give the agent a PDF and say "make me a reading guide for this".
+2. It asks a few questions first: notes in English or Chinese, what you are reading for (the whole argument, core claims, method, evidence to cite, exam revision), how well you know the field, and anything you want answered. Say "you decide" to skip them.
+3. A few minutes later you get the page. With Claude Sonnet, a 6-page paper took about 7 minutes and 134,000 tokens; a 10-page paper with 11 equations took about 10 minutes and 172,000 tokens.
 
-Measured with Claude Sonnet, running the skill from the PDF to the finished page: Ioannidis (2005), 6 pages, 40 paragraphs, notes in Chinese and English, took about 134,000 tokens and 7 minutes. The DPO paper (arXiv 2305.18290), 10 pages of main text, 52 paragraphs, 11 display equations, notes in Chinese, took about 172,000 tokens and 10 minutes. These are the totals Claude Code reports, which count the context it re-reads on every turn; with pay-per-token billing, cached input is cheaper.
+While you read, ask the agent about any paragraph ("what is P23 saying?"), correct a note, or say "walk me through it" to go part by part.
 
-While you read, ask the agent about any paragraph ("what is P23 saying?"), correct a tier or a note, or say "walk me through it" to go part by part.
+## Built on reading research
 
-## How it works
-
-1. `segment.py` splits the PDF into fixed paragraph ids (P1, P2, …), recognises headings, captions and footnotes, removes running heads, records printed page numbers, links footnotes to the paragraphs that cite them, and crops every display equation and table region. Single- and two-column layouts (three columns or a side column need MinerU), scans (OCR) and Chinese headings and footnotes are handled.
-2. `sources.py` (optional) fetches the arXiv HTML or TeX version of a paper for clean figures, tables and formulas.
-3. The agent reads every paragraph and writes the guide data: parts and claims, the relations between parts, a tier and a note or "read for" line per paragraph, elements anchored to verbatim spans, formula transcriptions checked against the crops, recall questions.
-4. `check.py` reports an error, and `render.py` writes no page, when a paragraph has no entry, parts do not cover the text in order, an anchor is not verbatim in the paragraph, a number in a note is not in the source, or LaTeX braces are unbalanced. It only warns about numbers inside a formula's `tex`, a close-read share above the density cap, and notes that only describe a paragraph without restating its content.
-5. `render.py` builds the single-file page.
-
-The rules the agent follows are in `references/method.md`, `elements.md`, `genres.md` and `schema.md`; they are plain text and meant to be edited as you learn what your readings need.
-
-## Extraction tiers
-
-| | Default | With MinerU |
-| --- | --- | --- |
-| Install | `pip install pdfplumber` | plus MinerU and its basic models (about 0.8 GB) |
-| Running heads, headings, tables | heuristics on the text layer | layout analysis; tables as structure |
-| Display formulas | located by heuristics, cropped | located by the layout model, cropped; transcribed to LaTeX when the formula model is installed |
-| Speed on a CPU | seconds per paper | 1 to 3 minutes per paper |
-
-Measured on a private set of 11 readings (seven real publications, scans and a textbook chapter; the set is not distributed with this repository, so the figures cannot be re-run from it): on manually reviewed pages MinerU ties or beats the default on 7 of 8, removes all 30 running heads the default used to turn into headings on a JSTOR scan, and turns about 800 loose table rows into 111 tables. On four formula-heavy papers (machine learning, econometrics, quantum computing, pure mathematics) MinerU found about twice as many display equations as the default. Without MinerU's 577 MB formula model, formulas come out as crops that the agent transcribes; that run is 40% to 75% faster.
-
-## Why it reads this way
-
-The design follows published studies of reading interfaces and learning:
-
-- Faceted highlights let readers find information faster without losing accuracy, but wrong or dense highlights cost trust ([Scim, Allen AI](https://dl.acm.org/doi/fullHtml/10.1145/3581641.3584034)). So the page has one highlight style, sparse and validated, and a summaries-only view.
-- Definitions at the point of use help readers of dense papers ([ScholarPhi](https://dl.acm.org/doi/fullHtml/10.1145/3411764.3445648)). So definitions show on hover.
-- Argument mapping improves critical thinking, and the gain comes from working the map out yourself ([van Gelder](https://www.reasoninglab.com/wp-content/uploads/2013/10/TvG-Using-argument-mapping-to-improve-critical-thinking-skills-2015.pdf)). So there is a "guess the relations" switch.
-- Pre-questions help on the material they target ([prequestion meta-analysis](https://link.springer.com/article/10.3758/s13423-023-02353-8)) and retrieval practice is the best-supported study method ([Dunlosky et al. 2013](https://doi.org/10.1177/1529100612453266)). So the "read for" prompts are specific and each part ends with recall questions. Each close read also has a folded after-reading summary, so you try to recall the paragraph before you check it.
-- Explaining a worked example to yourself beats reading the explanation ([self-explanation](https://link.aps.org/doi/10.1103/PhysRevPhysEducRes.18.010136)). So formula explanations stay folded until you open them.
-
-## Files
-
-| File | What it holds | Edit it when |
-| --- | --- | --- |
-| `SKILL.md` | the workflow and the rules the agent must keep | the workflow changes |
-| `references/method.md` | the method: parts, tiers, notes, elements, numbers, recall | refining the method (most edits go here) |
-| `references/elements.md` | element types; `check.py` and the page read them from here | adding or renaming types |
-| `references/genres.md` | adjustments by genre | a new genre comes up |
-| `references/schema.md` | the guide data format with examples | rarely |
-| `scripts/segment.py` | segmentation | segmentation goes wrong |
-| `scripts/mineru_backend.py` | the optional MinerU engine and the rules applied to its output | MinerU output needs a new rule |
-| `scripts/crops.py` | crops of formula and table regions | crop sizing changes |
-| `scripts/sources.py` | open versions | open-version handling changes |
-| `scripts/check.py` | validation | adding a check |
-| `scripts/render.py` | page assembly; `--dump` recovers data from a page | rarely |
-| `assets/template.html` | the page | changing the page |
-| `CHANGELOG.md` | every change and what prompted it | every change |
-
-Tests: `python -m pytest tests/unit` (Python 3.9 and 3.12). Every fix to the scripts is covered by a regression test that failed before the fix.
+- One sparse highlight style and a summaries-only view, because dense or wrong highlights cost readers' trust ([Scim](https://dl.acm.org/doi/fullHtml/10.1145/3581641.3584034)).
+- Definitions on hover, where the term is used ([ScholarPhi](https://dl.acm.org/doi/fullHtml/10.1145/3411764.3445648)).
+- A "guess the relations" switch on the mind map, because argument maps help most when you work them out yourself ([van Gelder](https://www.reasoninglab.com/wp-content/uploads/2013/10/TvG-Using-argument-mapping-to-improve-critical-thinking-skills-2015.pdf)).
+- Specific "read for" prompts, recall questions and summaries you open after trying to recall, following the evidence on pre-questions ([meta-analysis](https://link.springer.com/article/10.3758/s13423-023-02353-8)) and retrieval practice ([Dunlosky et al. 2013](https://doi.org/10.1177/1529100612453266)).
+- Formula explanations folded, so you try to explain the step yourself first ([self-explanation](https://link.aps.org/doi/10.1103/PhysRevPhysEducRes.18.010136)).
 
 ## Known limits
 
-- Segmentation is heuristic on the default tier: equations, tables, metadata and unusual layouts can still split or merge paragraphs. Spot-check the part files before the guide is written; the paragraph ids are frozen after that.
-- The default tier handles single- and two-column layouts only. Three columns or a side column (for example the 2005 PLOS Medicine layout) need MinerU.
-- With MinerU's formula model, inline formulas in prose arrive as LaTeX and the page renders them; the LaTeX can carry small recognition errors, and the original paragraph is never edited to fix them. Without the formula model they stay as the PDF text layer gives them. Display formulas render in KaTeX when a transcription exists, with the PDF crop folded under them for checking.
-- On three-column layouts, MinerU can cut a paragraph at a column or page break. There is no tool to merge the pieces yet, so the notes are written for the paragraphs as cut.
-- Open versions are fetched only for arXiv papers, and only where the network allows.
-- A page embeds the full text of the PDF it was built from. Keep pages made from copyrighted readings to yourself; use openly licensed papers for public demos.
+- Works best on PDFs with a text layer in one or two columns. On unusual layouts a paragraph can come out split in two or merged with the next; the agent checks the split before it writes.
+- Inline formulas read by MinerU can carry small recognition errors. Display formulas come with the PDF crop so you can check them.
+- The page contains the full text of the PDF it was built from. Keep pages made from copyrighted readings to yourself.
+
+The rules the agent follows are plain text in `references/`; edit them, or tell the agent what went wrong, as you learn what your readings need. The demos use two openly licensed papers: Ioannidis (2005), [Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124) (CC BY), and Rafailov et al. (2023), [Direct Preference Optimization](https://arxiv.org/abs/2305.18290) (CC BY 4.0).
 
 ## License
 
