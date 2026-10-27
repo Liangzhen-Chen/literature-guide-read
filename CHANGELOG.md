@@ -40,7 +40,7 @@ Close reads and segmentation.
 - check.py: a close entry without `note` is a warning (old guides still pass); a close `note` gets the same checks as a skim note (numbers must be in the source text, warning for notes that describe instead of restate).
 - method.md, schema.md, SKILL.md describe the new field. render.py already passed `note` through for every tier.
 - segment.py: old PDFs whose text layer leaves a space after a ligature ("signifi cant", "fi eld", "confl icts") are rejoined before paragraphs.json is written, in both engines. It only acts when the document shows at least two bare ligature fragments ("fi nding", "fl ow"), leaves a split alone when the tail is a word used elsewhere in the text, and never joins a capitalised word in mid-sentence, so "Sufi music" stays as written. Prompted by the Ioannidis (2005) sample, about 200 splits.
-- A restored drop cap goes after any opening quote or bracket ("Published, not P"ublished).
+- A restored drop cap goes after any opening quote or bracket: "ublished becomes "Published.
 
 ## 0.6.1 (2026-10-26)
 
