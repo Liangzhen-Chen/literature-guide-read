@@ -87,3 +87,13 @@ def test_drop_cap_for_needs_lowercase_text(text):
     big = {"text": "P", "x0": 60, "x1": 85, "top": 100, "bottom": 140, "size": 40}
     assert (text[:1].islower()) == bool(drop_cap_for(text, (60, 100, 400, 140), [big], 10)) if text else \
         drop_cap_for(text, (60, 100, 400, 140), [big], 10) is None
+
+
+@pytest.mark.parametrize("text,want", [('"ublished research', '"Published research'), ('(ublished research', '(Published research'),
+                                       ('“ublished research', '“Published research'), ('ublished research', 'Published research')])
+def test_drop_cap_goes_after_leading_punctuation(text, want):
+    big = {"text": "P", "x0": 60, "x1": 85, "top": 100, "bottom": 140, "size": 40}
+    box = (60, 100, 400, 140)
+    assert mb._restore_drop_cap(text, (60 / W, 100 / H, 400 / W, 140 / H), ([big], W, H, 10)) == want
+    block = {"text": text, "x0": 60, "top": 100, "x1": 400, "bottom": 140}
+    assert s.restore_drop_caps([block], [big], 10)[0]["text"] == want

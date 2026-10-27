@@ -18,7 +18,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import drop_cap_for, use_utf8  # noqa: E402
+from common import drop_cap_for, put_drop_cap, use_utf8  # noqa: E402
 from segment import NUM_HEAD_RE, body_size, get_words, join_text, link_notes  # noqa: E402
 
 MASTHEAD_LINE_RE = re.compile(r"\b(vol\.|volume|issue|no\.)\s*[\dIVXLCM]+", re.I)
@@ -133,7 +133,7 @@ def _restore_drop_cap(text, bbox, info):
         return text
     words, w, h, body = info
     cap = drop_cap_for(text, (bbox[0] * w, bbox[1] * h, bbox[2] * w, bbox[3] * h), words, body)
-    return cap["text"] + text.lstrip() if cap else text
+    return put_drop_cap(text, cap["text"]) if cap else text
 
 
 def convert(sc, source_name, source_path):

@@ -19,13 +19,14 @@ def test_bilingual_meta_fields_render(clean, tmp_path, lang):
     r.render(doc, guide, out, args)
     text = out.read_text(encoding="utf-8")
     d = json.loads(r.DATA_RE.search(text).group(1).replace("<\\/", "</"))
-    for f in ("title", "author", "source"):
-        assert isinstance(d["meta"][f], str) and d["meta"][f]
-    assert "<title>" in text and "{" not in text.split("<title>")[1].split("</title>")[0]
+    for f in ("title", "author", "source"):  # the page keeps both languages and picks one when it shows them
+        assert set(d["meta"][f]) == {"en", "zh"} and all(d["meta"][f].values())
+    page_title = text.split("<title>")[1].split("</title>")[0]
+    assert "{" not in page_title
     if lang == "en":
-        assert d["meta"]["title"] == "Reward choices"
+        assert page_title == "Reward choices"
     if lang == "zh":
-        assert d["meta"]["title"] == "奖励选择"
+        assert page_title == "奖励选择"
 
 
 @pytest.mark.parametrize("src,note", [

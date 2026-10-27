@@ -56,6 +56,11 @@ def fix_split_ligatures(texts, min_hits=3):
     cands = list(_LIG_SPLIT.finditer(blob))
     if sum(not _is_ff(m.group(1)) for m in cands) < min_hits:
         return list(texts)
+    # a stray "fi" after a name ("Sufi mystic") is no proof; the defect shows as a bare fragment, twice or more
+    if sum(1 for m in cands if m.group(1) in ("fi", "fl", "ffi", "ffl", "ff")
+           and (m.group(1).lower(), m.group(2)) not in _LIG_NOT_SPLIT
+           and not re.search(r"(?:wi|hi|sci)\s$", m.string[max(0, m.start() - 4):m.start()], re.I)) < 2:
+        return list(texts)
     rest, last = [], 0
     for m in cands:
         rest.append(blob[last:m.start()])
@@ -71,6 +76,8 @@ def fix_split_ligatures(texts, min_hits=3):
         if (left.lower(), right) in _LIG_NOT_SPLIT or (prev and (prev[-1].lower(), left.lower()) in _LIG_NOT_SPLIT):
             return m.group(0)
         if _is_ff(left) and left + right not in words:
+            return m.group(0)
+        if left[0].isupper() and re.search(r"[^\s.?!]\s*$", m.string[:m.start()]):  # a name inside a sentence
             return m.group(0)
         return left + right
 
@@ -341,6 +348,16 @@ def load_guide(paths):
             else:
                 guide[k] = v
     return guide
+
+
+_DROP_CAP_LEAD = " \"'“‘(["
+
+
+def put_drop_cap(text, cap):
+    """Insert the drop cap word `cap` after any opening quote or bracket: '"ublished' -> '"Published'."""
+    s = text.lstrip()
+    n = len(s) - len(s.lstrip(_DROP_CAP_LEAD))
+    return s[:n] + cap + s[n:]
 
 
 def drop_cap_for(text, box, words, body, tol=4.0):

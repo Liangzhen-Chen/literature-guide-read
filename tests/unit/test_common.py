@@ -109,3 +109,16 @@ def test_split_ligatures_no_sign_no_change():
 def test_split_ligatures_single_letter_tail():
     texts = SPLIT_DOC[:2] + ['A scientifi c claim, vitamin c and c.']
     assert 'scientific claim' in c.fix_split_ligatures(texts)[2]
+
+
+def test_split_ligatures_proper_nouns_and_lone_evidence_untouched():
+    text = 'A Sufi mystic studies Sufi poetry and Sufi music.'
+    # no standalone fragment anywhere: nothing changes
+    assert c.fix_split_ligatures([text, 'One scientifi c case, another signifi cant one, of fi ve.']) == \
+        [text, 'One scientifi c case, another signifi cant one, of fi ve.']
+    # with the defect proven by standalone fragments, a mid-sentence capitalised name is still not joined
+    doc = ['The fi nding in this fi eld is clear.', 'A signifi cant effect.', text]
+    out = c.fix_split_ligatures(doc)
+    assert out[0] == 'The finding in this field is clear.'
+    assert out[1] == 'A significant effect.'
+    assert out[2] == text

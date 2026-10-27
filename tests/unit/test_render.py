@@ -222,3 +222,22 @@ def test_inline_math_in_paragraph_text_inlines_katex(clean):
     doc['items'][1]['text'] = 'One gets PPV = $u \beta R / ( R + \alpha )$ for the field.'
     _, _, comp = run_checks(doc, g)
     assert r.build_data(doc, g, comp, None, {}, 'en')['has_tex'] is True
+
+
+def test_remote_figure_images_never_reach_the_page(clean,tmp_path):
+    doc,g=clean
+    doc['items'][0]['text'] += ' Figure 1 shows choices.'
+    doc['items'].insert(1,{'id':'C1','type':'caption','text':'Figure 1. Choices','page':2})
+    _,_,comp=run_checks(doc,g)
+    png=tmp_path/'f.png'; png.write_bytes(b'PNGDATA')
+    src=lambda img:{'figures':[{'kind':'fig','num':1,'caption':'Choices','img':img}]}
+    d=r.build_data(doc,g,comp,src('https://example.invalid/f.png'),{},None)
+    assert 'img' not in d['open']['assets']['C1']
+    assert 'example.invalid' not in json.dumps(d)
+    assert r.build_data(doc,g,comp,src('data:image/png;base64,YQ=='),{},None)['open']['assets']['C1']['img']=='data:image/png;base64,YQ=='
+    assert r.build_data(doc,g,comp,src(str(png)),{},None)['open']['assets']['C1']['img'].startswith('data:image/png;base64,')
+
+
+def test_template_only_renders_data_uri_figure_images():
+    tpl=(r.SKILL_DIR/'assets/template.html').read_text(encoding='utf-8')
+    assert 'a.img && /^data:/i.test(a.img)' in tpl

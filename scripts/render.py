@@ -86,6 +86,23 @@ def page_images(pdf_path, pages, res=110):
     return imgs
 
 
+def offline_image(img):
+    """The page must not fetch anything: keep a data: URI, embed a local image file, drop any other URL."""
+    if not isinstance(img, str) or not img:
+        return None
+    if img.startswith("data:"):
+        return img
+    try:
+        f = Path(img)
+        mime = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
+                ".svg": "image/svg+xml", ".webp": "image/webp"}.get(f.suffix.lower())
+        if mime and f.is_file() and f.stat().st_size <= 2_000_000:
+            return f"data:{mime};base64," + base64.b64encode(f.read_bytes()).decode()
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def build_data(doc, guide, comp, sources, imgs, lang, crops=None):
     primary = comp["primary"]
     langs = comp["stats"]["langs"]
@@ -121,6 +138,9 @@ def build_data(doc, guide, comp, sources, imgs, lang, crops=None):
             cid = next((c for c, v in figs.items() if v["key"] and tuple(v["key"]) == key), None)
             if cid:
                 open_assets[cid] = {k: f[k] for k in ("caption", "img", "rows") if f.get(k)}
+                img = offline_image(open_assets[cid].pop("img", None))
+                if img:
+                    open_assets[cid]["img"] = img
     entries = {}
     for eid, g in guide["paras"].items():
         if eid not in items:
@@ -201,11 +221,9 @@ def build_data(doc, guide, comp, sources, imgs, lang, crops=None):
                or any(e.get("tex") for g in entries.values() for e in g["els"])
                or any(q.get("tex") for q in (sources or {}).get("equations", [])))
     meta = dict(guide.get("meta") or {})
-    default_lang = lang if lang in langs else langs[0]
-    for f in ("title", "author", "source"):  # a string, or {"zh": ..., "en": ...}; the page shows the default language
+    for f in ("title", "author", "source"):  # a string, or {"zh": ..., "en": ...}; the page picks the language when it shows it
         if isinstance(meta.get(f), dict):
-            v = as_lang(meta[f], primary)
-            meta[f] = v.get(default_lang) or v.get(primary) or next(iter(v.values()), "")
+            meta[f] = as_lang(meta[f], primary)
     for f in ("genre", "purpose", "familiarity"):
         if f in meta:
             meta[f] = as_lang(meta[f], primary)
@@ -281,7 +299,10 @@ def render(doc, guide, out_path, args, work_dir=None):
     imgs = page_images(pdf, {p for p in pages if p}) if pages else {}
     data = build_data(doc, guide, comp, sources, imgs, args.lang, crops=crop_images(doc, work_dir))
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
-    title = data["meta"].get("title") or doc.get("title_guess") or doc.get("source") or "Reading guide"
+    title = data["meta"].get("title")
+    if isinstance(title, dict):  # the HTML <title> is in the default language
+        title = title.get(data["default_lang"]) or next(iter(title.values()), "")
+    title = title or doc.get("title_guess") or doc.get("source") or "Reading guide"
     tpl = (SKILL_DIR / "assets" / "template.html").read_text(encoding="utf-8")
     # fill the KaTeX slot first: once the JSON payload is in, its text must never be scanned for placeholders
     page = tpl.replace("__KATEX__", katex_bundle() if data["has_tex"] else "").replace("__TITLE__", html.escape(title))

@@ -254,7 +254,7 @@ def test_json_eaten_latex_backslash_is_an_error(clean):
     g['paras']['P1']['why'] = 'bad $\x08eta^{n}$'
     errors, _, _ = run_checks(doc, g)
     assert any('paras.P1.why' in e and 'double backslash' in e for e in errors)
-    doc, g = _formula(clean, tex='\theta + 1')
+    doc, g = _formula(clean, tex='\x08eta + 1')
     errors, _, _ = run_checks(doc, g)
     assert any('paras.P1.els[1].tex' in e and 'double backslash' in e for e in errors)
     del g['paras']['P1']['why']
@@ -342,3 +342,17 @@ def test_ai_tells_skip_anchors_and_cover_claim(clean):
     g['parts'][0]['claim']={k:'Not just price, but loss.' for k in (g['parts'][0]['claim'] if isinstance(g['parts'][0]['claim'],dict) else {'en':1})}
     _,ws,_=run_checks(doc,g)
     assert any('claim' in w and 'contrast' in w for w in ws), ws
+
+
+def test_json_newline_before_letter_is_only_a_warning_inside_maths(clean):
+    doc, g = _formula(clean, tex='x = a +\nb')
+    errors, _, _ = run_checks(doc, g)
+    assert not any('double backslash' in e for e in errors)
+    doc, g = clean
+    g['paras']['P1']['note'] = {'zh': 'ok', 'en': 'For $x$,\nconsider the case.'}
+    errors, warns, _ = run_checks(doc, g)
+    assert not any('paras.P1.note' in m for m in errors + warns)
+    g['paras']['P1']['why'] = 'bad $\theta$'
+    errors, warns, _ = run_checks(doc, g)
+    assert not any('double backslash' in e for e in errors)
+    assert any('paras.P1.why' in w and 'double backslash' in w for w in warns)

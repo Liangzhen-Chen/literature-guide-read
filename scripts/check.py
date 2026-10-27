@@ -407,9 +407,11 @@ def run_checks(doc, guide, density=None):
             if "\x08" in v or "\x0c" in v:
                 errors.append(f"{where}: contains a backspace/form-feed character, so a LaTeX backslash was eaten by JSON "
                               f"(\\b -> backspace, \\f -> form feed); {fix}: «{v[:50]!r}»")
-            elif (key == "tex" or "$" in v) and re.search(r"[\t\n\r][a-z]", v):
-                errors.append(f"{where}: a tab/newline/return is followed by a letter, probably \\theta, \\nu or \\rho eaten by JSON "
-                              f"(\\t, \\n, \\r); {fix}: «{v[:50]!r}»")
+            else:  # a tab/newline/return before a letter is often legitimate, so only inside maths and only a warning
+                spans = [v] if key == "tex" else re.findall(r"\$([^$]*)\$", v)  # a tab right after $ is not a normal span start
+                if any(re.search(r"[\t\n\r][a-z]", x) for x in spans):
+                    warns.append(f"{where}: a tab/newline/return is followed by a letter inside maths, perhaps \\theta, \\nu or \\rho eaten by JSON "
+                                 f"(\\t, \\n, \\r); {fix}: «{v[:50]!r}»")
     eaten("", guide)
 
     return errors, warns, {"hl": hl, "stats": stats, "primary": primary}

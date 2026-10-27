@@ -22,7 +22,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import clean_text, drop_cap_for, fix_split_ligatures, is_cjk, use_utf8  # noqa: E402
+from common import clean_text, drop_cap_for, fix_split_ligatures, is_cjk, put_drop_cap, use_utf8  # noqa: E402
 
 CAPTION_RE = re.compile(r"^(fig(ure)?s?\.?|table|tab\.|exhibit|chart|plate|图|表)\s*[\dIVX]+(\.\d+)?\s*([.:：|]|$)", re.I)
 NUM_HEAD_RE = re.compile(r"^(\d+(\.\d+){0,3}|[IVXLC]+|[A-H])[.)]?\s+(\S)")
@@ -536,7 +536,7 @@ def restore_drop_caps(page_blocks, words, body):
         w = drop_cap_for(b["text"], (b["x0"], b["top"], b["x1"], b["bottom"]), words, body)
         if w is None:
             continue
-        b["text"] = w["text"] + b["text"].lstrip()
+        b["text"] = put_drop_cap(b["text"], w["text"])
         b["x0"], b["top"] = min(b["x0"], w["x0"]), min(b["top"], w["top"])
         gone |= {j for j, o in enumerate(page_blocks) if j != i and o["text"].strip() == w["text"]
                  and abs(o["top"] - w["top"]) < 2}

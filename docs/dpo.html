@@ -369,7 +369,7 @@ body.v-gist .crop, body.v-gist .figcard, body.v-gist .fx { display: none; }
       while (tex[i] === " ") i++;
       if (tex[i] !== "{") fail();
       var j = tex.indexOf("}", i); if (j < 0) fail();
-      var s = tex.slice(i + 1, j); if (/[{\\]/.test(s)) fail();
+      var s = tex.slice(i + 1, j); if (/[\^_{}\\$]/.test(s)) fail();
       i = j + 1; return s;
     }
     function seq(out, depth, inBrace) {
@@ -631,7 +631,7 @@ body.v-gist .crop, body.v-gist .figcard, body.v-gist .fx { display: none; }
   function figNode(cid) {
     var it = D.items[cid], f = D.figs[cid] || {}, a = D.open.assets[cid], card = el("figure", "figcard");
     card.appendChild(withMath(el("figcaption", "cap"), (a && a.caption) || it.text));
-    if (a && a.img) { var im = el("img"); im.src = a.img; im.alt = (a.caption || it.text); im.loading = "lazy"; card.appendChild(im); }
+    if (a && a.img && /^data:/i.test(a.img)) { var im = el("img"); im.src = a.img; im.alt = (a.caption || it.text); im.loading = "lazy"; card.appendChild(im); }
     if (a && a.rows) {
       var w = el("div", "tbl"), t = el("table"); w.tabIndex = 0;
       w.addEventListener("keydown", function (e) {
@@ -649,10 +649,10 @@ body.v-gist .crop, body.v-gist .figcard, body.v-gist .fx { display: none; }
   function renderHeader() {
     var u = UI[LANG];
     document.documentElement.lang = LANG === "zh" ? "zh-CN" : "en";
-    $("title").textContent = D.meta.title || D.doc.title_guess || D.doc.source;
+    $("title").textContent = L(D.meta.title) || D.doc.title_guess || D.doc.source;
     var paras = D.order.filter(function (id) { return D.items[id].type === "para"; });
     var close = paras.filter(function (id) { return D.guide[id] && D.guide[id].tier === "close"; }).length;
-    $("meta").textContent = [D.meta.author, D.meta.source, u.stats(paras.length, close)].filter(Boolean).join("　");
+    $("meta").textContent = [L(D.meta.author), L(D.meta.source), u.stats(paras.length, close)].filter(Boolean).join("　");
     var th = $("thesis"); th.textContent = ""; withNums(th, L(D.thesis));
     var qs = $("qs"), qb = $("qbody"), Q = D.questions || [];
     qb.textContent = ""; qs.hidden = !Q.length; $("qsum").textContent = u.questions(Q.length);
