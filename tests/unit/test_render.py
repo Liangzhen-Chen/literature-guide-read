@@ -130,6 +130,19 @@ def test_build_recall_and_glossary(clean):
     assert {'term': 'share', 'x': {'en': 'the fraction'}, 'src': 'P1'} in d['glossary']
 
 
+def test_bilingual_glossary_term_gives_one_entry_per_spelling(clean):
+    # a def element whose term is {"en": ..., "zh": ...} used to reach the page as the string "{'en': ...}"
+    doc, g = clean
+    g['meta']['notes_lang'] = ['en', 'zh']
+    g['paras']['P1']['els'] = [{'t': 'def', 'term': {'en': 'reward', 'zh': '报酬'}, 'a': 'smaller reward',
+                                'x': {'en': 'the payment offered', 'zh': '给出的报酬'}}]
+    _, _, comp = run_checks(doc, g)
+    d = r.build_data(doc, g, comp, None, {}, None)
+    terms = [e['term'] for e in d['glossary']]
+    assert 'reward' in terms and '报酬' in terms
+    assert not any(t.startswith('{') for t in terms)
+
+
 def test_roundtrip_recall(clean, tmp_path):
     args = SimpleNamespace(density=None, force=False, sources=None, no_page_images=True, pdf=None, lang=None)
     doc, g = clean

@@ -212,7 +212,10 @@ def build_data(doc, guide, comp, sources, imgs, lang, crops=None):
     for eid, g in guide["paras"].items():
         for x in g.get("els") or []:
             if x.get("t") == "def" and x.get("term") and x.get("x"):
-                glossary.append({"term": str(x["term"]), "x": as_lang(x["x"], primary), "src": eid})
+                term = x["term"]  # a string, or {"zh": ..., "en": ...}: one entry per spelling, so hover works in either language
+                for t in dict.fromkeys(term.values() if isinstance(term, dict) else [term]):
+                    if t:
+                        glossary.append({"term": str(t), "x": as_lang(x["x"], primary), "src": eid})
             for z in x.get("syms") or [] if isinstance(x.get("syms"), list) else []:
                 if isinstance(z, dict) and z.get("s") and z.get("m") and "\\" not in str(z["s"]):
                     glossary.append({"term": str(z["s"]), "x": as_lang(z["m"], primary), "src": eid})
