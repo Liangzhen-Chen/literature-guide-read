@@ -2,24 +2,21 @@ English | [中文](README.zh.md)
 
 # reading-guide
 
-**Give your AI agent a paper. Get back a page that tells you what to read closely, what to skim and what to skip.**
-
-reading-guide is an agent skill for course readings and papers. The agent reads the whole PDF first, then builds one offline page around the original text, with notes in English, Chinese or both. It works in Claude Code, Codex, claude.ai and any agent that supports [Agent Skills](https://agentskills.io).
+An agent skill that turns a paper or course reading into a web page for reading it. You give the agent a PDF; it reads the whole thing, then tells you which paragraphs to read closely, which to skim and which you can skip, with notes in English, Chinese or both. It works in Claude Code, Codex, claude.ai and other agents that support [Agent Skills](https://agentskills.io).
 
 Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://liangzhen-chen.github.io/literature-guide-read/), or [the DPO paper (2023), notes in Chinese](https://liangzhen-chen.github.io/literature-guide-read/dpo.html).
 
 ![The top of a reading page: title, conclusion and the mind map](assets/readme/page-top.png)
 
-## What you get
+## What the page does
 
-- **The point first.** The conclusion in one sentence at the top, and a mind map of how the parts of the argument support it.
-- **Where to spend your time.** Every paragraph is marked close read, skim or skip. Short on time? Switch to summaries only and still follow the argument.
-- **A margin that keeps your place.** While you read, the margin shows the current part's claim, its reasoning in short numbered steps and the terms it defines. Click a step to jump to it.
-- **The original stays untouched.** The paper's text is never edited. Everything the guide adds sits in a tinted box, so you always know which words are the author's.
-- **Formulas you can follow.** Key equations are rendered and explained, with a symbol table and the crop from the PDF to check against.
-- **Practice built in.** Close reads come with a "read for" prompt and a folded summary to check yourself against. Each part ends with recall questions.
-- **Your questions answered.** Tell the agent what you want to know before it starts; the page answers from the text and links to the paragraphs.
-- **Notes you can trust.** Before the page is built, a checker rejects any note whose numbers are not in the paper and any highlight that is not word for word in the original.
+At the top is the paper's conclusion in one sentence, with a mind map of how the parts lead to it. Below that is the original text, paragraph by paragraph and unchanged. Paragraphs worth a close read get a line on what to look for and a summary you can open afterwards to check yourself. Skim paragraphs start with a short restatement, and the ones you can skip are folded to a single line. If you only have ten minutes, switch to summaries only.
+
+As you scroll, the left margin shows the part you are in: its claim, its reasoning in a few numbered steps and the terms it introduces. Click a step to jump to that paragraph. Everything the guide wrote sits in a tinted box, apart from the author's own words.
+
+Formulas that matter are rendered and explained, with a table of symbols and the original crop from the PDF. Each part ends with a few recall questions. If you told the agent what you wanted to find out, the answers are near the top with links to the paragraphs.
+
+Before the page is built, a script checks the notes against the paper. If a note has a number the paper doesn't, or a highlight doesn't match the original word for word, the page isn't built until the agent fixes it.
 
 ![A part of the DPO paper with Chinese notes: the margin holds the part's claim, steps and terms; on the right a close-read paragraph with its read-for prompt, the rendered formula and the opened after-reading summary](assets/readme/page-formula.png)
 
