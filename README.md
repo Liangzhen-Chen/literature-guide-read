@@ -8,15 +8,16 @@ Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://l
 
 ![The top of a reading page: title, conclusion and the mind map](assets/readme/page-top.png)
 
-## What the page does
+## What's on the page
 
-At the top is the paper's conclusion in one sentence, with a mind map of how the parts lead to it. Below that is the original text, paragraph by paragraph and unchanged. Paragraphs worth a close read get a line on what to look for and a summary you can open afterwards to check yourself. Skim paragraphs start with a short restatement, and the ones you can skip are folded to a single line. If you only have ten minutes, switch to summaries only.
-
-As you scroll, the left margin shows the part you are in: its claim, its reasoning in a few numbered steps and the terms it introduces. Click a step to jump to that paragraph. Everything the guide wrote sits in a tinted box, apart from the author's own words.
-
-Formulas that matter are rendered and explained, with a table of symbols and the original crop from the PDF. Each part ends with a few recall questions. If you told the agent what you wanted to find out, the answers are near the top with links to the paragraphs.
-
-Before the page is built, a script checks the notes against the paper. If a note has a number the paper doesn't, or a highlight doesn't match the original word for word, the page isn't built until the agent fixes it.
+- The paper's **conclusion in one sentence** at the top, with a mind map of how the parts lead to it.
+- Every paragraph marked **close read, skim or skip**. When time is short, switch to summaries only.
+- A **left margin that follows you**, showing the current part's claim, its reasoning in numbered steps and the terms it introduces. Click a step to jump to that paragraph.
+- The **original text, unchanged**. Everything the guide wrote sits in its own tinted box.
+- **Key formulas** rendered and explained, with a table of symbols and the crop from the PDF.
+- A **"read for" line** on each close-read paragraph, a summary to open once you have read it, and **recall questions** at the end of each part.
+- **Answers to the questions** you gave the agent at the start, taken from the text and linked to the paragraphs.
+- Notes **checked against the paper** before the page is built. A number the paper doesn't contain, or a highlight that doesn't match the original word for word, has to be fixed first.
 
 ![A part of the DPO paper with Chinese notes: the margin holds the part's claim, steps and terms; on the right a close-read paragraph with its read-for prompt, the rendered formula and the opened after-reading summary](assets/readme/page-formula.png)
 
