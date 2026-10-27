@@ -1,8 +1,10 @@
 [English](README.md) | 中文
 
-# reading-guide
+# literature-guide-read
 
-一个 agent skill，把论文或课程读物做成一张方便阅读的网页。你把 PDF 交给 agent，它先通读全文，再告诉你哪些段落要细读、哪些略读、哪些可以跳过，笔记可以用中文、英文或双语。Claude Code、Codex、claude.ai 以及其他支持 [Agent Skills](https://agentskills.io) 的工具都能用。
+**它先通读全文，再告诉你哪些段落要细读、哪些略读、哪些可以跳过。**
+
+一个读论文和课程读物用的 agent skill。把 PDF 交给 agent，你会拿到一张围绕原文做的离线网页，笔记可以用中文、英文或双语。Claude Code、Codex、claude.ai 以及其他支持 [Agent Skills](https://agentskills.io) 的工具都能用。
 
 直接打开做好的页面：[Ioannidis（2005），中英双语笔记](https://liangzhen-chen.github.io/literature-guide-read/)，或 [DPO 论文（2023），中文笔记](https://liangzhen-chen.github.io/literature-guide-read/dpo.html)。
 
@@ -10,12 +12,12 @@
 
 ## 页面上有什么
 
+- 每段都标好**精读、略读或跳过**。精读段保留全文，先提示读的时候注意什么；略读段先给一两句复述；跳过的段收成一行。时间不够时可以只看小结。
 - 顶部是**一句话结论**，下面一张思维导图，画出各部分怎么推出它。
-- 每段都标好**精读、略读或跳过**，时间不够时可以只看小结。
 - **左栏跟着你走**，显示当前部分的论点、编号的推理步骤和这一部分引入的术语，点某一步就跳到对应段落。
 - **原文一字不改**，导读写的内容都单独放在浅色底的框里。
 - **重要公式**渲染出来并加解释，附符号表和 PDF 原图。
-- 精读段有一句**读时注意**，读完可以展开小结对照；每部分末尾有**回想题**。
+- 精读段读完可以**展开小结**，对照自己读到了什么；每部分末尾有**回想题**。
 - 开始前你问的问题，页面会**从原文里作答**，并链接到相关段落。
 - 生成页面前，脚本会**拿笔记和原文核对**：原文里没有的数字、和原文对不上的标注句，都要改好才能生成页面。
 
@@ -27,8 +29,8 @@
 <summary><b>Claude Code</b></summary>
 
 ```bash
-git clone https://github.com/Liangzhen-Chen/literature-guide-read ~/.claude/skills/reading-guide
-pip install -r ~/.claude/skills/reading-guide/requirements.txt
+git clone https://github.com/Liangzhen-Chen/literature-guide-read ~/.claude/skills/literature-guide-read
+pip install -r ~/.claude/skills/literature-guide-read/requirements.txt
 ```
 </details>
 
@@ -36,8 +38,8 @@ pip install -r ~/.claude/skills/reading-guide/requirements.txt
 <summary><b>Codex</b></summary>
 
 ```bash
-git clone https://github.com/Liangzhen-Chen/literature-guide-read ~/.codex/skills/reading-guide
-pip install -r ~/.codex/skills/reading-guide/requirements.txt
+git clone https://github.com/Liangzhen-Chen/literature-guide-read ~/.codex/skills/literature-guide-read
+pip install -r ~/.codex/skills/literature-guide-read/requirements.txt
 ```
 </details>
 
@@ -55,7 +57,7 @@ pip install pdfplumber beautifulsoup4
 <details>
 <summary><b>claude.ai</b></summary>
 
-从 [最新 Release](https://github.com/Liangzhen-Chen/literature-guide-read/releases/latest) 下载 `reading-guide.zip`，在 Settings → Capabilities → Skills 上传。扫描件和公式多的论文在本地 agent 里效果更好。
+从 [最新 Release](https://github.com/Liangzhen-Chen/literature-guide-read/releases/latest) 下载 `literature-guide-read.zip`，在 Settings → Capabilities → Skills 上传。扫描件和公式多的论文在本地 agent 里效果更好。
 </details>
 
 <details>

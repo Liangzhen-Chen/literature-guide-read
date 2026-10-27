@@ -1,4 +1,4 @@
-"""Shared helpers for the reading-guide scripts."""
+"""Shared helpers for the literature-guide-read scripts."""
 import difflib
 import json
 import re

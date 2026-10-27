@@ -2,6 +2,13 @@
 
 Add an entry at the top for every change to the rules or the workflow: version, date, what changed, and what prompted it (which reading, what went wrong).
 
+## 0.7.1 (2026-10-27)
+
+The skill is now named `literature-guide-read`, the same as the repository, so the name in the install command and the name the agent shows match. Prompted by the author after the 0.7.0 release: the repository and the skill had two different names.
+
+- `SKILL.md` `name`, the install paths in both READMEs, the release zip (`literature-guide-read.zip`, top-level folder `literature-guide-read`), the page footer and the licence holder use the new name. If you installed 0.7.0, remove the `reading-guide` folder and install again.
+- README in English and Chinese rewritten around what the page does for the reader; the implementation notes, extraction measurements and file table were removed.
+
 ## 0.7.0 (2026-10-27)
 
 Close reads get an after-reading summary, and the reading page is redesigned. Two real readings prompted it, Ioannidis (2005) and the DPO paper (Rafailov et al. 2023, arXiv 2305.18290), and so did the author's verdict on the old page: too cluttered. Both readings were run end to end with the skill, and the page showed far more than a reader could use.

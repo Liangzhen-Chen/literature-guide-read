@@ -31,7 +31,7 @@ CAP_RE = re.compile(r"^\s*(?:(?P<fig>fig(?:ure)?\.?|图)|(?P<tab>table|表))\s*(
 MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".svg": "image/svg+xml",
         ".webp": "image/webp"}
 MAX_IMG = 2_000_000
-UA = {"User-Agent": "reading-guide/0.2 (open-version fetch)"}
+UA = {"User-Agent": "literature-guide-read/0.7 (open-version fetch)"}
 
 
 def get(url, timeout=25):

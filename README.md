@@ -1,8 +1,10 @@
 English | [中文](README.zh.md)
 
-# reading-guide
+# literature-guide-read
 
-An agent skill that turns a paper or course reading into a web page for reading it. You give the agent a PDF; it reads the whole thing, then tells you which paragraphs to read closely, which to skim and which you can skip, with notes in English, Chinese or both. It works in Claude Code, Codex, claude.ai and other agents that support [Agent Skills](https://agentskills.io).
+**It reads the whole paper first, then tells you which paragraphs to read closely, which to skim and which you can skip.**
+
+An agent skill for papers and course readings. Give the agent a PDF and you get one offline web page built around the original text, with notes in English, Chinese or both. It works in Claude Code, Codex, claude.ai and other agents that support [Agent Skills](https://agentskills.io).
 
 Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://liangzhen-chen.github.io/literature-guide-read/), or [the DPO paper (2023), notes in Chinese](https://liangzhen-chen.github.io/literature-guide-read/dpo.html).
 
@@ -10,12 +12,12 @@ Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://l
 
 ## What's on the page
 
+- Every paragraph marked **close read, skim or skip**. A close read keeps its full text with a line on what to look for; a skim opens with a short restatement; a skip folds to one line. When time is short, switch to summaries only.
 - The paper's **conclusion in one sentence** at the top, with a mind map of how the parts lead to it.
-- Every paragraph marked **close read, skim or skip**. When time is short, switch to summaries only.
 - A **left margin that follows you**, showing the current part's claim, its reasoning in numbered steps and the terms it introduces. Click a step to jump to that paragraph.
 - The **original text, unchanged**. Everything the guide wrote sits in its own tinted box.
 - **Key formulas** rendered and explained, with a table of symbols and the crop from the PDF.
-- A **"read for" line** on each close-read paragraph, a summary to open once you have read it, and **recall questions** at the end of each part.
+- A **summary to open** after each close read, to check what you took from it, and **recall questions** at the end of each part.
 - **Answers to the questions** you gave the agent at the start, taken from the text and linked to the paragraphs.
 - Notes **checked against the paper** before the page is built. A number the paper doesn't contain, or a highlight that doesn't match the original word for word, has to be fixed first.
 
@@ -27,8 +29,8 @@ Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://l
 <summary><b>Claude Code</b></summary>
 
 ```bash
-git clone https://github.com/Liangzhen-Chen/literature-guide-read ~/.claude/skills/reading-guide
-pip install -r ~/.claude/skills/reading-guide/requirements.txt
+git clone https://github.com/Liangzhen-Chen/literature-guide-read ~/.claude/skills/literature-guide-read
+pip install -r ~/.claude/skills/literature-guide-read/requirements.txt
 ```
 </details>
 
@@ -36,8 +38,8 @@ pip install -r ~/.claude/skills/reading-guide/requirements.txt
 <summary><b>Codex</b></summary>
 
 ```bash
-git clone https://github.com/Liangzhen-Chen/literature-guide-read ~/.codex/skills/reading-guide
-pip install -r ~/.codex/skills/reading-guide/requirements.txt
+git clone https://github.com/Liangzhen-Chen/literature-guide-read ~/.codex/skills/literature-guide-read
+pip install -r ~/.codex/skills/literature-guide-read/requirements.txt
 ```
 </details>
 
@@ -55,7 +57,7 @@ The installer asks which agents to install to; add `-g` to install for your user
 <details>
 <summary><b>claude.ai</b></summary>
 
-Download `reading-guide.zip` from the [latest release](https://github.com/Liangzhen-Chen/literature-guide-read/releases/latest) and upload it under Settings, Capabilities, Skills. Scans and formula-heavy papers come out better in a local agent.
+Download `literature-guide-read.zip` from the [latest release](https://github.com/Liangzhen-Chen/literature-guide-read/releases/latest) and upload it under Settings, Capabilities, Skills. Scans and formula-heavy papers come out better in a local agent.
 </details>
 
 <details>

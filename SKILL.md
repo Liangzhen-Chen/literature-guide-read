@@ -1,5 +1,5 @@
 ---
-name: reading-guide
+name: literature-guide-read
 description: Guided reading page for a course PDF, paper or textbook chapter (English/Chinese). Use when the user gives a reading and wants a reading guide, close reading or study help. 导读、精读。
 ---
 
@@ -67,5 +67,5 @@ The rules are expected to change with use.
   1. Restate the rule change and wait for confirmation.
   2. `SKILL_DIR` may be read-only: copy it to a writable folder. Put method changes in `references/method.md`, genre rules in `genres.md`, element types in `elements.md`, workflow changes in this file, segmentation fixes in `scripts/segment.py`, extraction engines in `scripts/mineru_backend.py`.
   3. Add an entry at the top of `CHANGELOG.md`: version, date, what changed, and what prompted it (which reading, what went wrong). Rule changes bump the second number.
-  4. Zip the folder (`zip -r reading-guide.zip reading-guide -x '*/__pycache__/*'`) and hand it over; README.md explains how each tool replaces the old version.
+  4. Zip the folder (`zip -r literature-guide-read.zip literature-guide-read -x '*/__pycache__/*'`) and hand it over; README.md explains how each tool replaces the old version.
 - Do not change the method halfway through a reading.
