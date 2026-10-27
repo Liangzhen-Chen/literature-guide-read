@@ -28,15 +28,19 @@ Rules and checks.
 
 - method.md section 9a, plain wording: no denial before the statement, no dash as connector, "is" instead of "serves as", no closing line that only sums up, no lists padded to three, no inflating words. check.py warns on the first four patterns in every field the agent writes (anchors excluded).
 - check.py: decimal section numbers ("Section 3.2", "3.2.1", "第3.2节") are not data in the number check.
-- render.py: a bilingual `meta` title, author or source shows in the page's default language.
+- render.py: a bilingual `meta` title, author or source follows the language switch; the HTML title uses the default language. A bilingual `def` term gives one glossary entry per spelling, so hover definitions work in both languages.
+- render.py: open-version images must be embedded (`data:` URIs or local files); any other URL is dropped, so the page never fetches anything.
+- check.py: a backspace or form feed in any text is still an error. A tab, newline or return before a lowercase letter is now only a warning, and only inside a `tex` field or a `$...$` span, so ordinary line breaks in formulas and notes no longer stop the render.
 - SKILL.md asks for schema.md to be read before any guide data is written.
+- Inline maths set as text falls back to KaTeX when a `\mathrm{...}` argument holds `^`, `_` or braces.
 
 Close reads and segmentation.
 
 - Close-read paragraphs now carry `note` next to `read`. `read` stays a one-line prompt with no spoilers; `note` restates the paragraph under the same rules as a skim note (the claim, the numbers, the qualification). It is meant to be shown below the original, folded, so the original is still read first and a reader who only has the page still gets the argument.
 - check.py: a close entry without `note` is a warning (old guides still pass); a close `note` gets the same checks as a skim note (numbers must be in the source text, warning for notes that describe instead of restate).
 - method.md, schema.md, SKILL.md describe the new field. render.py already passed `note` through for every tier.
-- segment.py: old PDFs whose text layer leaves a space after a ligature ("signifi cant", "fi eld", "confl icts") are rejoined before paragraphs.json is written, in both engines. It only acts when the document has at least 3 such splits, and leaves a split alone when the tail is a word used elsewhere in the text. Prompted by the Ioannidis (2005) sample, about 200 splits.
+- segment.py: old PDFs whose text layer leaves a space after a ligature ("signifi cant", "fi eld", "confl icts") are rejoined before paragraphs.json is written, in both engines. It only acts when the document shows at least two bare ligature fragments ("fi nding", "fl ow"), leaves a split alone when the tail is a word used elsewhere in the text, and never joins a capitalised word in mid-sentence, so "Sufi music" stays as written. Prompted by the Ioannidis (2005) sample, about 200 splits.
+- A restored drop cap goes after any opening quote or bracket ("Published, not P"ublished).
 
 ## 0.6.1 (2026-10-26)
 
