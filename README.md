@@ -8,7 +8,7 @@ Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://l
 
 ![The top of a reading page: title, conclusion and the mind map](assets/readme/page-top.png)
 
-![A close-read paragraph of the DPO paper with Chinese notes: the read-for prompt, inline maths set in the text, the display formula in KaTeX, and the folded PDF crop and summary](assets/readme/page-formula.png)
+![A part of the DPO paper with Chinese notes: the margin holds the part's claim, steps and terms; on the right a close-read paragraph with its read-for prompt, the display formula in KaTeX and the opened after-reading summary](assets/readme/page-formula.png)
 
 The screenshots come from guides to Ioannidis (2005), [Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124), PLoS Medicine 2(8): e124 (CC BY), and Rafailov et al. (2023), [Direct Preference Optimization](https://arxiv.org/abs/2305.18290) (CC BY 4.0). The skill follows the open [Agent Skills](https://agentskills.io) format, so it works in any agent that supports skills; the scripts are plain Python and the page is a single file that works offline.
 

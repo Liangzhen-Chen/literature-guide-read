@@ -8,7 +8,7 @@
 
 ![页面顶部：标题、结论和思维导图](assets/readme/page-top.zh.png)
 
-![DPO 论文的一个精读段，中文笔记：读时注意、和正文同字体的行内公式、KaTeX 渲染的行间公式，以及折叠的原式裁图和读后小结](assets/readme/page-formula.png)
+![DPO 论文的一个部分，中文笔记：左栏是这部分的论点、推理步骤和术语；右侧是一个精读段，有读时注意、KaTeX 渲染的行间公式和展开的读后小结](assets/readme/page-formula.png)
 
 截图来自两篇论文的导读页：Ioannidis（2005）[Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124)，PLoS Medicine 2(8): e124（CC BY）；Rafailov 等（2023）[Direct Preference Optimization](https://arxiv.org/abs/2305.18290)（CC BY 4.0）。这个 skill 遵循开放的 [Agent Skills](https://agentskills.io) 格式，任何支持 skill 的 agent 都能用；脚本是普通 Python，页面是单个文件，离线可用。
 
