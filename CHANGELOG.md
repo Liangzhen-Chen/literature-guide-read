@@ -40,7 +40,7 @@ Close reads and segmentation.
 
 ## 0.6.1 (2026-10-26)
 
-Pre-release fixes found while auditing the skill before publishing it.
+Fixes before the first public release.
 
 - render.py: the page no longer embeds the absolute path of the PDF (it showed the local folder structure to anyone the page was shared with). Pass `--pdf` when re-rendering a page recovered with `--dump`, to get page images again.
 - All scripts print UTF-8 whatever the console encoding; segment.py no longer stops with UnicodeEncodeError on an English Windows console (cp1252).
@@ -103,11 +103,11 @@ Prompted by the real-paper, browser, OCR and live-source tests in sections 4, 6 
 - Reader: preserve expanded originals in print, name and contain focus in the page viewer, return focus when it closes, preserve reading position on language changes, and use UTF-16 highlight offsets after non-BMP characters. Make scrollable page images and wide tables keyboard-accessible, handle WebKit arrow scrolling, and clear desktop graph transforms on mobile resize.
 - Switch crowded graph labels to a complete relation list when they overlap or clip; retain the graph for sparse maps.
 - Add repeatable corpus, unit, browser, live-source, model and performance evidence. Keep unmet segmentation, image-render speed and service-compatibility targets visible in the report.
-- Choose MIT for original project code under delegated review; add dependency and source-licence notices. Refresh English and Chinese installation/known-issue documentation.
+- License the original project code under MIT; add dependency and source-licence notices. Refresh English and Chinese installation/known-issue documentation.
 
 ## 0.3.1 (2026-10-07)
 
-Prompted by section 3 of the pre-publication test plan. Both fixes have regression tests that failed before implementation.
+Prompted by testing before the first release. Both fixes have regression tests that failed before implementation.
 
 - check.py: a relation without a `to` target now reports validation errors instead of crashing while formatting the path to the conclusion.
 - common.py: skip malformed element definitions with nonnumeric levels, as already done for malformed field counts.

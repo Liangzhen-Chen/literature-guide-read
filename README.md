@@ -154,7 +154,7 @@ Tests: `python -m pytest tests/unit` (Python 3.9 and 3.12). Every fix to the scr
 
 - Segmentation is heuristic on the default tier: equations, tables, metadata and unusual layouts can still split or merge paragraphs. Spot-check the part files before the guide is written; the paragraph ids are frozen after that.
 - The default tier handles single- and two-column layouts only. Three columns or a side column (for example the 2005 PLOS Medicine layout) need MinerU.
-- With MinerU, inline formulas in prose appear in the original paragraph as the LaTeX source MinerU returns; the page does not render them, and the original paragraph is never edited. Without MinerU's formula model they stay as the PDF text layer gives them. Display formulas are shown as crops beside their transcription.
+- With MinerU's formula model, inline formulas in prose arrive as LaTeX and the page renders them; the LaTeX can carry small recognition errors, and the original paragraph is never edited to fix them. Without the formula model they stay as the PDF text layer gives them. Display formulas render in KaTeX when a transcription exists, with the PDF crop folded under them for checking.
 - On three-column layouts, MinerU can cut a paragraph at a column or page break. There is no tool to merge the pieces yet, so the notes are written for the paragraphs as cut.
 - Open versions are fetched only for arXiv papers, and only where the network allows.
 - A page embeds the full text of the PDF it was built from. Keep pages made from copyrighted readings to yourself; use openly licensed papers for public demos.
