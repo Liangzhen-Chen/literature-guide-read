@@ -6,7 +6,7 @@ English | [中文](README.zh.md)
 
 An agent skill for papers and course readings. Give the agent a PDF and you get one offline web page built around the original text, with notes in English, Chinese or both. It works in Claude Code, Codex, claude.ai and other agents that support [Agent Skills](https://agentskills.io).
 
-Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://liangzhen-chen.github.io/literature-guide-read/), or [the DPO paper (2023), notes in Chinese](https://liangzhen-chen.github.io/literature-guide-read/dpo.html).
+Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://liangzhen-chen.github.io/literature-guide-read/), or [the DPO paper (2023), notes in Chinese](https://liangzhen-chen.github.io/literature-guide-read/dpo.html). Both papers are openly licensed: [Ioannidis](https://doi.org/10.1371/journal.pmed.0020124) (CC BY) and [Rafailov et al.](https://arxiv.org/abs/2305.18290) (CC BY 4.0).
 
 ![The top of a reading page: title, conclusion and the mind map](assets/readme/page-top.png)
 
@@ -84,17 +84,21 @@ python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json
 If `check.py` reports errors, paste them back to the model and ask it to fix them.
 </details>
 
-<details>
-<summary><b>Optional: scanned PDFs, three-column layouts, many formulas</b></summary>
-
-Scans need Tesseract (`eng`, `chi_sim`) and Poppler. Three-column layouts and formula-heavy papers do better with [MinerU](https://github.com/opendatalab/MinerU), which the skill uses automatically once installed (about 0.8 GB, a CPU is enough):
-
-```bash
-pip install "mineru>=4,<5" && mineru-kit models download --tier basic
-```
-</details>
-
 To update, run `git pull` in the skill folder, run the `npx` line again, or upload the new zip on claude.ai.
+
+### Two tiers for reading the PDF
+
+The install above gives you the basic tier. Adding [MinerU](https://github.com/opendatalab/MinerU) gives you the full tier; once it is installed the skill uses it on its own, with nothing to switch. If it is not installed, the agent asks at the start whether you want it, tells you what you gain and what it costs, and installs it for you if you say yes.
+
+| | Basic | With MinerU |
+| --- | --- | --- |
+| Install | included above | `pip install "mineru>=4,<5" && mineru-kit models download --tier basic` (about 0.8 GB, a CPU is enough) |
+| Layouts | one, two or three columns | also side columns, wide tables and unusual layouts; tables kept as tables |
+| Formulas | cropped from the PDF; the agent transcribes the ones that matter | found more reliably and turned into LaTeX for you |
+| Time to read the PDF | a few seconds | 1 to 3 minutes |
+| claude.ai | yes | no (the sandbox cannot download the models) |
+
+Scanned PDFs need Tesseract (`eng`, `chi_sim`) and Poppler in either tier.
 
 ## Use it
 
@@ -102,7 +106,7 @@ To update, run `git pull` in the skill folder, run the `npx` line again, or uplo
 2. It asks a few questions first: notes in English or Chinese, what you are reading for (the whole argument, core claims, method, evidence to cite, exam revision), how well you know the field, and anything you want answered. Say "you decide" to skip them.
 3. A few minutes later you get the page. With Claude Sonnet, a 6-page paper took about 7 minutes and 134,000 tokens; a 10-page paper with 11 equations took about 10 minutes and 172,000 tokens.
 
-While you read, ask the agent about any paragraph ("what is P23 saying?"), correct a note, or say "walk me through it" to go part by part.
+While you read, ask the agent about any paragraph ("what is P23 saying?"), correct a note, or say "walk me through it" to go part by part. If something keeps going wrong for your kind of reading, tell the agent: the rules it follows are plain text in `references/`, and it can change them.
 
 ## Built on reading research
 
@@ -114,11 +118,7 @@ While you read, ask the agent about any paragraph ("what is P23 saying?"), corre
 
 ## Known limits
 
-- Works best on PDFs with a text layer in one or two columns. On unusual layouts a paragraph can come out split in two or merged with the next; the agent checks the split before it writes.
-- Inline formulas read by MinerU can carry small recognition errors. Display formulas come with the PDF crop so you can check them.
-- The page contains the full text of the PDF it was built from. Keep pages made from copyrighted readings to yourself.
-
-The rules the agent follows are plain text in `references/`; edit them, or tell the agent what went wrong, as you learn what your readings need. The demos use two openly licensed papers: Ioannidis (2005), [Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124) (CC BY), and Rafailov et al. (2023), [Direct Preference Optimization](https://arxiv.org/abs/2305.18290) (CC BY 4.0).
+The skill was developed mostly on economics, statistics and machine learning papers. Papers from other fields have been tried less. If something comes out wrong, tell the agent, and please [open an issue](https://github.com/Liangzhen-Chen/literature-guide-read/issues).
 
 ## License
 

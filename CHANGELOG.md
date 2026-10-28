@@ -2,12 +2,17 @@
 
 Add an entry at the top for every change to the rules or the workflow: version, date, what changed, and what prompted it (which reading, what went wrong).
 
-## 0.7.1 (2026-10-27)
+## 0.7.1 (2026-10-28)
 
-The skill is now named `literature-guide-read`, the same as the repository, so the name in the install command and the name the agent shows match. Prompted by the author after the 0.7.0 release: the repository and the skill had two different names.
+The skill is now named `literature-guide-read`, the same as the repository, and the basic tier reads three-column pages. Prompted by a first-time-user trial of 0.7.0 on Ioannidis (2005): the basic tier mixed its three columns, put the references into the body and said nothing, and the agent had to extract the text by hand. Two economics readings the author tried next, an AEJ: Applied paper and a QJE paper, failed in the basic tier for other reasons, before and after the three-column work.
 
-- `SKILL.md` `name`, the install paths in both READMEs, the release zip (`literature-guide-read.zip`, top-level folder `literature-guide-read`), the page footer and the licence holder use the new name. If you installed 0.7.0, remove the `reading-guide` folder and install again.
-- README in English and Chinese rewritten around what the page does for the reader; the implementation notes, extraction measurements and file table were removed.
+- Name: `SKILL.md` `name`, the install paths in both READMEs, the release zip (`literature-guide-read.zip`, top-level folder `literature-guide-read`), the page footer and the licence holder use the new name. If you installed 0.7.0, remove the `reading-guide` folder and install again.
+- Columns: the basic tier finds the columns of every page (`--columns auto|1|2|3`) and reads three-column pages column by column, with full-width titles, boxes and tables in place.
+- Self-check: after segmenting, `segment.py` scores the split (lower-case starts, open endings, lines that jump between columns, references among the paragraphs, notes in the upper half of a page). In `auto` a bad split is retried with 1, 2 and 3 columns and the best is kept; if all are bad, it prints the next step for the agent. SKILL.md step 1 lists the recovery steps the agent runs itself, never the user, and documents the `--text` format and that `--pdf` belongs to render.py.
+- Joins: a paragraph cut at a column or page break is joined again, in both tiers.
+- Basic-tier fixes found on the three papers: text placed outside the page is ignored; glyph boxes set off their baseline are levelled, so brackets in a math font no longer split sentences; words that touch across a font change are joined (small-caps headings, bracketed words) and spacing accents are composed; the title is the largest type on page 1 and never a masthead or a label above it; tables drawn only with horizontal rules are found and their cells kept out of paragraphs and footnotes; table notes, pull quotes and small annotations become fragments; a small-type "References" heading still ends the body.
+- Step 0 offers MinerU when it is not installed, with what it gains and costs, and the agent installs it on a yes. `questions` may be an empty list.
+- README in English and Chinese rewritten around what the page does for the reader, with the two extraction tiers in a table and the fields the skill was developed on.
 
 ## 0.7.0 (2026-10-27)
 

@@ -52,7 +52,7 @@ Parts also carry recall questions (method.md section 11) and the logic map (sect
  ]}
 ```
 
-`meta.purpose` and `meta.familiarity` are the reader's answers from the brief (SKILL.md step 0); `questions` are the reader's own questions, each answered from the text with the paragraph ids `p` that answer it. Numbers in `a` must appear in those paragraphs.
+`meta.purpose` and `meta.familiarity` are the reader's answers from the brief (SKILL.md step 0); `questions` are the reader's own questions (an empty list `[]` when the reader has none), each answered from the text with the paragraph ids `p` that answer it. Numbers in `a` must appear in those paragraphs.
 
 Rules: `parts` cover P1 to the last paragraph in order; ranges are written `P3-P9` or `P3`; `claim_p` lies inside its part; parts marked `"skip": true` need no claim. Once any part has `rel`, every part that is not skipped needs one, and each part's first relation must lead to `T` without a cycle. Flow steps name paragraphs or footnotes inside the part. `meta.density` is low, medium or high; `meta.language` is the language of the original.
 

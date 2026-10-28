@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import drop_cap_for, put_drop_cap, use_utf8  # noqa: E402
-from segment import NUM_HEAD_RE, body_size, get_words, join_text, link_notes  # noqa: E402
+from segment import NUM_HEAD_RE, body_size, get_words, join_open_paragraphs, join_text, link_notes  # noqa: E402
 
 MASTHEAD_LINE_RE = re.compile(r"\b(vol\.|volume|issue|no\.)\s*[\dIVXLCM]+", re.I)
 
@@ -210,6 +210,7 @@ def convert(sc, source_name, source_path):
                 blocks.append(dict(base, type="frag", text=text))
     _sidebar_rule(blocks)
     _front_matter_rule(blocks)
+    blocks, _ = join_open_paragraphs(blocks)  # a paragraph MinerU cut at a column break or around a figure
     items = _number(blocks)
     pnos = [pg["page_idx"] + 1 for pg in sc["pages"]]
     page_labels = _labels(labels, pnos)

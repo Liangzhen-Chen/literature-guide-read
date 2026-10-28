@@ -6,7 +6,7 @@
 
 一个读论文和课程读物用的 agent skill。把 PDF 交给 agent，你会拿到一张围绕原文做的离线网页，笔记可以用中文、英文或双语。Claude Code、Codex、claude.ai 以及其他支持 [Agent Skills](https://agentskills.io) 的工具都能用。
 
-直接打开做好的页面：[Ioannidis（2005），中英双语笔记](https://liangzhen-chen.github.io/literature-guide-read/)，或 [DPO 论文（2023），中文笔记](https://liangzhen-chen.github.io/literature-guide-read/dpo.html)。
+直接打开做好的页面：[Ioannidis（2005），中英双语笔记](https://liangzhen-chen.github.io/literature-guide-read/)，或 [DPO 论文（2023），中文笔记](https://liangzhen-chen.github.io/literature-guide-read/dpo.html)。两篇论文都是开放许可：[Ioannidis](https://doi.org/10.1371/journal.pmed.0020124)（CC BY），[Rafailov 等](https://arxiv.org/abs/2305.18290)（CC BY 4.0）。
 
 ![页面顶部：标题、结论和思维导图](assets/readme/page-top.zh.png)
 
@@ -84,17 +84,21 @@ python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json
 `check.py` 报错就把错误贴回给模型让它改。
 </details>
 
-<details>
-<summary><b>可选：扫描件、三栏排版、公式很多的论文</b></summary>
-
-扫描件需要 Tesseract（`eng`、`chi_sim`）和 Poppler。三栏排版和公式多的论文装上 [MinerU](https://github.com/opendatalab/MinerU) 效果更好，装好后 skill 会自动使用（约 0.8 GB，CPU 即可）：
-
-```bash
-pip install "mineru>=4,<5" && mineru-kit models download --tier basic
-```
-</details>
-
 更新：在 skill 文件夹里运行 `git pull`，或重新运行一次 `npx` 那行，claude.ai 上则重新上传新的 zip。
+
+### 两档提取
+
+按上面的方法装好就是基础档。再装上 [MinerU](https://github.com/opendatalab/MinerU) 就是完整档，装好后 skill 会自动使用，不用切换。没装的话，agent 会在开始时问你要不要装，说清楚能多得到什么、要付出什么；你说要，它就自己装。
+
+| | 基础档 | 装 MinerU |
+| --- | --- | --- |
+| 安装 | 上面已经装好 | `pip install "mineru>=4,<5" && mineru-kit models download --tier basic`（约 0.8 GB，CPU 即可） |
+| 版式 | 单栏、双栏、三栏 | 另外更稳地处理侧栏、跨栏表格和特殊版式；表格保留成表格 |
+| 公式 | 从 PDF 上裁图，重要的由 agent 转写 | 识别更全，自动转成 LaTeX |
+| 读 PDF 用时 | 几秒 | 1 到 3 分钟 |
+| claude.ai | 能用 | 不能用（沙箱下载不了模型） |
+
+扫描件在两档下都需要 Tesseract（`eng`、`chi_sim`）和 Poppler。
 
 ## 用法
 
@@ -102,7 +106,7 @@ pip install "mineru>=4,<5" && mineru-kit models download --tier basic
 2. 它先问几个问题：笔记用中文还是英文；为什么读（整体理解、只要核心论点、看方法、找证据引用、备考）；对这个领域熟不熟；有没有想弄清的问题。说"你定"就按默认来。
 3. 几分钟后拿到页面。用 Claude Sonnet 实测：6 页的论文约 7 分钟、13.4 万 token；10 页、11 条公式的论文约 10 分钟、17.2 万 token。
 
-读的时候可以问 agent 任何一段（"P23 在说什么？"），让它改某条笔记，或者说"带我过一遍"让它逐部分讲。
+读的时候可以问 agent 任何一段（"P23 在说什么？"），让它改某条笔记，或者说"带我过一遍"让它逐部分讲。如果某类读物总是出同样的问题，直接告诉 agent：它遵守的规则是 `references/` 里的纯文本，它可以自己改。
 
 ## 依据阅读研究设计
 
@@ -114,11 +118,7 @@ pip install "mineru>=4,<5" && mineru-kit models download --tier basic
 
 ## 已知限制
 
-- 最适合有文字层的单栏或双栏 PDF。版式特殊时，个别段落可能被切成两段或和下一段连在一起；agent 写导读前会先抽查切段。
-- MinerU 识别的行内公式可能带少量识别错误。行间公式都附有 PDF 裁图，可以对照核对。
-- 页面里嵌有生成它的 PDF 的全文。用受版权保护的读物生成的页面只留给自己看。
-
-Agent 遵守的规则是 `references/` 里的纯文本；读得多了，可以直接改，也可以告诉 agent 哪里不对。演示用的两篇论文都是开放许可：Ioannidis（2005）[Why Most Published Research Findings Are False](https://doi.org/10.1371/journal.pmed.0020124)（CC BY），Rafailov 等（2023）[Direct Preference Optimization](https://arxiv.org/abs/2305.18290)（CC BY 4.0）。
+开发时主要用的是经济学、统计学和机器学习的论文，其他领域试得较少。遇到问题可以直接告诉 agent，也欢迎[提 issue](https://github.com/Liangzhen-Chen/literature-guide-read/issues)。
 
 ## 许可
 
