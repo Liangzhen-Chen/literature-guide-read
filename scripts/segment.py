@@ -71,7 +71,7 @@ def last_word(text):
 
 
 MASTHEAD_RE = re.compile(r"\b(vol\.|volume|issue|no\.)\s*[\dIVXLCM]+", re.I)
-TABLE_NOTE_RE = re.compile(r"^((notes?|source|sources)\s*:|\*{1,3}\s*(p\s*[<=]|significant))", re.I)
+TABLE_NOTE_RE = re.compile(r"^(\*{0,3}\s*(notes?|source|sources)\s*:|\*{1,3}\s*(p\s*[<=]|significant))", re.I)
 ACCENT_RE = re.compile(r"^[̀-ͯˆ-˟¨´`]+$")
 PUNCT_TOKEN_RE = re.compile(r"^[)\]},;:.!?’”]+$")
 
@@ -292,7 +292,26 @@ def font_properties(page):
             desc = resolve1(desc_spec.get("FontDescriptor", {}))
             props = dict(bold=desc.get("FontWeight", 0) >= 600 or bool(desc.get("Flags", 0) & (1 << 18)),
                          italic=bool(desc.get("ItalicAngle", 0)), smallcaps=bool(desc.get("Flags", 0) & (1 << 17)), cases={}, case_cids={})
+            props["fallback_cids"] = {}
+            if not spec.get("DescendantFonts") and spec.get("Encoding"):
+                enc = resolve1(spec["Encoding"])
+                if isinstance(enc, dict):
+                    props["fallback_cids"].update(EncodingDB.get_encoding(literal_name(enc.get("BaseEncoding")), resolve1(enc.get("Differences", []))))
+                else:
+                    props["fallback_cids"].update(EncodingDB.get_encoding(literal_name(enc)))
             stream = resolve1(desc.get("FontFile2") or desc.get("FontFile3"))
+            if desc.get("FontFile"):
+                try:
+                    from fontTools.t1Lib import T1Font
+                    from fontTools.agl import toUnicode
+                    program = T1Font.__new__(T1Font)
+                    program.data = resolve1(desc["FontFile"]).get_data()
+                    program.encoding = "ascii"
+                    program.parse()
+                    props["fallback_cids"].update({code: text for code, glyph in enumerate(program.font.get("Encoding", []))
+                                                   if (text := toUnicode(glyph))})
+                except Exception:
+                    pass
             if stream is not None:
                 try:
                     from fontTools.ttLib import TTFont
@@ -311,6 +330,10 @@ def font_properties(page):
                         top = cff[cff.fontNames[0]]
                         props["bold"] |= bool(re.search(r"bold|black|heavy|demi", getattr(top, "Weight", ""), re.I))
                         props["italic"] |= bool(getattr(top, "ItalicAngle", 0))
+                        if not spec.get("DescendantFonts"):
+                            from fontTools.agl import toUnicode
+                            props["fallback_cids"].update({code: text for code, glyph in cff_encoding_names(top, data).items()
+                                                           if (text := toUnicode(glyph))})
                 except Exception:
                     pass  # damaged/unsupported font programs still have descriptor/name evidence
             if spec.get("ToUnicode") and spec.get("Widths") and spec.get("Encoding"):
@@ -343,18 +366,40 @@ def repair_case_cids(font, replacements):
         cmap.cid2unichr.update(replacements)
 
 
+def cff_encoding_names(top, data):
+    """CFF section 12: character codes include zero; GIDs start at one.
+
+    fontTools treats code zero as an unencoded placeholder in format 0. PDF
+    renderers (including FreeType) honor an explicitly encoded zero as well.
+    """
+    encoding = getattr(top, "Encoding", [])
+    names = {k: v for k, v in enumerate(encoding) if v != ".notdef"} if isinstance(encoding, list) else {}
+    offset = top.rawDict.get("Encoding", 0)
+    if offset > 1 and data[offset] & 0x7f == 0:
+        count = data[offset + 1]
+        for gid, code in enumerate(data[offset + 2:offset + 2 + count], 1):
+            if gid < len(top.charset):
+                names[code] = top.charset[gid]
+    return names
+
+
 def apply_native_case(page, props):
-    if getattr(page, "_segment_case_applied", False) or not any(p.get("case_cids") for p in props.values()):
+    if getattr(page, "_segment_case_applied", False) or not any(p.get("case_cids") or p.get("fallback_cids") for p in props.values()):
         return
     try:
         from pdfminer.pdftypes import resolve1
         from pdfminer.psparser import literal_name
         for resource in resolve1(page.page_obj.resources.get("Font", {})).values():
             spec = resolve1(resource)
-            replacements = props.get(literal_name(spec["BaseFont"]), {}).get("case_cids", {})
-            if replacements:
+            evidence = props.get(literal_name(spec["BaseFont"]), {})
+            replacements = evidence.get("case_cids", {})
+            if replacements or evidence.get("fallback_cids"):
                 font = page.pdf.rsrcmgr.get_font(getattr(resource, "objid", None), spec)
                 repair_case_cids(font, replacements)
+                cmap = getattr(font, "unicode_map", None)
+                target = cmap.cid2unichr if cmap is not None else getattr(font, "cid2unicode", {})
+                for cid, text in evidence.get("fallback_cids", {}).items():
+                    target.setdefault(cid, text)
         # Re-decode cached characters using their actual character codes. Equal
         # advances (for example a wide lower-case glyph and its capital) are no
         # longer ambiguous, and the original PDF remains untouched.
@@ -380,13 +425,15 @@ def get_words(page):
     apply_native_case(page, props)
     repair_case_maps(getattr(page, "chars", []), props)
     level_glyph_boxes(page)
+    chars = getattr(page, "chars", [])
+    flow = source_spaces_overlap(chars)
     try:  # 按字号比例判断词间距；没有编码空格的 PDF（常见于 TeX）也能正确分词
         ws = page.extract_words(x_tolerance_ratio=0.15, keep_blank_chars=False,
-                                use_text_flow=False, extra_attrs=["size", "fontname"])
+                                use_text_flow=flow, extra_attrs=["size", "fontname"])
     except TypeError:  # 旧版 pdfplumber
         ws = page.extract_words(x_tolerance=1.5, keep_blank_chars=False,
-                                use_text_flow=False, extra_attrs=["size", "fontname"])
-    out, unmapped = [], []
+                                use_text_flow=flow, extra_attrs=["size", "fontname"])
+    out, unmapped, marks = [], [], []
     # pdfplumber reports coordinates in a frame whose origin is page.bbox, not the page corner; a MediaBox
     # that does not start at (0, 0) (JSTOR scans) would otherwise shift margins, crops and every bbox.
     ox, oy = float(page.bbox[0]), float(page.bbox[1])
@@ -397,8 +444,11 @@ def get_words(page):
         if "(cid:" in t:
             unmapped.append((float(w["x0"]) - ox, float(w["x1"]) - ox,
                              float(w["top"]) - oy, float(w["bottom"]) - oy))
-        if not t or "(cid:" in t:
-            continue  # 无法映射的字形（常见于 JSTOR 水印）
+            marks.append((re.findall(r"\(cid:(\d+)\)", t), unmapped[-1], t))
+            continue  # preserve the raw token, code and geometry as item metadata
+        t = re.sub(r"\(cid:(\d+)\)", r"⟦cid:\1⟧", t)
+        if not t:
+            continue
         if (float(w["x1"]) - ox < 0 or float(w["x0"]) - ox > float(page.width)
                 or float(w["bottom"]) - oy < 0 or float(w["top"]) - oy > float(page.height)):
             continue  # text placed outside the page (a contents panel parked off-screen) is never seen by the reader
@@ -420,11 +470,56 @@ def get_words(page):
     if unmapped:
         for w in out:
             w["unmapped_boxes"] = unmapped
+            w["unmapped_marks"] = marks
     if gaps:
         word_gap = statistics.median(gaps)
         for w in out:
             w["word_gap"] = word_gap
+    learn_tracking_boundaries(out)
     return out
+
+
+def learn_tracking_boundaries(words):
+    """Borrow word/group-gap evidence from other labels in the same font.
+
+    Isolated tracked words have no internal word gap; a separate multiword label
+    in that font can supply it. Separate populations by robust three-sigma gaps.
+    """
+    samples = defaultdict(list)
+    for a, b in zip(words, words[1:]):
+        if (len(a["text"]) == len(b["text"]) == 1 and a["text"].isalpha() and b["text"].isalpha()
+                and a["font"] == b["font"] and a["size"] == b["size"]
+                and abs(a["bottom"] - b["bottom"]) <= 1e-6 * a["size"] and b["x0"] > a["x1"]):
+            samples[(a["font"], a["size"])].append(b["x0"] - a["x1"])
+    boundaries = {}
+    for key, values in samples.items():
+        values = sorted(values)
+        if len(values) < 3:
+            continue
+        cut = max(range(2, len(values)), key=lambda i: values[i] - values[i - 1])
+        low = values[:cut]
+        centre = statistics.median(low)
+        spread = 1.4826 * statistics.median(abs(x - centre) for x in low)
+        # Repeated exact advances can make MAD zero. IQR retains between-label
+        # variation; one PDF font-width unit covers quantization of advances.
+        spread = max(spread, (low[3 * len(low) // 4] - low[len(low) // 4]) / 1.349)
+        if values[cut] > centre + 3 * spread + 1e-6 * key[1] and spread < centre:
+            boundaries[key] = (values[cut], centre + 3 * spread + key[1] / 1000)
+    for w in words:
+        evidence = boundaries.get((w["font"], w["size"]))
+        if evidence:
+            w["tracking_boundary"], w["tracking_upper"] = evidence
+
+
+def source_spaces_overlap(chars):
+    """OCR proxy-font advances can place a space after the next word's start.
+
+    In that case preserve explicit spaces in content-stream order while building
+    words (pdfplumber's text-flow mode); reading order still uses word geometry.
+    """
+    return any(b["text"].isspace() and a["x0"] < c["x0"] < b["x0"] - 1e-6 * a["size"]
+               and abs(a["bottom"] - c["bottom"]) <= 0.15 * a["size"]
+               for a, b, c in zip(chars, chars[1:], chars[2:]))
 
 
 def join_tracked_words(words):
@@ -469,6 +564,7 @@ def join_tracked_words(words):
         # Accept it only when their robust three-sigma intervals are separated.
         small = positive
         boundaries = [w["word_gap"] * w["size"] for w in run if w.get("word_gap")]
+        boundaries.extend(w["tracking_boundary"] for w in run if w.get("tracking_boundary"))
         for a, b in ((words[i - 1], run[0]),) if i else ():
             if a.get("font") == b.get("font"):
                 boundaries.append(b["x0"] - a["x1"])
@@ -484,7 +580,7 @@ def join_tracked_words(words):
                 boundaries.append(positive[cut])
         centre = statistics.median(small)
         spread = 1.4826 * statistics.median(abs(g - centre) for g in small)
-        upper = centre + 3 * spread + epsilon
+        upper = max([centre + 3 * spread + epsilon] + [w["tracking_upper"] for w in run if w.get("tracking_upper")])
         uniform_votes = sum(abs(g - centre) <= 3 * spread + epsilon for g in singleton_gaps)
         if spread >= centre or uniform_votes < 2 or not any(g > upper for g in boundaries):
             out.extend(run)
@@ -931,6 +1027,12 @@ def prepare_typing_lines(lines, body):
         for i, line in enumerate(ls):
             previous = ls[i - 1] if i else None
             following = ls[i + 1] if i + 1 < len(ls) else None
+            if (line["text"].endswith(":") and word_count(line["text"]) <= 8
+                    and (not previous or (end_terminal(previous["text"]) and line["top"] - previous["bottom"] > max(0.45 * body, 2.5)))
+                    and line["size"] >= body - max(1, 0.15 * body) and not line.get("tab")
+                    and following and following["x1"] > line["x1"] + body
+                    and not starts_lower(following["text"]) and not following["text"].endswith(":")):
+                line["force_heading"] = True
             if (previous and following and NUM_HEAD_RE.match(previous["text"])
                     and previous.get("words") and all(emphasized(w) for w in previous["words"])
                     and not end_terminal(previous["text"])
@@ -1050,6 +1152,10 @@ def build_blocks(lines, pno, body):
                 new = True
             elif in_caption:
                 pass
+            elif (not end_terminal(prev["text"]) and abs(prev["size"] - ln["size"]) <= 0.5
+                  and re.fullmatch(r"[\d\s.,%]+", ln["text"]) and re.search(r"[A-Za-z]", prev["text"])
+                  and abs(prev["x0"] + prev["x1"] - ln["x0"] - ln["x1"]) <= ln["size"]):
+                pass  # centered prose wraps around a shared center, not a left margin
             elif body_like and not same_heading and ln["x0"] - le > 0.8 * ln["size"] and prev["x0"] - le < 0.4 * prev["size"]:
                 new = True
             elif (not same_heading and prev["x1"] < right_edge[key] - 2.5 * prev["size"] and end_terminal(prev["text"])
@@ -1083,6 +1189,7 @@ def unmapped_ink(lines, block):
 
 
 def symbolic_display(text):
+    text = re.sub(r"⟦cid:\d+⟧", "", text)
     words = re.findall(r"[A-Za-z]{3,}", re.sub(r"\b(?:ln|log|exp)\b", "", text))
     return not any(not w.isupper() for w in words) and math_dense(text)
 
@@ -1095,7 +1202,7 @@ def display_variable_style(lines):
     """
     if len(lines) > 2:
         return False
-    text = " ".join(line["text"] for line in lines)
+    text = re.sub(r"⟦cid:\d+⟧", "", " ".join(line["text"] for line in lines))
     # Inspect reconstructed words too: tracked italic headings can have one
     # extracted token per glyph. Long uppercase labels need an actual operator.
     if any((not token.isupper() or not EQUATION_RE.search(text)) and not re.search(r"[a-z][A-Z]", token)
@@ -1144,11 +1251,14 @@ def finish_block(b):
             "mono": sum(l.get("mono", 0) * len(l["text"]) for l in lines) / n,
             "top": min(l["top"] for l in lines), "bottom": max(l["bottom"] for l in lines),
             "x0": min(l["x0"] for l in lines), "x1": max(l["x1"] for l in lines),
+            "first_x0": lines[0]["x0"], "last_x1": lines[-1]["x1"],
+            "column_x0": b.get("column_x0"), "column_x1": b.get("column_x1"),
             "title_suffix": trailing_title_marker(lines),
             "font": lines[0].get("font", ""),
             "force_heading": any(l.get("force_heading") for l in lines),
             "front_meta": any(l.get("front_meta") for l in lines),
             "abstract": any(l.get("abstract") for l in lines),
+            "independent_text": any(l.get("independent_text") for l in lines),
             "article_title": any(l.get("article_title") for l in lines),
             "contents_page": any(l.get("contents_page") for l in lines),
             "graphic": any(l.get("graphic") for l in lines),
@@ -1159,6 +1269,11 @@ def finish_block(b):
             "superscripts": [mark for l in lines for mark in l.get("superscripts", [])],
             "math_style": display_variable_style(lines),
             "unmapped_ink": unmapped_ink(lines, b),
+            "unmapped_glyphs": sorted({f"⟦cid:{cid}⟧" for ln in lines for w in ln.get("words", [])
+                                      for codes, box, raw in w.get("unmapped_marks", [])
+                                      if min(l["top"] for l in lines) - size <= box[3] and max(l["bottom"] for l in lines) + size >= box[2]
+                                      and b.get("column_x0", 0) <= (box[0] + box[1]) / 2 <= b.get("column_x1", float("inf"))
+                                      for cid in codes}),
             "n_lines": len(lines), "jumps": column_jumps(lines), "aside": any(l.get("aside") for l in lines),
             "tab": all(l.get("tab") for l in lines)}
 
@@ -1455,6 +1570,22 @@ def from_pdf_text(pdf, pnos, columns, cache=None):
             continue
         if columns in ("auto", "2"):
             split = detect_split(column_segs, p["w"], body, force=(columns == "2"))
+        unequal = False
+        if len(gutters) == 1:
+            lsize = [l["size"] for l in column_segs if l["x1"] <= gutters[0]]
+            rsize = [l["size"] for l in column_segs if l["x0"] >= gutters[0]]
+            unequal = bool(lsize and rsize and abs(statistics.median(lsize) - statistics.median(rsize)) > max(1, 0.15 * body))
+        if columns == "auto" and split is None and len(gutters) == 1 and unequal:
+            # The projection detector includes smaller text. A narrow abstract
+            # column beside the body must not be discarded by body-size voting.
+            p["sidebar"] = None
+            p["lines"] = order_columns(segs, gutters, body, layout_boxes, (p["w"], p["h"]))
+            small_right = statistics.median(rsize) < statistics.median(lsize)
+            for ln in p["lines"]:
+                if (small_right and ln["x0"] >= gutters[0]) or (not small_right and ln["x1"] <= gutters[0]):
+                    ln["independent_text"] = True
+            two_col += 1
+            continue
         sidebar = detect_sidebar(segs, p["w"]) if columns == "auto" and split is None else None
         if sidebar is not None:
             split = sidebar
@@ -1489,6 +1620,15 @@ def from_pdf_text(pdf, pnos, columns, cache=None):
             b["pw"], b["ph"] = p["w"], p["h"]
             if p.get("sidebar") is not None and b["x1"] <= p["sidebar"] + 2 and b["top"] <= p.get("sidebar_bottom", 0):
                 b["sidebar"] = True
+        # An operator can occupy a line on its own. Associate every unresolved
+        # code with the nearest block even when it supplied no readable word.
+        for codes, box, raw in p["words"][0].get("unmapped_marks", []) if p["words"] else []:
+            if page_blocks:
+                cx, cy = (box[0] + box[1]) / 2, (box[2] + box[3]) / 2
+                target = min(page_blocks, key=lambda b: (not (b["x0"] <= cx <= b["x1"]),
+                                                        max(b["top"] - cy, cy - b["bottom"], 0)))
+                target["unmapped_glyphs"] = sorted(set(target.get("unmapped_glyphs", [])) | {f"⟦cid:{cid}⟧" for cid in codes})
+                target.setdefault("unmapped_text", []).append(re.sub(r"\(cid:(\d+)\)", r"⟦cid:\1⟧", raw))
         blocks += page_blocks
     blocks = join_chapter_openers(blocks, body)
     info = {p["pno"]: {"h": p["h"], "w": p["w"], "figs": p["figs"], "text_overflow": bool(
@@ -1674,6 +1814,8 @@ def basic_text_pages(pdf, pnos):
 
 def is_heading_block(b, body):
     t = b["text"]
+    if re.search(r"https?://|www\.", t, re.I):
+        return False
     if b.get("force_heading") or READING_RE.fullmatch(t.strip()):
         return True
     if b["n_lines"] > 3 or len(t) > 160:
@@ -1757,26 +1899,39 @@ def classify(blocks, body, info, first_page):
                             and not KNOWN_HEAD_RE.match(NUM_PREFIX_RE.sub("", b["text"]).strip())
                             and not re.match(r"^(\d+(\.\d+)*|[IVXLC]+)[.)]?\s", b["text"])), None)
     lowest = defaultdict(float)  # 每页每栏正文的最低位置；脚注在它下面
+    last_body = defaultdict(float)
     for b in blocks:
         if abs(b["size"] - body) <= tol and len(b["text"]) > 80:
             k = (b["page"], b.get("key"))
             lowest[k] = max(lowest[k], b["bottom"])
+            if b["size"] > min(body - 0.8, 0.92 * body):
+                last_body[k] = max(last_body[k], b["bottom"])
     for b in blocks:
         t0 = b["text"]
         small = b["size"] <= min(body - 0.8, 0.92 * body)
         below = b["top"] >= lowest[(b["page"], b.get("key"))] - 1
         h0 = info[b["page"]]["h"]
         ref_head = len(t0) < 40 and REF_RE.match(NUM_PREFIX_RE.sub("", t0).strip().rstrip(":：").strip())
-        b["_note"] = small and not b.get("text_box") and not ref_head and not CAPTION_RE.match(t0) and (
-            below or (NOTE_MARK_RE.match(t0) and b["top"] > 0.6 * h0))
+        gap = b.get("line_gap") or 0.25 * body
+        end_body = last_body[(b["page"], b.get("key"))]
+        unmarked_foot = (end_body > 0 and b["top"] > 0.6 * h0
+                         and b["top"] - end_body > gap + max(0.45 * body, 2.5)
+                         and not any(o["page"] == b["page"] and o.get("key") == b.get("key")
+                                     and end_body <= o["top"] < b["top"] and is_heading_block(o, body) for o in blocks))
+        b["_note"] = small and not b.get("independent_text") and not b.get("text_box") and not ref_head and not CAPTION_RE.match(t0) and (
+            below or unmarked_foot or (NOTE_MARK_RE.match(t0) and b["top"] > 0.6 * h0))
     for b in blocks:
         t = b["text"]
         h = info[b["page"]]["h"]
         letters = sum(1 for ch in t if ch.isalpha() or is_cjk(ch)) / max(1, len(t))
-        if b.get("front_meta") or b.get("contents_page") or b.get("graphic"):
+        copyright_footer = b["top"] > 0.6 * h and b["size"] < body and re.match(r"^\s*(©|copyright\s*:)", t, re.I)
+        if b.get("front_meta") or b.get("contents_page") or b.get("graphic") or copyright_footer:
             b["type"] = "frag"
+            if copyright_footer:
+                b["front_meta"] = True
         elif b.get("abstract"):
             b["type"] = "para"
+            b["abstract_label"] = t.strip().rstrip(".:").casefold() == "abstract"
         elif b.get("toc"):
             b["type"] = "para"
         elif b.get("list") and not b.get("_note") and not b.get("tab"):
@@ -1832,7 +1987,7 @@ def classify(blocks, body, info, first_page):
         return None
 
     for b in blocks:  # text set smaller than the body inside a drawn table or figure is table content
-        if b["type"] in ("note", "para", "heading") and not b.get("abstract") and b.get("level") != 0 and b["size"] <= body - 0.5:
+        if b["type"] in ("note", "para", "heading", "frag") and not b.get("abstract") and b.get("level") != 0 and b["size"] <= body - 0.5:
             if drawn(b):
                 b["type"], b["table"] = "frag", True
     for b in blocks:
@@ -2016,6 +2171,7 @@ def group_display_rows(blocks):
                            n_lines=sum(b["n_lines"] for b in run),
                            x0=min(b["x0"] for b in run), x1=max(b["x1"] for b in run),
                            top=min(b["top"] for b in run), bottom=max(b["bottom"] for b in run))
+            retain_unmapped(display, *run)
             ink = [box for b in run for box in b.get("unmapped_ink", [])]
             if ink:
                 display["x0"] = min(display["x0"], min(box[0] for box in ink))
@@ -2137,6 +2293,13 @@ def paragraph_continues(a, b, across_breaks=True):
         return True
     if not across_breaks or not (b["page"] != a["page"] or b.get("key") != a.get("key")):
         return False
+    if b["page"] != a["page"] and (a.get("column_x1") is not None or b.get("column_x0") is not None):
+        needed = (a.get("last_x1"), a.get("column_x1"), b.get("first_x0"), b.get("column_x0"))
+        if any(v is None for v in needed):
+            return False
+        tol = max(1, 0.15 * max(a.get("size", 10), b.get("size", 10)))
+        if a["last_x1"] < a["column_x1"] - tol or b["first_x0"] > b["column_x0"] + tol:
+            return False
     sa, sb = block_span(a), block_span(b)
     if sa and sb:
         return sa[1] >= 0.55 and sb[0] <= 0.45 and (b["page"] != a["page"] or sb[0] < sa[1])
@@ -2174,6 +2337,16 @@ def continuation_gap(a, b):
     return b["top"] - a["bottom"] <= (0.25 * size if gap is None else gap) + max(0.45 * size, 2.5)
 
 
+def retain_unmapped(target, *pieces):
+    """Keep uncertainty evidence when layout pieces are grouped or continued."""
+    for key in ("unmapped_glyphs", "unmapped_text"):
+        values = set(target.get(key, []))
+        for p in pieces:
+            values.update(p.get(key, []))
+        if values:
+            target[key] = sorted(values)
+
+
 def merge_continuations(blocks, body=None):
     if body:
         mark_pull_quotes(blocks, body)
@@ -2187,6 +2360,7 @@ def merge_continuations(blocks, body=None):
             continue
         if (b["type"] == "para" and out and out[-1]["type"] == "caption" and starts_lower(b["text"])
                 and not end_terminal(out[-1]["text"]) and continuation_gap(out[-1], b)):
+            retain_unmapped(out[-1], b)
             out[-1]["text"] = join_marked(out[-1]["text"], b["text"])  # 图注跨栏的后半句
             merges += 1
             continue
@@ -2209,6 +2383,7 @@ def merge_continuations(blocks, body=None):
                 display_boundary = (any(x.get("equation") for x in out[j + 1:])
                                     and not starts_lower(b["text"]))
                 if not display_boundary and paragraph_continues(a, b):
+                    retain_unmapped(a, b)
                     tail = dict(a, page=a.get("_end_page", a["page"]))
                     if b["page"] != tail["page"] or b.get("key") != tail.get("key"):
                         a["breaks"] = a.get("breaks", 0) + 1
@@ -2217,7 +2392,9 @@ def merge_continuations(blocks, body=None):
                     kept = []
                     for x in between:
                         if (x["type"] == "frag" and x["page"] == tail["page"] and x.get("key") == tail.get("key")
-                                and x.get("mono", 0) < 0.5 and not x.get("pull") and not x.get("table") and not x.get("equation")):
+                                and x.get("mono", 0) < 0.5 and not x.get("pull") and not x.get("table") and not x.get("equation")
+                                and not x.get("front_meta") and not x.get("contents_page")):
+                            retain_unmapped(a, x)
                             text = join_marked(text, x["text"])  # 夹在段内的公式等
                             if is_display_equation(x):
                                 a["has_math"] = True
@@ -2230,7 +2407,7 @@ def merge_continuations(blocks, body=None):
                     a.setdefault("superscripts", []).extend(b.get("superscripts", []))
                     a["jumps"] = a.get("jumps", 0) + b.get("jumps", 0)
                     a.setdefault("pages", {a["page"]}).add(b["page"])
-                    geometry = ("page", "key", "x0", "x1", "top", "bottom", "pw", "ph", "bbox")
+                    geometry = ("page", "key", "x0", "x1", "top", "bottom", "pw", "ph", "bbox", "last_x1", "column_x0", "column_x1")
                     a.setdefault("_origin", {k: a[k] for k in geometry if k in a})
                     a.update({k: b[k] for k in geometry if k in b and k != "page"})
                     a["_end_page"] = b.get("_end_page", b["page"])
@@ -2319,10 +2496,13 @@ def finalize(blocks):
     # then emitted as a single visible paragraph beneath the title.
     visible = []
     for b in blocks:
+        if b.get("abstract_label"):
+            b = dict(b, type="heading", level=1)
         if b.get("byline"):
             b = dict(b, type="para")
             if visible and visible[-1].get("byline") and visible[-1]["page"] == b["page"]:
                 a = visible[-1]
+                retain_unmapped(a, b)
                 a["text"] = a["text"] + " " + b["text"]
                 a["x0"], a["x1"] = min(a["x0"], b["x0"]), max(a["x1"], b["x1"])
                 a["bottom"] = max(a["bottom"], b["bottom"])
@@ -2357,6 +2537,10 @@ def finalize(blocks):
             counters["roman_rewrites"] += n
         origin = dict(b, **b.get("_origin", {}))
         it = {"id": f"{k}{counters[k]}", "type": b["type"], "text": text, "page": origin["page"]}
+        if "⟦cid:" in text or b.get("unmapped_glyphs"):
+            it["unmapped_glyphs"] = sorted(set(re.findall(r"⟦cid:\d+⟧", text)) | set(b.get("unmapped_glyphs", [])))
+        if b.get("unmapped_text"):
+            it["unmapped_text"] = b["unmapped_text"]
         if b["type"] == "heading":
             it["level"] = b.get("level", 1)
         if b.get("table"):
@@ -2395,7 +2579,7 @@ def layout_signals(blocks, n_pages, info=None):
     joined_refs = []
     for b in blocks:
         m = re.match(r"^(references?|bibliography)\s+(.+)$", b["text"], re.I)
-        if b["type"] in ("para", "note") and m and looks_like_reference(m.group(2)):
+        if b["type"] in ("para", "note") and m and REF_ENTRY_RE.match(m.group(2)) and REF_TAIL_RE.search(m.group(2)):
             joined_refs.append(b["page"])
     # A footnote sits at the foot of its page; a "footnote" in the upper half is body text or a reference list that
     # was set small. A footnote-heavy paper is fine as long as its notes are where footnotes are.
@@ -2628,6 +2812,7 @@ def main():
         sys.exit(f"找不到文件：{src}")
 
     report = []
+    raster_cover = False
     is_text = args.text or src.suffix.lower() in (".txt", ".md")
     engine = args.engine
     if engine == "auto" and not is_text:
@@ -2686,6 +2871,9 @@ def main():
             pnos = parse_pages(args.pages, page_count)
             if not pnos:
                 sys.exit("--pages 选出的页为空")
+            first = pdf.pages[pnos[0] - 1]
+            raster_cover = any(i.get("width", 0) >= first.width / 2 and i.get("height", 0) >= first.height / 2
+                               for i in first.images)
             if pnos and not args.pages:
                 first_text = pdf.pages[pnos[0] - 1].extract_text() or ""
                 if JSTOR_RE.search(first_text) and len(pnos) > 1:
@@ -2702,6 +2890,11 @@ def main():
     items, counters = finalize(blocks)
     labels = page_labels_from(stats["labels"], pnos) if pnos else {}
     title = next((i["text"] for i in items if i["type"] == "heading" and i.get("level") == 0), "")
+    if not title and raster_cover:
+        report.append("给执行的 agent（不是给用户的）：封面可能含图片标题，文字层未识别到标题；请用 --engine mineru 读取封面，不要用页眉猜标题。")
+    unknown_pages = sorted({i["page"] for i in items if i.get("unmapped_glyphs")})
+    if unknown_pages:
+        report.append(f"给执行的 agent（不是给用户的）：页 {unknown_pages} 有未映射字形，已保留 ⟦cid:N⟧ 标记；请对照原页或用 MinerU 补全。")
     doc = {"version": 2, "source": src.name, "source_path": str(src.resolve()), "mode": mode, "page_count": page_count,
            "pages_processed": [pnos[0], pnos[-1]] if pnos else None,
            "page_labels": labels, "title_guess": title, "items": items}

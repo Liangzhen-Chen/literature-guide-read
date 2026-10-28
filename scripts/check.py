@@ -60,6 +60,9 @@ def run_checks(doc, guide, density=None):
         langs = [x for x in langs if x in LANGS] or ["zh"]
     primary = langs[0]
     items = {i["id"]: i for i in doc["items"]}
+    for it in items.values():
+        if it.get("unmapped_glyphs") or re.search(r"⟦cid:\d+⟧", it.get("text", "")):
+            warns.append(f"{it['id']}: unmapped PDF glyphs remain; the agent must check the original page or use MinerU")
     pids = [i["id"] for i in doc["items"] if i["type"] == "para"]
     n = len(pids)
     entries = guide.get("paras") or {}
