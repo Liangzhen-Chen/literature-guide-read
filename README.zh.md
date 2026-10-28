@@ -6,6 +6,8 @@
 
 一个读论文和课程读物用的 agent skill。把 PDF 交给 agent，你会拿到一张围绕原文做的离线网页，笔记可以用中文、英文或双语。Claude Code、Codex、claude.ai 以及其他支持 [Agent Skills](https://agentskills.io) 的工具都能用。
 
+页面上是完整的原文，由你自己读。导读告诉你哪里值得多花时间、读的时候留意什么，读完可以用小结和回想题看看自己读懂了多少。
+
 直接打开做好的页面：[Ioannidis（2005），中英双语笔记](https://liangzhen-chen.github.io/literature-guide-read/)，或 [DPO 论文（2023），中文笔记](https://liangzhen-chen.github.io/literature-guide-read/dpo.html)。两篇论文都是开放许可：[Ioannidis](https://doi.org/10.1371/journal.pmed.0020124)（CC BY），[Rafailov 等](https://arxiv.org/abs/2305.18290)（CC BY 4.0）。
 
 ![页面顶部：标题、结论和思维导图](assets/readme/page-top.zh.png)
@@ -48,7 +50,7 @@ pip install -r ~/.codex/skills/literature-guide-read/requirements.txt
 
 ```bash
 npx skills@latest add Liangzhen-Chen/literature-guide-read
-pip install pdfplumber beautifulsoup4
+pip install pdfplumber fonttools beautifulsoup4
 ```
 
 安装器会问装到哪些 agent；加 `-g` 装到用户级，不加则装到当前项目。

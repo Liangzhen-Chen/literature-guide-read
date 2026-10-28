@@ -14,9 +14,13 @@
   WORK/paragraphs_partNN.txt    分块的可读文本，供逐块完整阅读
 """
 import argparse
+from io import BytesIO
 import json
+import math
 import re
 import statistics
+import shutil
+import importlib.util
 import unicodedata
 import sys
 from collections import Counter, defaultdict
@@ -25,7 +29,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import clean_text, drop_cap_for, fix_split_ligatures, is_cjk, put_drop_cap, use_utf8  # noqa: E402
 
-CAPTION_RE = re.compile(r"^(fig(ure)?s?\.?|table|tab\.|exhibit|chart|plate|图|表)\s*[\dIVX]+(\.\d+)?\s*([.:：|—]|$)", re.I)
+CAPTION_RE = re.compile(r"^(fig(ure)?s?\.?|table|tab\.|exhibit|chart|plate|图|表)\s*[\dIVX]+(\.\d+)?\s*([.:：|—?]|$)", re.I)
 NUM_HEAD_RE = re.compile(r"^(\d+(\.\d+){0,3}|[IVXLC]+|[A-H])[.)]?\s+(\S)")
 NUM_PREFIX_RE = re.compile(r"^(\d+(\.\d+){0,3}|[IVXLC]+|[A-H])[.)]?\s+")
 REF_RE = re.compile(r"^(references?|bibliography|works cited|literature cited|reference list|参考文献|引用文献)$", re.I)
@@ -54,7 +58,7 @@ STOP_END = {"the", "a", "an", "of", "to", "in", "on", "by", "for", "and", "or", 
 # ---------- 文本小工具 ----------
 
 def end_terminal(text):
-    t = re.sub(r"([.!?。！？”\"’)\]])\d{1,3}$", r"\1", text.rstrip())  # 去掉句末脚注号
+    t = re.sub(r"([.!?。！？”\"’)\]])\s*\d{1,3}$", r"\1", text.rstrip())  # 去掉句末脚注号
     t = t.rstrip(CLOSERS)
     return bool(t) and t[-1] in TERMINAL
 
@@ -210,7 +214,174 @@ def level_glyph_boxes(page):
             c["y0"] = bottom_edge - c["bottom"]
 
 
+def text_width_reference(pdf, pnos):
+    """Learn glyph advances from in-page text, keyed by font and character."""
+    widths = defaultdict(list)
+    for pno in pnos:
+        page = pdf.pages[pno - 1]
+        apply_native_case(page, font_properties(page))
+        for c in getattr(page, "chars", []):
+            if c.get("size", 0) > 0 and page.bbox[0] <= c["x0"] < c["x1"] <= page.bbox[2]:
+                widths[(c.get("fontname"), c["text"])].append((c["x1"] - c["x0"]) / c["size"])
+    return {k: statistics.median(v) for k, v in widths.items()}
+
+
+def repair_stretched_text(page, reference):
+    """Repair overflowing OCR spans from repeated glyph metrics, never fit to a page edge.
+
+    PDF marked-content spans and baselines delimit independently positioned text.
+    Only overflowing spans with a consistently enlarged advance are transformed.
+    """
+    groups = defaultdict(list)
+    for c in getattr(page, "chars", []):
+        groups[(c.get("mcid"), round(c["top"]), c.get("fontname"))].append(c)
+    for chars in groups.values():
+        if max(c["x1"] for c in chars) <= page.bbox[2]:
+            continue
+        ratios = [(c["x1"] - c["x0"]) / c["size"] / reference[(c.get("fontname"), c["text"])]
+                  for c in chars if c.get("size", 0) > 0 and reference.get((c.get("fontname"), c["text"]), 0) > 0]
+        if not ratios:
+            continue
+        scale = statistics.median(ratios)
+        # A robust three-deviation test distinguishes systematic scale from glyph variation.
+        deviation = statistics.median(abs(r - scale) for r in ratios)
+        if (scale <= 1 or abs(scale - 1) < 1e-6 or scale - 1 <= 3 * 1.4826 * deviation
+                or len({c["text"] for c in chars}) < 3):
+            continue
+        origin = min(c["x0"] for c in chars)
+        for c in chars:
+            c["x0"] = origin + (c["x0"] - origin) / scale
+            c["x1"] = origin + (c["x1"] - origin) / scale
+            c["width"] = c["x1"] - c["x0"]
+
+
+def font_name_style(name):
+    """Fallback PostScript style names, including delimited B/Bd/I/It abbreviations.
+
+    Delimiters matter: a family name that happens to end in b or i is not a style.
+    Embedded descriptors/program metadata remain additional independent evidence.
+    """
+    bold = bool(re.search(r"bold|black|heavy|semibold|demi|medi|[.,_-](?:b|bd|bi|bdi|bdit)\d*$", name, re.I))
+    italic = bool(re.search(r"italic|oblique|[.,_-](?:i|it|bi|ib|bdi|bdit)\d*$", name, re.I))
+    return bold, italic
+
+
+def font_properties(page):
+    """Read style and case evidence from PDF descriptors and embedded font metadata.
+
+    Font program weights use the OpenType 100–900 scale. Case repairs require
+    agreement between the simple-font encoding and its glyph advance, rather than
+    changing mixed case by appearance or vocabulary.
+    """
+    try:
+        from pdfminer.pdftypes import resolve1
+        from pdfminer.psparser import literal_name
+        from pdfminer.encodingdb import EncodingDB
+        from pdfminer.cmapdb import CMapParser, FileUnicodeMap
+        fonts = resolve1(page.page_obj.resources.get("Font", {}))
+    except (AttributeError, KeyError, TypeError):
+        return {}
+    cache = getattr(page.pdf, "_segment_fonts", {})
+    page.pdf._segment_fonts = cache
+    result = {}
+    for resource in fonts.values():
+        try:
+            spec = resolve1(resource)
+            name = literal_name(spec["BaseFont"])
+            if name in cache:
+                result[name] = cache[name]
+                continue
+            desc_spec = resolve1(resolve1(spec.get("DescendantFonts", [spec]))[0])
+            desc = resolve1(desc_spec.get("FontDescriptor", {}))
+            props = dict(bold=desc.get("FontWeight", 0) >= 600 or bool(desc.get("Flags", 0) & (1 << 18)),
+                         italic=bool(desc.get("ItalicAngle", 0)), smallcaps=bool(desc.get("Flags", 0) & (1 << 17)), cases={}, case_cids={})
+            stream = resolve1(desc.get("FontFile2") or desc.get("FontFile3"))
+            if stream is not None:
+                try:
+                    from fontTools.ttLib import TTFont
+                    from fontTools.cffLib import CFFFontSet
+                    data = stream.get_data()
+                    if data[:4] in (b"OTTO", b"\x00\x01\x00\x00", b"true"):
+                        font = TTFont(BytesIO(data))
+                        if "OS/2" in font:
+                            props["bold"] |= font["OS/2"].usWeightClass >= 600
+                            props["italic"] |= bool(font["OS/2"].fsSelection & (1 | (1 << 9)))
+                        if "post" in font:
+                            props["italic"] |= bool(font["post"].italicAngle)
+                    else:
+                        cff = CFFFontSet()
+                        cff.decompile(BytesIO(data), None)
+                        top = cff[cff.fontNames[0]]
+                        props["bold"] |= bool(re.search(r"bold|black|heavy|demi", getattr(top, "Weight", ""), re.I))
+                        props["italic"] |= bool(getattr(top, "ItalicAngle", 0))
+                except Exception:
+                    pass  # damaged/unsupported font programs still have descriptor/name evidence
+            if spec.get("ToUnicode") and spec.get("Widths") and spec.get("Encoding"):
+                enc = resolve1(spec["Encoding"])
+                if isinstance(enc, dict):
+                    native = EncodingDB.get_encoding(literal_name(enc.get("BaseEncoding")), enc.get("Differences", []))
+                else:
+                    native = EncodingDB.get_encoding(literal_name(enc))
+                cmap = FileUnicodeMap()
+                CMapParser(cmap, BytesIO(resolve1(spec["ToUnicode"]).get_data())).run()
+                widths = resolve1(spec["Widths"])
+                first = spec.get("FirstChar", 0)
+                for cid, decoded in cmap.cid2unichr.items():
+                    glyph = native.get(cid, "")
+                    if (len(decoded) == len(glyph) == 1 and decoded.isalpha()
+                            and decoded.casefold() == glyph.casefold() and first <= cid < first + len(widths)):
+                        props["cases"].setdefault(decoded, []).append((glyph, float(widths[cid - first]) / 1000))
+                        if decoded != glyph:
+                            props["case_cids"][cid] = glyph
+            cache[name] = result[name] = props
+        except Exception:
+            continue
+    return result
+
+
+def repair_case_cids(font, replacements):
+    """With character codes available, case-only Encoding/ToUnicode conflicts are exact."""
+    cmap = getattr(font, "unicode_map", None)
+    if cmap is not None:
+        cmap.cid2unichr.update(replacements)
+
+
+def apply_native_case(page, props):
+    if getattr(page, "_segment_case_applied", False) or not any(p.get("case_cids") for p in props.values()):
+        return
+    try:
+        from pdfminer.pdftypes import resolve1
+        from pdfminer.psparser import literal_name
+        for resource in resolve1(page.page_obj.resources.get("Font", {})).values():
+            spec = resolve1(resource)
+            replacements = props.get(literal_name(spec["BaseFont"]), {}).get("case_cids", {})
+            if replacements:
+                font = page.pdf.rsrcmgr.get_font(getattr(resource, "objid", None), spec)
+                repair_case_cids(font, replacements)
+        # Re-decode cached characters using their actual character codes. Equal
+        # advances (for example a wide lower-case glyph and its capital) are no
+        # longer ambiguous, and the original PDF remains untouched.
+        page.flush_cache()
+        page._segment_case_applied = True
+    except (AttributeError, KeyError, TypeError):
+        pass
+
+
+def repair_case_maps(chars, fonts):
+    for c in chars:
+        if not c.get("size") or not c.get("upright", True):
+            continue
+        candidates = fonts.get(c.get("fontname"), {}).get("cases", {}).get(c["text"], [])
+        advance = (c["x1"] - c["x0"]) / c["size"]
+        matches = {glyph for glyph, width in candidates if math.isclose(width, advance, rel_tol=1e-4, abs_tol=1e-6)}
+        if len(matches) == 1:
+            c["text"] = matches.pop()
+
+
 def get_words(page):
+    props = font_properties(page)
+    apply_native_case(page, props)
+    repair_case_maps(getattr(page, "chars", []), props)
     level_glyph_boxes(page)
     try:  # 按字号比例判断词间距；没有编码空格的 PDF（常见于 TeX）也能正确分词
         ws = page.extract_words(x_tolerance_ratio=0.15, keep_blank_chars=False,
@@ -218,7 +389,7 @@ def get_words(page):
     except TypeError:  # 旧版 pdfplumber
         ws = page.extract_words(x_tolerance=1.5, keep_blank_chars=False,
                                 use_text_flow=False, extra_attrs=["size", "fontname"])
-    out = []
+    out, unmapped = [], []
     # pdfplumber reports coordinates in a frame whose origin is page.bbox, not the page corner; a MediaBox
     # that does not start at (0, 0) (JSTOR scans) would otherwise shift margins, crops and every bbox.
     ox, oy = float(page.bbox[0]), float(page.bbox[1])
@@ -226,6 +397,9 @@ def get_words(page):
         if not w.get("upright", True):
             continue  # 侧边竖排水印等
         t = compose_accents(clean_text(w["text"]))
+        if "(cid:" in t:
+            unmapped.append((float(w["x0"]) - ox, float(w["x1"]) - ox,
+                             float(w["top"]) - oy, float(w["bottom"]) - oy))
         if not t or "(cid:" in t:
             continue  # 无法映射的字形（常见于 JSTOR 水印）
         if (float(w["x1"]) - ox < 0 or float(w["x0"]) - ox > float(page.width)
@@ -235,25 +409,121 @@ def get_words(page):
             "text": t, "x0": float(w["x0"]) - ox, "x1": float(w["x1"]) - ox,
             "top": float(w["top"]) - oy, "bottom": float(w["bottom"]) - oy,
             "size": round(float(w["size"]), 2),
-            "bold": bool(re.search(r"bold|black|heavy|semibold|demi|medi", w["fontname"], re.I)),
+            "bold": props.get(w["fontname"], {}).get("bold", False) or font_name_style(w["fontname"])[0],
+            "italic": props.get(w["fontname"], {}).get("italic", False) or font_name_style(w["fontname"])[1],
+            "smallcaps": props.get(w["fontname"], {}).get("smallcaps", False) or bool(re.search(r"smallcaps|small.capitals|[.-]sc$", w["fontname"], re.I)),
             "font": w["fontname"],
             "mono": bool(MONO_RE.search(w["fontname"])),
         })
+    gaps = [(b["x0"] - a["x1"]) / a["size"] for a, b in zip(out, out[1:])
+            if len(a["text"]) > 1 and len(b["text"]) > 1 and a.get("font") == b.get("font")
+            and a["size"] == b["size"] and abs(a["bottom"] - b["bottom"]) <= 0.15 * a["size"]
+            and 0 < b["x0"] - a["x1"] < a["size"]]
+    # Unmapped visible operators still occupy the gap: they are not tracking.
+    if unmapped:
+        for w in out:
+            w["unmapped_boxes"] = unmapped
+    if gaps:
+        word_gap = statistics.median(gaps)
+        for w in out:
+            w["word_gap"] = word_gap
+    return out
+
+
+def join_tracked_words(words):
+    """Recover tracking from end-to-start gaps, as in pdfplumber's WordExtractor.
+
+    A same-style run with repeated singleton gaps needs a uniform narrow population separated
+    from observed word/group gaps. No lexical evidence or label vocabulary is used.
+    Already joined letter fragments participate in that same gap population.
+    With no evidence of word spacing, an ambiguous isolated run is left alone.
+    """
+    out, i = [], 0
+    while i < len(words):
+        j = i
+        while (j < len(words) and words[j]["text"].isalpha()
+               and words[j].get("font") == words[i].get("font")
+               and words[j]["size"] == words[i]["size"]
+               and abs(words[j]["bottom"] - words[i]["bottom"]) <= 1e-6 * words[i]["size"]
+               and (j == i or not any(
+                   box[0] < words[j]["x0"] and box[1] > words[j - 1]["x1"]
+                   and box[2] < words[j]["bottom"] and box[3] > words[j]["top"]
+                   for box in words[j].get("unmapped_boxes", [])))):
+            j += 1
+        if j - i < 3:
+            out.append(words[i])
+            i += 1
+            continue
+        run = words[i:j]
+        gaps = [b["x0"] - a["x1"] for a, b in zip(run, run[1:])]
+        singleton_gaps = [gap for gap, a, b in zip(gaps, run, run[1:])
+                          if len(a["text"]) == len(b["text"]) == 1 and gap > 0]
+        if len(singleton_gaps) < 2:
+            out.extend(run)
+            i = j
+            continue
+        positive = sorted(g for g in gaps if g > 0)
+        epsilon = 1e-6 * run[0]["size"]
+        if not positive:
+            out.extend(run)
+            i = j
+            continue
+        # The largest break in the gap distribution proposes two populations.
+        # Accept it only when their robust three-sigma intervals are separated.
+        small = positive
+        boundaries = [w["word_gap"] * w["size"] for w in run if w.get("word_gap")]
+        for a, b in ((words[i - 1], run[0]),) if i else ():
+            if a.get("font") == b.get("font"):
+                boundaries.append(b["x0"] - a["x1"])
+        if j < len(words) and words[j].get("font") == run[-1].get("font"):
+            boundaries.append(words[j]["x0"] - run[-1]["x1"])
+        if len(positive) > 2:
+            cut = max(range(2, len(positive)), key=lambda k: positive[k] - positive[k - 1])
+            low = positive[:cut]
+            centre = statistics.median(low)
+            spread = 1.4826 * statistics.median(abs(g - centre) for g in low)
+            if positive[cut] >= 2 * max(low) and positive[cut] > centre + 3 * spread + epsilon:
+                small = low
+                boundaries.append(positive[cut])
+        centre = statistics.median(small)
+        spread = 1.4826 * statistics.median(abs(g - centre) for g in small)
+        upper = centre + 3 * spread + epsilon
+        uniform_votes = sum(abs(g - centre) <= 3 * spread + epsilon for g in singleton_gaps)
+        if spread >= centre or uniform_votes < 2 or not any(g > upper for g in boundaries):
+            out.extend(run)
+            i = j
+            continue
+        groups = [[run[0]]]
+        for gap, w in zip(gaps, run[1:]):
+            if 0 < gap <= upper:  # kerning can narrow a letter gap, never turn it into a word gap
+                groups[-1].append(w)
+            else:
+                groups.append([w])
+        for group in groups:
+            out.append(dict(group[0], text="".join(w["text"] for w in group), x1=group[-1]["x1"],
+                            top=min(w["top"] for w in group), bottom=max(w["bottom"] for w in group)))
+        i = j
     return out
 
 
 def line_from_words(ws):
-    ws = sorted(ws, key=lambda w: w["x0"])
-    text, prev = "", None
+    ws = join_tracked_words(sorted(ws, key=lambda w: w["x0"]))
+    text, prev, superscripts = "", None, []
     for w in ws:
         if (prev is not None and w["x0"] - prev["x1"] < 0.1 * max(w["size"], prev["size"])
                 and (w["size"] != prev["size"] or w.get("font") != prev.get("font"))
                 and (prev["text"][-1:] in ")]" or w["text"][:1] in "([" or (
                     prev["text"].isalpha() and w["text"].isalpha() and w["size"] != prev["size"]
+                    and not w["text"].isdigit() and not prev["text"].isdigit()
                     and abs(w["bottom"] - prev["bottom"]) <= 0.12 * max(w["size"], prev["size"])))):
             # words are split where the font or size changes; when they touch there was no space between them:
             # a word with its brackets set in a math font, or a small-caps "R" + "EFERENCES" on one baseline
             text += w["text"]
+        elif (prev is not None and w["text"].isdigit() and w["size"] < prev["size"]
+              and w["bottom"] < prev["bottom"]
+              and (len(re.findall(r"[A-Za-z]", prev["text"])) >= 3 or prev["text"][-1:] in ".,;:!?")):
+            superscripts.append((prev["text"], w["text"]))
+            text = join_words(text, w["text"])
         else:
             text = join_words(text, w["text"])
         prev = w
@@ -266,10 +536,12 @@ def line_from_words(ws):
             size = s
             break
     bold = sum(len(w["text"]) for w in ws if w.get("bold")) / total
+    italic = sum(len(w["text"]) for w in ws if w.get("italic")) / total
     mono = sum(len(w["text"]) for w in ws if w.get("mono")) / total
     return {"text": text, "x0": ws[0]["x0"], "x1": max(w["x1"] for w in ws),
             "top": min(w["top"] for w in ws), "bottom": max(w["bottom"] for w in ws),
-            "size": size, "bold": bold, "mono": mono, "words": ws}
+            "size": size, "bold": bold, "italic": italic, "mono": mono, "words": ws, "superscripts": superscripts, "font": ws[0].get("font", ""),
+            "text_box": ws[0].get("text_box") if all(w.get("text_box") == ws[0].get("text_box") for w in ws) else None}
 
 
 def make_lines(words, gap_split=False):
@@ -320,7 +592,10 @@ def split_by_edges(bs, width):
     def count_near(x):
         return sum(1 for v in xs if abs(v - x) <= 3)
     cands = sorted({round(v / 2) * 2 for v in xs})
-    l1 = max(cands, key=count_near)
+    left = [c for c in cands if c < 0.4 * width]
+    if not left:
+        return None
+    l1 = max(left, key=count_near)
     c1 = count_near(l1)
     right = [c for c in cands if 0.4 * width <= c <= 0.65 * width and c > l1 + 0.25 * width]
     if not right:
@@ -597,15 +872,122 @@ def order_columns(segs, gutters, body, boxes=(), page=(612.0, 792.0)):
 
 
 def headingish(ln, body):
+    if ln.get("force_heading"):
+        return True
     t = ln["text"]
-    asks = t.endswith("?") and ln["size"] >= body + 1.0  # the last line of a heading that asks a question
+    asks = t.endswith("?") and (ln["size"] >= body + 1.0 or ln["bold"] >= 0.85)  # the last line of a heading that asks a question
     if len(t) > 100 or (end_terminal(t) and not asks):
         return False
-    return bool(ln["size"] >= body + 1.0 or ln["bold"] >= 0.85
-                or (NUM_HEAD_RE.match(t) and is_heading_block(dict(ln, n_lines=1), body)))
+    return bool(ln.get("force_heading") or ln["size"] >= body + 1.0 or ln["bold"] >= 0.85
+                or (ln["size"] >= body - 0.5 and word_count(t) <= 8 and NUM_HEAD_RE.match(t) and is_heading_block(dict(ln, n_lines=1), body)))
+
+
+LIST_MARK_RE = re.compile(r"^(?:[•●◦▪■‣∙*–—-]|\(?\d+[.)]|\(?[a-z][.)])\s+", re.I)
+TOC_RE = re.compile(r"\.{3,}|(?:…\s*){2,}")
+READING_RE = re.compile(r"^(?:further|suggested|recommended) reading$", re.I)
+CHAPTER_RE = re.compile(r"^(?:ch\.?|chapter)\s+(?:\d+|[IVXLC]+)$", re.I)
+
+
+def emphasized(w):
+    return w.get("bold") or w.get("italic") or bool(re.search(r"italic|oblique", w.get("font", ""), re.I))
+
+
+def prepare_typing_lines(lines, body):
+    """Use layout tokens before paragraph assembly (style spans and hanging indents)."""
+    out = []
+    for line in lines:
+        words = line.get("words", [])
+        cut = 0
+        while cut < len(words) and emphasized(words[cut]):
+            cut += 1
+        if 0 < cut < len(words):
+            prefix = line_from_words(words[:cut])
+            # A styled lead phrase, rather than an initial, abbreviation or number.
+            if ((line["size"] >= body - 0.5 or line.get("text_box")) and prefix["text"].endswith(".") and len(re.findall(r"[A-Za-z]{3,}", prefix["text"])) >= 1
+                    and not CAPTION_RE.match(prefix["text"])):
+                previous = next((x for x in reversed(out) if x["band"] == line["band"] and x["col"] == line["col"]), None)
+                if (previous and previous.get("words") and all(emphasized(w) for w in previous["words"])
+                        and previous.get("font") == prefix.get("font")
+                        and 0 <= line["top"] - previous["bottom"] <= line["size"]
+                        and not headingish(previous, body)):
+                    out.append(line)  # the tail of an italic paragraph is not a run-in heading
+                    continue
+                head = dict(line, **prefix)
+                head["force_heading"] = True
+                tail = dict(line, **line_from_words(words[cut:]))
+                tail["runin_body"] = True
+                out.extend((head, tail))
+                continue
+        out.append(line)
+    streams = defaultdict(list)
+    for line in out:
+        streams[(line["band"], line["col"])].append(line)
+        line["toc"] = bool(TOC_RE.search(line["text"]) and re.search(r"(?:\d+|[ivxlcdm]+)\s*$", line["text"], re.I))
+        ws = line.get("words", [])
+        line["cell_edges"] = [b["x0"] for a, b in zip(ws, ws[1:])
+                              if b["x0"] - a["x1"] >= max(a["size"], b["size"])]
+    for ls in streams.values():
+        for i, line in enumerate(ls):
+            previous = ls[i - 1] if i else None
+            following = ls[i + 1] if i + 1 < len(ls) else None
+            if (line.get("bold", 0) >= 0.85 and line["text"].endswith(".")
+                    and following and following.get("words") and not emphasized(following["words"][0])
+                    and previous and previous.get("bold", 0) >= 0.85 and not end_terminal(previous["text"])):
+                line["force_heading"] = True
+            if (line.get("italic", 0) >= 0.85 and 2 <= word_count(line["text"]) <= 12
+                    and not end_terminal(line["text"]) and not display_variable_style([line])
+                    and following and following.get("words") and not emphasized(following["words"][0])
+                    and following.get("italic", 0) < 0.5 and following.get("bold", 0) < 0.5
+                    and (not previous or previous.get("italic", 0) < 0.5)
+                    and abs(line["size"] - body) <= max(1, 0.15 * body)):
+                line["force_heading"] = True
+        for i, line in enumerate(ls):
+            if line.get("force_heading") or line.get("toc"):
+                continue
+            match = LIST_MARK_RE.match(line["text"])
+            if match:
+                bullet = line["text"][0] in "•●◦▪‣∙"
+                peers = [x for x in ls[max(0, i - 3):i + 4] if x is not line and LIST_MARK_RE.match(x["text"])
+                         and abs(x["x0"] - line["x0"]) <= 0.15 * body]
+                if (bullet or (peers and not line.get("bold", 0) >= 0.85)) and not display_variable_style([line]):
+                    line["list_start"] = True
+                    words = line.get("words", [])
+                    line["list_indent"] = (words[1]["x0"] if len(words) > 1 and len(words[0]["text"]) <= match.end()
+                                           else line["x0"])
+            if not match:
+                # A lost marker is still visible ink at the hanging margin.
+                boxes = [box for w in line.get("words", []) for box in w.get("unmapped_boxes", [])
+                         if box[1] <= line["x0"] and line["x0"] - box[0] <= 2 * body
+                         and box[1] - box[0] <= body and box[2] < line["bottom"] and box[3] > line["top"]]
+                if boxes:
+                    line["lost_marker"] = max(boxes, key=lambda box: box[1])
+        lost = [x for x in ls if x.get("lost_marker")]
+        for line in lost:
+            if any(x is not line and abs(x["lost_marker"][0] - line["lost_marker"][0]) <= 0.15 * body for x in lost):
+                line["list_start"], line["list_indent"] = True, line["x0"]
+        hanging = [(a, b) for a, b in zip(ls, ls[1:]) if not a.get("force_heading") and not a.get("cell_edges")
+                   and b["x0"] > a["x0"] + 0.8 * body and abs(a["size"] - body) <= 0.5
+                   and abs(b["size"] - body) <= 0.5 and not end_terminal(a["text"])
+                   and 0 <= b["top"] - a["bottom"] <= body]
+        for a, b in hanging:
+            if any(x is not a and abs(x["x0"] - a["x0"]) <= 0.15 * body
+                   and abs(y["x0"] - b["x0"]) <= 0.15 * body for x, y in hanging):
+                a["list_start"], a["list_indent"] = True, b["x0"]
+    return out
+
+
+def aligned_cells(blocks):
+    """Tables require a repeated interior cell boundary, not just short lines."""
+    if (all("cell_edges" not in b and NUMERIC_ROW_RE.fullmatch(b["text"]) for b in blocks)
+            and len({len(b["text"].split()) for b in blocks}) == 1 and len(blocks[0]["text"].split()) >= 2):
+        return True  # text-only callers can supply a rectangular numeric matrix
+    rows = [edges for b in blocks for edges in b.get("cell_edges", []) if edges]
+    return len(rows) >= 3 and any(sum(any(abs(edge - candidate) <= 3 for edge in row) for row in rows) >= 3
+                                  for row in rows for candidate in row)
 
 
 def build_blocks(lines, pno, body):
+    lines = prepare_typing_lines(lines, body)
     streams = defaultdict(list)
     for ln in lines:
         streams[(ln["band"], ln["col"])].append(ln)
@@ -634,12 +1016,22 @@ def build_blocks(lines, pno, body):
             tol = max(1.0, 0.15 * body)
             body_like = abs(ln["size"] - body) <= tol and abs(prev["size"] - body) <= tol
             in_caption = CAPTION_RE.match(cur["lines"][0]["text"]) is not None
-            if ln["top"] - prev["bottom"] > gap_med + max(0.45 * sz, 2.5):
+            in_list = cur["lines"][0].get("list_start")
+            same_heading = (abs(prev["size"] - ln["size"]) <= 0.5 and prev.get("font") == ln.get("font")
+                            and (prev.get("bold", 0) >= 0.85 and ln.get("bold", 0) >= 0.85
+                                 or prev.get("italic", 0) >= 0.85 and ln.get("italic", 0) >= 0.85)
+                            and not NUM_HEAD_RE.match(ln["text"]))
+            if (ln.get("list_start") or ln.get("toc") or prev.get("toc") or (prev.get("force_heading") and not same_heading) or ln.get("runin_body")
+                    or (ln.get("force_heading") and not ((headingish(prev, body) or same_heading) and abs(prev["size"] - ln["size"]) <= 0.5
+                                                         and ln["top"] - prev["bottom"] <= gap_med + max(0.45 * sz, 2.5)))):
+                new = True
+            elif in_list and abs(ln["x0"] - cur["lines"][0].get("list_indent", ln["x0"])) <= 0.15 * body and ln["top"] - prev["bottom"] <= gap_med + max(0.45 * sz, 2.5):
+                pass
+            elif ln["top"] - prev["bottom"] > gap_med + max(0.45 * sz, 2.5):
                 new = True
             elif abs(ln["size"] - prev["size"]) > max(0.9, 0.09 * body):
                 new = True
-            elif CAPTION_RE.match(ln["text"]) and (end_terminal(prev["text"])
-                                                   or ln["top"] - prev["bottom"] > gap_med + 1.5):
+            elif CAPTION_RE.match(ln["text"]):
                 new = True
             elif (ln.get("mono", 0) >= 0.5) != (prev.get("mono", 0) >= 0.5):
                 new = True
@@ -647,16 +1039,17 @@ def build_blocks(lines, pno, body):
                 new = True
             elif in_caption:
                 pass
-            elif body_like and ln["x0"] - le > 0.8 * ln["size"] and prev["x0"] - le < 0.4 * prev["size"]:
+            elif body_like and not same_heading and ln["x0"] - le > 0.8 * ln["size"] and prev["x0"] - le < 0.4 * prev["size"]:
                 new = True
             elif (prev["x1"] < right_edge[key] - 2.5 * prev["size"] and end_terminal(prev["text"])
                   and not starts_lower(ln["text"])):
                 new = True
-            elif (headingish(prev, body) != headingish(ln, body)
+            elif ((headingish(prev, body) != headingish(ln, body) and not same_heading)
                   or (headingish(ln, body) and NUM_HEAD_RE.match(ln["text"]))):
                 new = True
         if new:
-            cur = {"key": key, "lines": [], "page": pno}
+            cur = {"key": key, "lines": [], "page": pno,
+                   "column_x0": left_edge[key], "column_x1": right_edge[key], "line_gap": gap_med}
             blocks.append(cur)
         cur["lines"].append(ln)
     return [finish_block(b) for b in blocks]
@@ -666,6 +1059,56 @@ def column_jumps(lines):
     """How often consecutive lines of a block start far apart: a paragraph read across two columns zigzags."""
     return sum(1 for a, b in zip(lines, lines[1:])
                if abs(b["x0"] - a["x0"]) > 6 * max(a["size"], b["size"]))
+
+
+def unmapped_ink(lines, block):
+    """Retain visible but undecodable ink for the display crop, within its column."""
+    top, bottom = min(l["top"] for l in lines), max(l["bottom"] for l in lines)
+    left = block.get("column_x0", min(l["x0"] for l in lines))
+    right = block.get("column_x1", max(l["x1"] for l in lines))
+    boxes = {box for line in lines for w in line.get("words", []) for box in w.get("unmapped_boxes", [])}
+    return [box for box in boxes if left <= (box[0] + box[1]) / 2 <= right
+            and box[2] < bottom and box[3] > top]
+
+
+def symbolic_display(text):
+    words = re.findall(r"[A-Za-z]{3,}", re.sub(r"\b(?:ln|log|exp)\b", "", text))
+    return not any(not w.isupper() for w in words) and math_dense(text)
+
+
+def display_variable_style(lines):
+    """A display row is predominantly short italic variables, rather than prose.
+
+    Keep the font evidence before extraction loses operators with unmapped glyphs.
+    This is used only to group consecutive display rows, outside ruled tables.
+    """
+    if len(lines) > 2:
+        return False
+    text = " ".join(line["text"] for line in lines)
+    # Inspect reconstructed words too: tracked italic headings can have one
+    # extracted token per glyph. Long uppercase labels need an actual operator.
+    if any(not token.isupper() or not EQUATION_RE.search(text)
+           for token in re.findall(r"[A-Za-z]{3,}", text)):
+        return False
+    words = [w for line in lines for w in line.get("words", []) if w["text"].isalpha()]
+    if any(len(w["text"]) > 2 and not w["text"].isupper() for w in words):
+        return False  # prose lead-ins stay visible even when they contain many variables
+    variables = [w for w in words if len(w["text"]) <= 2 and (w.get("italic") or re.search(r"italic|oblique", w.get("font", ""), re.I))]
+    return len(variables) >= 3 and len(variables) > len(words) / 2
+
+
+def trailing_title_marker(lines):
+    words = lines[-1].get("words", [])
+    if len(words) < 2:
+        return ""
+    tail = words[-1]
+    all_words = [w for line in lines for w in line.get("words", [])]
+    fonts = Counter(w.get("font") for w in all_words[:-1] for _ in w["text"])
+    dominant = fonts.most_common(1)[0][0] if fonts else None
+    if (len(tail["text"]) == 1 and tail.get("font") != dominant
+            and tail.get("font") != words[-2].get("font") and tail["text"] not in ".?!:;,)]}"):
+        return tail["text"]
+    return ""
 
 
 def finish_block(b):
@@ -681,11 +1124,25 @@ def finish_block(b):
         if acc >= n / 2:
             size = s
             break
-    return {"text": text, "page": b["page"], "key": b["key"], "size": size,
+    if (len(lines) > 1 and word_count(lines[0]["text"]) <= 3
+            and lines[0].get("font") and lines[0].get("font") != lines[1].get("font")
+            and not end_terminal(lines[0]["text"])):
+        b["title_text"] = lines[0]["text"] + ": " + " ".join(l["text"] for l in lines[1:])
+    return {"title_text": b.get("title_text", text), "text": text, "page": b["page"], "key": b["key"], "size": size,
             "bold": sum(l["bold"] * len(l["text"]) for l in lines) / n,
             "mono": sum(l.get("mono", 0) * len(l["text"]) for l in lines) / n,
             "top": min(l["top"] for l in lines), "bottom": max(l["bottom"] for l in lines),
             "x0": min(l["x0"] for l in lines), "x1": max(l["x1"] for l in lines),
+            "title_suffix": trailing_title_marker(lines),
+            "font": lines[0].get("font", ""),
+            "force_heading": any(l.get("force_heading") for l in lines),
+            "list": bool(lines[0].get("list_start")), "toc": any(l.get("toc") for l in lines),
+            "line_gap": b.get("line_gap"),
+            "cell_edges": [l.get("cell_edges", []) for l in lines],
+            "text_box": lines[0].get("text_box"),
+            "superscripts": [mark for l in lines for mark in l.get("superscripts", [])],
+            "math_style": display_variable_style(lines),
+            "unmapped_ink": unmapped_ink(lines, b),
             "n_lines": len(lines), "jumps": column_jumps(lines), "aside": any(l.get("aside") for l in lines),
             "tab": all(l.get("tab") for l in lines)}
 
@@ -711,11 +1168,14 @@ def strip_margins(pages, get_items, set_items, label_sink, band=0.15):
         """Outside the inner 8.5% a repeated line must also look like a running head: short, not a sentence,
         and not a caption or an equation label ("Table 1" and "Table 2" share a digit-stripped key)."""
         t = it["text"].strip()
-        if CAPTION_RE.match(t) or CAPTION_TITLE_RE.match(t) or EQ_NUMBER_RE.match(t):
+        # Repeated decimal-valued rows are chart ticks, legends or table cells,
+        # not running heads. Preserve them even when several pages reuse a scale.
+        if (CAPTION_RE.match(t) or CAPTION_TITLE_RE.match(t) or EQ_NUMBER_RE.match(t)
+                or re.search(r"\d\.\d+\s*$", t)):
             return False
         if it["top"] < inner * p["h"] or it["bottom"] > (1 - inner) * p["h"]:
             return True
-        return len(t) < 100 and not end_terminal(t)
+        return len(t) < 100 and (not t.rstrip(CLOSERS) or t.rstrip(CLOSERS)[-1] not in TERMINAL)
 
     for p in pages:
         seen = set()
@@ -779,6 +1239,29 @@ def page_labels_from(pairs, pnos):
         if cnt >= max(2, 0.6 * len(digits)):
             return {str(p): str(p + off) for p in pnos if p + off > 0}
     return {str(p): l for p, l in pairs}
+
+
+def text_container(box, lines, body):
+    """A ruled enclosure containing a paragraph is a text container, not a table.
+
+    Require consecutive body-sized, sentence-like lines with ordinary line spacing;
+    table cells and isolated axis labels do not establish a paragraph.
+    """
+    inside = [l for l in lines if box[0] <= l["x0"] and l["x1"] <= box[2]
+              and box[1] <= l["top"] and l["bottom"] <= box[3]
+              and word_count(l["text"]) >= 6 and not TABLE_NOTE_RE.match(l["text"])
+              and sum(c.isalpha() for c in l["text"]) > len(l["text"]) / 2]
+    all_text = sum(len(l["text"]) for l in lines if box[0] <= l["x0"] and l["x1"] <= box[2]
+                   and box[1] <= l["top"] and l["bottom"] <= box[3])
+    if sum(len(l["text"]) for l in inside) <= all_text / 2:
+        return False
+    for a, b, c in zip(inside, inside[1:], inside[2:]):
+        if (abs(a["x0"] - b["x0"]) <= body and abs(b["x0"] - c["x0"]) <= body
+                and -0.5 * body <= b["top"] - a["bottom"] <= body
+                and -0.5 * body <= c["top"] - b["bottom"] <= body
+                and any(end_terminal(l["text"]) for l in (a, b, c))):
+            return True
+    return False
 
 
 def figure_boxes(page):
@@ -885,13 +1368,42 @@ def unbold_body_font(words, body):
                 w["bold"] = False
 
 
+def join_chapter_openers(blocks, body):
+    out, i = [], 0
+    while i < len(blocks):
+        tag = blocks[i]
+        if CHAPTER_RE.fullmatch(tag["text"].strip()) and tag["size"] > body:
+            j = i + 1
+            while (j < len(blocks) and blocks[j]["page"] == tag["page"]
+                   and blocks[j]["size"] >= body + 2.5
+                   and (not tag.get("font") or blocks[j].get("font") == tag["font"])
+                   and (j == i + 1 or abs(blocks[j]["x0"] - blocks[i + 1]["x0"]) <= 3)
+                   and (j == i + 1 or blocks[j]["top"] - blocks[j - 1]["bottom"] <= blocks[j]["size"])):
+                j += 1
+            if j > i + 1:
+                run = blocks[i:j]
+                text = tag["text"] + ": " + " ".join(b["text"] for b in run[1:])
+                out.append(dict(run[1], text=text, title_text=text, force_heading=True, chapter=True,
+                                n_lines=sum(b["n_lines"] for b in run), top=min(b["top"] for b in run),
+                                bottom=max(b["bottom"] for b in run), x0=min(b["x0"] for b in run),
+                                x1=max(b["x1"] for b in run)))
+                i = j
+                continue
+        out.append(tag)
+        i += 1
+    return out
+
+
 def from_pdf_text(pdf, pnos, columns, cache=None):
     """cache keeps the extracted words between runs with different column settings (the self-check retries)."""
     pages = []
     cache = {} if cache is None else cache
+    if "width_reference" not in cache:
+        cache["width_reference"] = text_width_reference(pdf, pnos)
     for pno in pnos:
         if pno not in cache:
             page = pdf.pages[pno - 1]
+            repair_stretched_text(page, cache["width_reference"])
             cache[pno] = {"pno": pno, "w": float(page.width), "h": float(page.height),
                           "words": get_words(page), "figs": figure_boxes(page)}
         pages.append(dict(cache[pno]))
@@ -902,19 +1414,41 @@ def from_pdf_text(pdf, pnos, columns, cache=None):
     two_col = multi_col = 0
     for p in pages:
         segs = make_lines(p["words"], gap_split=True)
+        layout_boxes = p["figs"]
+        containers = [f for f in layout_boxes if text_container(f, segs, body)]
+        p["figs"] = [f for f in layout_boxes if f not in containers]
+        for w in p["words"]:
+            for box in containers:
+                if ((box[2] - box[0]) * (box[3] - box[1]) <= 0.6 * p["w"] * p["h"]
+                        and box[0] <= (w["x0"] + w["x1"]) / 2 <= box[2]
+                        and box[1] <= (w["top"] + w["bottom"]) / 2 <= box[3]):
+                    w["text_box"] = tuple(box[:4])
+                    break
+        for ln in segs:
+            values = {w.get("text_box") for w in ln.get("words", [])}
+            ln["text_box"] = values.pop() if len(values) == 1 else None
+        # Establish body columns outside independently drawn figure/table regions.
+        column_segs = [l for l in segs if not any(f[0] <= (l["x0"] + l["x1"]) / 2 <= f[2]
+                       and f[1] <= (l["top"] + l["bottom"]) / 2 <= f[3] for f in p["figs"])]
         split = None
-        gutters = column_gutters(segs, p["w"], body, force=(columns == "3")) if columns in ("auto", "3") else []
+        gutters = column_gutters(column_segs, p["w"], body, force=(columns == "3")) if columns in ("auto", "3") else []
         if len(gutters) >= 2:  # three or more columns: cut the page at the gutters
             p["sidebar"] = None
-            p["lines"] = order_columns(segs, gutters, body, p["figs"], (p["w"], p["h"]))
+            p["lines"] = order_columns(segs, gutters, body, layout_boxes, (p["w"], p["h"]))
             multi_col += 1
             continue
         if columns in ("auto", "2"):
-            split = detect_split(segs, p["w"], body, force=(columns == "2"))
-        sidebar = detect_sidebar(segs, p["w"]) if columns == "auto" else None
+            split = detect_split(column_segs, p["w"], body, force=(columns == "2"))
+        sidebar = detect_sidebar(segs, p["w"]) if columns == "auto" and split is None else None
         if sidebar is not None:
             split = sidebar
         p["sidebar"] = sidebar
+        if sidebar is not None:
+            right = [l for l in segs if l["x0"] >= sidebar and l["size"] >= body - 0.5 and len(l["text"]) >= 20]
+            left = [l for l in segs if l["x1"] <= sidebar and l["size"] < body - 0.5
+                    and right and l["top"] <= max(r["bottom"] for r in right)
+                    and l["bottom"] >= min(r["top"] for r in right) - body]
+            p["sidebar_bottom"] = max((l["bottom"] for l in left), default=0)
         if split is not None:
             two_col += 1
         p["lines"] = order_lines(p["words"], segs, split)
@@ -932,22 +1466,59 @@ def from_pdf_text(pdf, pnos, columns, cache=None):
         page_blocks = restore_drop_caps(page_blocks, p["caps"], body)
         for b in page_blocks:
             b["pw"], b["ph"] = p["w"], p["h"]
-            if p.get("sidebar") is not None and b["x1"] <= p["sidebar"] + 2:
+            if p.get("sidebar") is not None and b["x1"] <= p["sidebar"] + 2 and b["top"] <= p.get("sidebar_bottom", 0):
                 b["sidebar"] = True
         blocks += page_blocks
-    info = {p["pno"]: {"h": p["h"], "w": p["w"], "figs": p["figs"]} for p in pages}
+    blocks = join_chapter_openers(blocks, body)
+    info = {p["pno"]: {"h": p["h"], "w": p["w"], "figs": p["figs"], "text_overflow": bool(
+                any(c["x1"] > pdf.pages[p["pno"] - 1].bbox[2] for c in getattr(pdf.pages[p["pno"] - 1], "chars", []))
+                and any(i.get("width", 0) >= p["w"] / 2 and i.get("height", 0) >= p["h"] / 2
+                        for i in getattr(pdf.pages[p["pno"] - 1], "images", [])))} for p in pages}
     return blocks, body, info, {"two_col": two_col, "multi_col": multi_col, "removed": removed, "labels": labels}
 
 
 # ---------- OCR ----------
 
-def ocr_page_numbers(pdf, pnos, mode):
-    """Choose OCR per page, including pages whose only text is a rotated watermark."""
+def ocr_available(lang="eng"):
+    """Check Python adapters, executables and requested language data before starting OCR."""
+    if not all(importlib.util.find_spec(m) for m in ("pytesseract", "pdf2image")):
+        return False
+    if not all(shutil.which(m) for m in ("tesseract", "pdftoppm", "pdfinfo")):
+        return False
+    try:
+        import pytesseract
+        return set(lang.split("+")).issubset(pytesseract.get_languages(config=""))
+    except Exception:
+        return False
+
+
+def ocr_page_numbers(pdf, pnos, mode, text_counts=None):
+    """Low text coverage calls for OCR only when a raster covers the page's centre.
+
+    Sparse vector pages and blank versos need no OCR. A central image spanning both
+    page midlines distinguishes a page scan from a logo or a small illustration.
+    """
+    counts = {} if text_counts is None else text_counts
+    for p in pnos:
+        counts[p] = sum(len(w["text"]) for w in get_words(pdf.pages[p - 1]))
     if mode == "on":
         return list(pnos)
     if mode == "off":
         return []
-    return [p for p in pnos if sum(len(w["text"]) for w in get_words(pdf.pages[p - 1])) < 30]
+    out = []
+    for p in pnos:
+        page = pdf.pages[p - 1]
+        if counts[p] >= 30:
+            continue
+        if not hasattr(page, "images"):
+            out.append(p)  # unknown raster coverage: retain the OCR candidate
+            continue
+        ox, oy = page.bbox[:2]
+        if any(i["x0"] <= ox + page.width / 4 and i["x1"] >= ox + 3 * page.width / 4
+               and i["top"] <= oy + page.height / 4 and i["bottom"] >= oy + 3 * page.height / 4
+               for i in getattr(page, "images", [])):
+            out.append(p)
+    return out
 
 
 def from_ocr(pdf_path, pnos, lang, dpi):
@@ -1015,6 +1586,8 @@ def from_ocr(pdf_path, pnos, lang, dpi):
 
 def is_heading_block(b, body):
     t = b["text"]
+    if b.get("force_heading") or READING_RE.fullmatch(t.strip()):
+        return True
     if b["n_lines"] > 3 or len(t) > 160:
         return False
     words = word_count(t)
@@ -1022,7 +1595,7 @@ def is_heading_block(b, body):
         return False
     numbered = NUM_HEAD_RE.match(t)
     run_in = t.endswith(".") and words <= 8 and b["bold"] >= 0.85  # 单独成行的粗体小标题，如 "Type specialization."
-    question = t.endswith("?") and words <= 12 and b["size"] >= body + 1.0  # a heading that asks
+    question = t.endswith("?") and words <= 12 and (b["size"] >= body + 1.0 or b["bold"] >= 0.85)  # a heading that asks
     if t.rstrip().endswith((",", ";")):
         return False  # a line that stops at a comma is the start of a sentence, whatever its number or size
     if end_terminal(t) and not (numbered and words <= 12) and not run_in and not question:
@@ -1032,17 +1605,21 @@ def is_heading_block(b, body):
         return True
     if letters < 3 or letters / max(1, len(t.replace(" ", ""))) < 0.6:
         return False
+    strong = (b["size"] >= body + 2.5 or b["bold"] >= 0.85) and words <= 12
     toks = NUM_PREFIX_RE.sub("", t).split()
-    if len(toks) >= 3 and sum(1 for k in toks if len(k) <= 2) / len(toks) >= 0.4:
+    if not strong and not question and len(toks) >= 3 and sum(1 for k in toks if len(k) <= 2) / len(toks) >= 0.4:
         return False  # 像 "i 1 t 1 Outer Tree" 这样的图内标签
-    if starts_lower(t) and not is_cjk(t.lstrip()[:1]):
+    if starts_lower(t) and re.search(r"[.!?]\s+\w", t):
+        return False  # a sentence restart inside a page-break continuation
+    strong = (b["size"] >= body + 2.5 or b["bold"] >= 0.85) and words <= 12
+    if starts_lower(t) and not is_cjk(t.lstrip()[:1]) and not strong and not question:
         return False  # a continuation line from the previous page, however large OCR says it is
     toks_cap = [w for w in toks if w.lower() not in SMALL_WORDS]
     cap_share = sum(1 for w in toks_cap if w[:1].isupper()) / len(toks_cap) if toks_cap else 0
     big = b["size"] >= body + 1.0 and (words <= 8 or cap_share >= 0.5 or bool(numbered))
     bold = b["bold"] >= 0.85 and words <= 12
     caps = t.isupper() and 1 <= words <= 10 and letters >= 4
-    plain_numbered = (bool(numbered) and words <= 8 and not end_terminal(t)
+    plain_numbered = (bool(numbered) and words <= 20 and not end_terminal(t)
                       and re.match(r"^\S+\s+([A-Z][a-z]{2,}|[\u4e00-\u9fff])", t) is not None)
     known = KNOWN_HEAD_RE.match(NUM_PREFIX_RE.sub("", t).strip()) is not None and b["n_lines"] == 1
     cn = CN_HEAD_RE.match(t.strip()) is not None and len(t) <= 40 and not end_terminal(t)
@@ -1056,7 +1633,7 @@ def is_heading_block(b, body):
     small_caps = (bool(numbered) and words <= 8 and b["n_lines"] == 1 and not end_terminal(t)
                   and re.match(r"^\S+\s+[a-z]{3,}", t) is not None
                   and (any(k[:1].isupper() for k in toks[1:]) or (centred and re.match(r"^([A-H]|[IVX]+)[.)]\s", t))))
-    return big or bold or caps or plain_numbered or known or title_case or cn or small_caps
+    return question or strong or big or bold or caps or plain_numbered or known or title_case or cn or small_caps
 
 
 FOOT_MARK_RE = re.compile(r"^\s*([\u2460-\u2473]|[*†‡§¶■]|\d{1,2}\s?(?=[A-Z\u4e00-\u9fff'\"“‘]))")  # a footnote, not a reference
@@ -1069,7 +1646,14 @@ def classify(blocks, body, info, first_page):
     # the title is the largest type at the top of the first page, not a smaller label above it ("Essay", "Open access")
     # a masthead (journal name, then a "Vol. / Issue" line) is never the title, however large its type
     first = [b for b in blocks if b["page"] == first_page]
-    mast = [k for k, b in enumerate(first[:8]) if MASTHEAD_RE.search(b["text"]) and len(b["text"]) < 90]
+    metadata = re.compile(r"https?://|www\.|\bdoi\s*[:/]|\bISSN\b", re.I)
+    mast = [k for k, b in enumerate(first[:8]) if len(b["text"]) < 160 and (
+        MASTHEAD_RE.search(b["text"]) or (
+            metadata.search(b["text"]) and b["top"] < 0.45 * info[b["page"]]["h"]
+            and any(o["top"] >= b["bottom"] and o["size"] > b["size"]
+                    and o["top"] < 0.45 * info[o["page"]]["h"]
+                    and o["size"] >= body + 2.5 and len(o["text"]) < 250
+                    and o["n_lines"] <= 3 for o in first[k + 1:])))]
     for b in first[:mast[-1] + 1 if mast else 0]:
         b["_mast"] = True
     cands = [b["size"] for b in first if b["size"] >= body + 2.5 and not b.get("_mast")
@@ -1092,13 +1676,17 @@ def classify(blocks, body, info, first_page):
         below = b["top"] >= lowest[(b["page"], b.get("key"))] - 1
         h0 = info[b["page"]]["h"]
         ref_head = len(t0) < 40 and REF_RE.match(NUM_PREFIX_RE.sub("", t0).strip().rstrip(":：").strip())
-        b["_note"] = small and not ref_head and not CAPTION_RE.match(t0) and (
+        b["_note"] = small and not b.get("text_box") and not ref_head and not CAPTION_RE.match(t0) and (
             below or (NOTE_MARK_RE.match(t0) and b["top"] > 0.6 * h0))
     for b in blocks:
         t = b["text"]
         h = info[b["page"]]["h"]
         letters = sum(1 for ch in t if ch.isalpha() or is_cjk(ch)) / max(1, len(t))
-        if b.get("sidebar"):
+        if b.get("toc"):
+            b["type"] = "para"
+        elif b.get("list") and not b.get("_note") and not b.get("tab"):
+            b["type"] = "para"
+        elif b.get("sidebar"):
             b["type"] = "frag"
         elif b.get("tab") and not CAPTION_RE.match(t):
             b["type"], b["table"] = "frag", True
@@ -1109,7 +1697,10 @@ def classify(blocks, body, info, first_page):
         elif not title_done and b["page"] == first_page and (b is title_block or (
                 b["size"] >= body + 2.5 and b["size"] >= title_size - 0.5 and b["top"] < 0.45 * h and len(t) < 250)):
             b["type"], b["level"], title_done = "heading", 0, True
-            b["text"] = re.sub(r"\s*[*†‡§¶]+$", "", t)  # the footnote mark after a title is not part of it
+            b["text"] = re.sub(r"\s*[*†‡§¶]+$", "", b.get("title_text", t))  # the footnote mark after a title is not part of it
+            suffix = b.get("title_suffix")
+            if suffix and b["text"].endswith(suffix):
+                b["text"] = b["text"][:-len(suffix)].rstrip()
             for o in blocks:  # a journal line above the title (name, volume, DOI) is not part of the reading
                 if o is b:
                     break
@@ -1119,10 +1710,14 @@ def classify(blocks, body, info, first_page):
             b["type"] = "caption"
         elif b.pop("_note", False) or (re.match(r"^[*■]\s", t) and b["top"] > 0.55 * h and len(t) < 700):
             b["type"] = "note"
+        elif (b.get("math_style") or (b["n_lines"] <= 2 and symbolic_display(t))) and not b.get("table"):
+            b["type"], b["equation"] = "frag", True
         elif b.get("mono", 0) >= 0.6:
             b["type"] = "frag"  # 代码清单
         elif is_heading_block(b, body):
             b["type"] = "heading"
+        elif b.get("text_box") and letters > 0.5:
+            b["type"] = "para"
         elif (word_count(t) < 6 and not end_terminal(t)) or (letters < 0.5 and len(t) < 160) \
                 or (b["size"] <= body - 2.5 and b["n_lines"] <= 3):  # small type set into the text: an equation annotation
             b["type"] = "frag"
@@ -1156,7 +1751,8 @@ def classify(blocks, body, info, first_page):
             j += 1
         run = blocks[i:j]
         small = [b for b in run if b["type"] == "heading" and b.get("level") != 0
-                 and not NUM_HEAD_RE.match(b["text"]) and b["size"] < body + 1.5]
+                 and not NUM_HEAD_RE.match(b["text"]) and b["size"] < body + 1.5
+                 and not b.get("force_heading") and b["bold"] < 0.85]
         if len(run) >= 3 and len(small) >= 2:
             for b in small:
                 b["type"] = "frag"
@@ -1179,10 +1775,11 @@ def classify(blocks, body, info, first_page):
                         b["type"] = "frag"
                     elif b["type"] == "para" and EQUATION_RE.search(b["text"]) and not end_terminal(b["text"]):
                         b["type"] = "frag"
-            else:
+            elif aligned_cells(run):
                 for b in run:
-                    b["type"] = "frag"
-                    b["table"] = True
+                    if not b.get("list") and not b.get("toc"):
+                        b["type"] = "frag"
+                        b["table"] = True
         i = max(j, i + 1)
     i = 0
     while i < len(blocks):  # a table set in small type reads as footnotes: short rows, many of them only numbers
@@ -1208,6 +1805,39 @@ def classify(blocks, body, info, first_page):
                 and not NUM_HEAD_RE.match(nb["text"]) and not KNOWN_HEAD_RE.match(nb["text"].strip()) \
                 and not CN_HEAD_RE.match(nb["text"].strip()):
             nb["type"] = "frag"
+    box_groups = defaultdict(list)
+    for b in blocks:
+        if b.get("text_box"):
+            box_groups[(b["page"], b["text_box"])].append(b)
+    for group in box_groups.values():
+        prose = [b for b in group if b["type"] == "para"]
+        sizes = Counter()
+        for b in prose:
+            sizes[b["size"]] += len(b["text"])
+        if sizes:
+            local_body = sizes.most_common(1)[0][0]
+            headline = min((b for b in group if b["type"] == "heading"), key=lambda b: b["top"], default=None)
+            for b in group:
+                if b["type"] == "heading" and b is not headline and b["size"] < local_body - 0.5:
+                    b["type"] = "para"  # a smaller internal label is not the box's headline
+    title = next((b for b in blocks if b.get("level") == 0), None)
+    if title:
+        after = sorted((b for b in blocks if b["page"] == first_page and b["top"] >= title["bottom"]), key=lambda b: b["top"])
+        reach, previous_size = title["bottom"], title["size"]
+        for b in after:
+            if (b["size"] >= title["size"] - 0.5 and b["n_lines"] <= 3
+                    and b["top"] - reach <= title["size"]):
+                reach, previous_size = max(reach, b["bottom"]), b["size"]
+                continue  # a subtitle belongs to the title region, not the byline
+            marked = bool(re.search(r"[†‡∗*]", b["text"]))
+            names = [w for w in re.findall(r"[A-Za-z]+", b["text"]) if w.lower() not in SMALL_WORDS]
+            if ((b["top"] - reach > 2 * previous_size and not marked) or b["n_lines"] > 2 or len(names) < 2
+                    or sum(w[0].isupper() for w in names) < 0.8 * len(names)
+                    or end_terminal(b["text"]) or NUM_HEAD_RE.match(b["text"])
+                    or KNOWN_HEAD_RE.fullmatch(b["text"])):
+                break
+            b["type"], b["byline"] = "frag", True
+            reach, previous_size = max(reach, b["bottom"]), b["size"]
     heads = [b for b in blocks if b["type"] == "heading" and b.get("level") != 0]
     # Group heading sizes that differ by less than 8%: OCR text layers give same-rank headings slightly
     # different sizes, which must not turn into different levels.
@@ -1243,10 +1873,95 @@ def classify(blocks, body, info, first_page):
         else:
             b["level"] = 3 if has_chapter else 2
 
+    last_page = max((b["page"] for b in blocks), default=first_page)
+    tail = [b for b in blocks if b["page"] == last_page]
+    contact = " ".join(b["text"] for b in tail)
+    phone = re.search(r"(?:\+\d{1,3}|\b(?:tel|fax|phone)\b)[\d\s():+.-]{6,}", contact, re.I)
+    if (last_page != first_page and re.search(r"https?://|www\.", contact)
+            and (phone or re.search(r"[\w.+-]+@[\w.-]+\.[A-Za-z]+", contact))
+            and sum(len(b["text"]) for b in tail if b["n_lines"] <= 4) > len(contact) / 2):
+        for b in tail:
+            b["backmatter"] = True
+            if b["type"] in ("frag", "note") and not b.get("equation"):
+                b["type"] = "para"
+    for b in blocks:
+        if b.get("chapter"):
+            b["type"], b["level"] = "heading", 0 if b["page"] == first_page else 1
+    for i, b in enumerate(blocks[1:-1], 1):
+        previous, following = blocks[i - 1], blocks[i + 1]
+        if (b["type"] == "caption" and previous["type"] == "frag" and following["type"] == "para"
+                and not previous.get("table") and not previous.get("math_style")
+                and previous["size"] >= body - 0.5 and starts_lower(following["text"])
+                and not end_terminal(previous["text"])):
+            previous["type"] = "para"
+    group_display_rows(blocks)
+
+
+def group_display_rows(blocks):
+    """Keep consecutive mathematical rows and their limits in one display region.
+
+    Prose and new equation numbers delimit displays. Grouping never crosses a page,
+    column, table or caption, and therefore does not undo paragraph endpoint checks.
+    """
+    out, i = [], 0
+    while i < len(blocks):
+        j = i
+        while j < len(blocks):
+            b = blocks[j]
+            if (b["type"] not in ("para", "frag") or b.get("table")
+                    or not (b.get("math_style") or is_display_equation(b))
+                    or b.get("page") != blocks[i].get("page") or b.get("key") != blocks[i].get("key")
+                    or (j > i and EQ_NUMBER_RE.match(b["text"]))):
+                break
+            j += 1
+        if j - i >= 2 and any(b.get("math_style") for b in blocks[i:j]):
+            run = blocks[i:j]
+            display = dict(run[0], type="frag", equation=True,
+                           text="\n".join(b["text"] for b in run),
+                           n_lines=sum(b["n_lines"] for b in run),
+                           x0=min(b["x0"] for b in run), x1=max(b["x1"] for b in run),
+                           top=min(b["top"] for b in run), bottom=max(b["bottom"] for b in run))
+            ink = [box for b in run for box in b.get("unmapped_ink", [])]
+            if ink:
+                display["x0"] = min(display["x0"], min(box[0] for box in ink))
+                display["x1"] = max(display["x1"], max(box[1] for box in ink))
+                display["top"] = min(display["top"], min(box[2] for box in ink))
+                display["bottom"] = max(display["bottom"], max(box[3] for box in ink))
+            # Tall operators can have incomplete font boxes. Use the whitespace
+            # between neighboring prose and the mapped rows as the crop boundary.
+            if i and blocks[i - 1].get("page") == display["page"] and blocks[i - 1].get("key") == display.get("key"):
+                previous = blocks[i - 1]
+                if previous["bottom"] < run[0]["top"]:
+                    display["top"] = (previous["bottom"] + run[0]["top"]) / 2
+            if j < len(blocks) and blocks[j].get("page") == display["page"] and blocks[j].get("key") == display.get("key"):
+                following = blocks[j]
+                if following["top"] > run[-1]["bottom"]:
+                    display["bottom"] = (run[-1]["bottom"] + following["top"]) / 2
+            out.append(display)
+            i = j
+        else:
+            out.append(blocks[i])
+            i += 1
+    blocks[:] = out
+
 
 def mark_sections(blocks):
     mode, n_refs, refs_level = "body", 0, 1
     for b in blocks:
+        label = NUM_PREFIX_RE.sub("", b["text"]).strip().rstrip(":：").strip()
+        if READING_RE.fullmatch(label):
+            b["type"], b["level"], mode = "heading", 1, "reading"
+            continue
+        if b.get("backmatter"):
+            mode = "body"
+        if mode == "reading" and b["type"] == "heading":
+            mode = "body"
+        if mode == "reading" and b["type"] in ("para", "frag", "note") and not is_display_equation(b):
+            b["type"], b["reading"] = "para", True
+            continue
+        if NOTES_RE.fullmatch(label):
+            mode = "notes"
+            continue
         if b["type"] == "heading":
             name = NUM_PREFIX_RE.sub("", b["text"]).strip().rstrip(":：").strip()
             if REF_RE.match(name):
@@ -1272,8 +1987,9 @@ def mark_sections(blocks):
         elif mode == "refs" and not (b["type"] == "note" and FOOT_MARK_RE.match(b["text"])):
             b["type"] = "ref"
             n_refs += 1
-        elif mode == "notes" and b["type"] == "para":
+        elif mode == "notes" and b["type"] in ("para", "note"):
             b["type"] = "note"
+            b["endnote"] = True
     return n_refs
 
 
@@ -1313,9 +2029,12 @@ def paragraph_continues(a, b, across_breaks=True):
     a is open (no full stop, or a hyphenated word) and b starts like a continuation: lower case, a comma, a joined CJK
     run, or a after-a-function-word. With across_breaks, a b that merely starts in another column or on another page
     also counts, provided the geometry (when known) says a ran to the bottom and b opens the next column or page."""
+    a = dict(a, page=a.get("_end_page", a["page"]))
+    if b.get("list") or (a.get("list") and a["page"] == b["page"] and a.get("key") == b.get("key")) or a.get("toc") or b.get("toc") or a.get("backmatter") or b.get("backmatter"):
+        return False
     if a.get("closed") or end_terminal(a["text"]):
         return False
-    if (starts_lower(b["text"]) or a["text"].endswith("-")
+    if (starts_lower(b["text"]) or a["text"].endswith("-") or a["text"].rstrip().endswith(",")
             or (is_cjk(a["text"][-1]) and is_cjk(b["text"][0]))
             or last_word(a["text"]) in STOP_END or b["text"][:1] in ",;)"):
         return True
@@ -1347,6 +2066,17 @@ def join_open_paragraphs(blocks):
     return out, joins
 
 
+def continuation_gap(a, b):
+    if not all(k in a and k in b for k in ("top", "bottom", "size")):
+        return True
+    if a["page"] != b["page"] or a.get("key") != b.get("key"):
+        sa, sb = block_span(a), block_span(b)
+        return not (sa and sb) or (sa[1] >= 0.55 and sb[0] <= 0.45)
+    size = max(a["size"], b["size"])
+    gap = a.get("line_gap")
+    return b["top"] - a["bottom"] <= (0.25 * size if gap is None else gap) + max(0.45 * size, 2.5)
+
+
 def merge_continuations(blocks, body=None):
     if body:
         mark_pull_quotes(blocks, body)
@@ -1359,11 +2089,11 @@ def merge_continuations(blocks, body=None):
             merges += 1
             continue
         if (b["type"] == "para" and out and out[-1]["type"] == "caption" and starts_lower(b["text"])
-                and not end_terminal(out[-1]["text"])):
+                and not end_terminal(out[-1]["text"]) and continuation_gap(out[-1], b)):
             out[-1]["text"] = join_marked(out[-1]["text"], b["text"])  # 图注跨栏的后半句
             merges += 1
             continue
-        if b["type"] in ("para", "frag") and STAT_RE.match(b["text"]) and len(b["text"]) < 120 \
+        if not b.get("list") and b["type"] in ("para", "frag") and STAT_RE.match(b["text"]) and len(b["text"]) < 120 \
                 and out and out[-1]["type"] == "para":
             out[-1]["text"] = out[-1]["text"] + "　" + b["text"]  # 调查结果行并入题目
             out[-1]["closed"] = True
@@ -1377,15 +2107,20 @@ def merge_continuations(blocks, body=None):
                 j -= 1
             if j >= 0 and out[j]["type"] == "para":
                 a = out[j]
-                if paragraph_continues(a, b):
-                    if b["page"] != a["page"] or b.get("key") != a.get("key"):
+                # A capitalized prose restart after a complete display is a new
+                # paragraph, even if its lead-in ended in a function word.
+                display_boundary = (any(x.get("equation") for x in out[j + 1:])
+                                    and not starts_lower(b["text"]))
+                if not display_boundary and paragraph_continues(a, b):
+                    tail = dict(a, page=a.get("_end_page", a["page"]))
+                    if b["page"] != tail["page"] or b.get("key") != tail.get("key"):
                         a["breaks"] = a.get("breaks", 0) + 1
                     text = a["text"]
                     between = out[j + 1:]
                     kept = []
                     for x in between:
-                        if (x["type"] == "frag" and x["page"] == a["page"] and x.get("key") == a.get("key")
-                                and x.get("mono", 0) < 0.5 and not x.get("pull") and not x.get("table")):
+                        if (x["type"] == "frag" and x["page"] == tail["page"] and x.get("key") == tail.get("key")
+                                and x.get("mono", 0) < 0.5 and not x.get("pull") and not x.get("table") and not x.get("equation")):
                             text = join_marked(text, x["text"])  # 夹在段内的公式等
                             if is_display_equation(x):
                                 a["has_math"] = True
@@ -1395,8 +2130,13 @@ def merge_continuations(blocks, body=None):
                         else:
                             kept.append(x)
                     a["text"] = join_marked(text, b["text"])
+                    a.setdefault("superscripts", []).extend(b.get("superscripts", []))
                     a["jumps"] = a.get("jumps", 0) + b.get("jumps", 0)
                     a.setdefault("pages", {a["page"]}).add(b["page"])
+                    geometry = ("page", "key", "x0", "x1", "top", "bottom", "pw", "ph", "bbox")
+                    a.setdefault("_origin", {k: a[k] for k in geometry if k in a})
+                    a.update({k: b[k] for k in geometry if k in b and k != "page"})
+                    a["_end_page"] = b.get("_end_page", b["page"])
                     out[j + 1:] = kept
                     merges += 1
                     continue
@@ -1468,8 +2208,8 @@ EQ_NUMBER_RE = re.compile(r"^\(\d{1,3}[a-z]?\)|\(\d{1,3}[a-z]?\)[.,]?$")
 def is_display_equation(b):
     """A fragment that is a display equation: short, not a table row, with an operator or an equation number."""
     t = b["text"]
-    return (b["type"] == "frag" and not b.get("table") and len(t) < 160
-            and (bool(EQUATION_RE.search(t)) or bool(EQ_NUMBER_RE.search(t))))
+    return (b["type"] == "frag" and not b.get("table") and (b.get("equation") or (len(t) < 160
+            and (bool(EQUATION_RE.search(t)) or bool(EQ_NUMBER_RE.search(t))))))
 
 
 def uses_roman_numerals(blocks):
@@ -1478,6 +2218,12 @@ def uses_roman_numerals(blocks):
 
 
 def finalize(blocks):
+    note_numbers = defaultdict(set)
+    for b in blocks:
+        if b["type"] == "note":
+            mark = FOOT_MARK_RE.match(b["text"])
+            if mark and mark.group(1).strip().isdigit():
+                note_numbers[b["page"]].add(mark.group(1).strip())
     counters, items = Counter(), []
     prefix = {"para": "P", "heading": "H", "caption": "C", "note": "N", "frag": "F"}
     roman = uses_roman_numerals(blocks)
@@ -1489,10 +2235,17 @@ def finalize(blocks):
         k = prefix[b["type"]]
         counters[k] += 1
         text = b["text"].strip()
+        # Preserve marks under the existing link_notes convention, but require a
+        # corresponding note. Raised powers and squared table labels are not notes.
+        for previous, mark in b.get("superscripts", []):
+            if any(mark in note_numbers[p] for p in b.get("pages", {b["page"]})):
+                text = re.sub(re.escape(previous) + r"\s+" + re.escape(mark) + r"(?!\d)",
+                              lambda _: previous + mark, text, count=1)
         if not roman:
             text, n = OCR_LABEL_RE.subn(lambda m: f"{m.group(1)} 1{m.group(2)}", text)
             counters["roman_rewrites"] += n
-        it = {"id": f"{k}{counters[k]}", "type": b["type"], "text": text, "page": b["page"]}
+        origin = dict(b, **b.get("_origin", {}))
+        it = {"id": f"{k}{counters[k]}", "type": b["type"], "text": text, "page": origin["page"]}
         if b["type"] == "heading":
             it["level"] = b.get("level", 1)
         if b.get("table"):
@@ -1500,9 +2253,9 @@ def finalize(blocks):
         pages = sorted(b.get("pages", {b["page"]}))
         if len(pages) > 1:
             it["pages"] = pages
-        if all(k in b for k in ("x0", "top", "x1", "bottom", "pw", "ph")) and b["pw"] and b["ph"]:
-            it["bbox"] = [round(b["x0"] / b["pw"], 4), round(b["top"] / b["ph"], 4),
-                          round(b["x1"] / b["pw"], 4), round(b["bottom"] / b["ph"], 4)]
+        if all(k in origin for k in ("x0", "top", "x1", "bottom", "pw", "ph")) and origin["pw"] and origin["ph"]:
+            it["bbox"] = [round(origin["x0"] / origin["pw"], 4), round(origin["top"] / origin["ph"], 4),
+                          round(origin["x1"] / origin["pw"], 4), round(origin["bottom"] / origin["ph"], 4)]
         if is_display_equation(b):
             it["equation"] = True
         if b.get("has_math") or (b["type"] == "para" and math_dense(text)):
@@ -1522,7 +2275,7 @@ def looks_like_reference(text):
     return len(text) < 600 and bool(REF_ENTRY_RE.match(text)) and bool(REF_TAIL_RE.search(text))
 
 
-def layout_signals(blocks, n_pages):
+def layout_signals(blocks, n_pages, info=None):
     """Simple signals that a split went wrong. Returns (score, reasons); a lower score is a better split."""
     paras = [b for b in blocks if b["type"] == "para"]
     if not paras:
@@ -1532,17 +2285,22 @@ def layout_signals(blocks, n_pages):
     # was set small. A footnote-heavy paper is fine as long as its notes are where footnotes are.
     notes = 0
     for b in blocks:
-        if b["type"] == "note":
+        if b["type"] == "note" and not b.get("endnote"):
             span = block_span(b)
             if span is not None and span[0] < 0.45:
                 notes += 1
-    heads = sum(1 for b in blocks if b["type"] == "heading" and b.get("level") != 0)
-    lower = sum(1 for b in paras if starts_lower(b["text"]) and not is_cjk(b["text"].lstrip()[:1])) / n
-    open_end = sum(1 for b in paras if not end_terminal(b["text"])) / n
+    heads = sum(1 for b in blocks if b["type"] == "heading" and b.get("level") != 0
+                and not re.match(r"^\d+(?:\.\d+)*[.)]?\s|^[A-Za-z]+\s+\d{1,3}\s*[:.)]", b["text"]))
+    prose = [b for b in paras if not any(b.get(k) for k in ("list", "toc", "backmatter", "reading"))]
+    lower = sum(1 for b in prose if starts_lower(b["text"]) and not is_cjk(b["text"].lstrip()[:1])) / max(1, len(prose))
+    open_end = sum(1 for b in prose if not end_terminal(b["text"])) / max(1, len(prose))
     zigzag = sum(1 for b in paras if b.get("jumps", 0) >= 2) / n
-    leak = sum(1 for b in paras if looks_like_reference(b["text"]))
+    leak = sum(1 for b in paras if not b.get("reading") and looks_like_reference(b["text"]))
     heads_pp = heads / max(1, n_pages)
     reasons = []
+    overflow = [p for p, data in (info or {}).items() if data.get("text_overflow")]
+    if overflow:
+        reasons.append(f"raster-backed text layer extends beyond page bounds on pages {overflow}")
     if lower > 0.12:
         reasons.append(f"{lower:.0%} of the paragraphs start in lower case")
     if open_end > 0.3:
@@ -1555,6 +2313,41 @@ def layout_signals(blocks, n_pages):
         reasons.append(f"{notes} footnotes in the upper half of the page, next to {n} paragraphs")
     if leak >= 3 and leak >= 0.1 * n:
         reasons.append(f"{leak} paragraphs look like reference entries")
+    page_blocks = defaultdict(list)
+    for b in blocks:
+        if b["type"] != "ref":
+            page_blocks[b.get("page")].append(b)
+    fragmented, flooded, hidden_lists = [], [], []
+    prose_size = statistics.median(b.get("size", 0) for b in paras)
+    for page, rows in page_blocks.items():
+        total = sum(len(b["text"]) for b in rows) or 1
+        if any(b["type"] == "frag" and not b.get("table") and not b.get("equation")
+               and b.get("size", prose_size) >= prose_size - 0.8
+               and LIST_MARK_RE.match(b["text"]) for b in rows):
+            hidden_lists.append(page)
+        frags = [b for b in rows if b["type"] == "frag" and word_count(b["text"]) >= 6
+                 and not b.get("equation") and not b.get("pull") and not TABLE_NOTE_RE.match(b["text"])
+                 and sum(c.isalpha() for c in b["text"]) > 0.5 * len(b["text"])]
+        if sum(len(b["text"]) for b in frags) > total / 2:
+            fragmented.append(page)
+        high_notes = [b for b in rows if b["type"] == "note" and not b.get("endnote")
+                      and block_span(b) and block_span(b)[0] < 0.45]
+        if high_notes and sum(len(b["text"]) for b in rows if b["type"] == "note") > total / 2:
+            flooded.append(page)
+    # Tukey's outer fence on log length: document-relative and robust to ordinary
+    # right-skewed paragraph lengths, unlike a fixed character limit.
+    lengths = sorted(math.log(max(1, len(b["text"]))) for b in paras)
+    q1, q3 = lengths[len(lengths) // 4], lengths[3 * len(lengths) // 4]
+    long_pages = sorted({b["page"] for b in paras if math.log(max(1, len(b["text"]))) > q3 + 3 * (q3 - q1)
+                         and b.get("breaks", 0) >= 2})
+    if hidden_lists:
+        reasons.append(f"list markers hidden in fragments on pages {hidden_lists}")
+    if fragmented:
+        reasons.append(f"most page text is in fragments on pages {fragmented}")
+    if flooded:
+        reasons.append(f"footnotes dominate page text outside a notes section on pages {flooded}")
+    if long_pages:
+        reasons.append(f"paragraph length outliers crossing multiple breaks on pages {long_pages}")
     score = (4 * lower + 2 * open_end + 4 * zigzag + 0.4 * max(0.0, heads_pp - 2.0)
              + (min(1.0, notes / n) if notes >= 5 else 0) + 3 * leak / n)
     return score, reasons
@@ -1566,7 +2359,7 @@ def segment_text_layer(pdf, pnos, columns, cache=None):
     classify(blocks, body, info, pnos[0])
     n_refs = mark_sections(blocks)
     blocks, merges = merge_continuations(blocks, body)
-    score, reasons = layout_signals(blocks, len(pnos))
+    score, reasons = layout_signals(blocks, len(pnos), info)
     return {"blocks": blocks, "body": body, "info": info, "stats": stats, "n_refs": n_refs,
             "merges": merges, "score": score, "reasons": reasons, "columns": columns}
 
@@ -1579,7 +2372,9 @@ def choose_columns(pdf, pnos, columns):
     msgs = []
     best = first
     if columns == "auto":
-        if first["reasons"]:
+        layout_reasons = [r for r in first["reasons"] if not any(label in r for label in
+                          ("most page text", "dominate page text", "length outliers", "raster-backed", "list markers hidden"))]
+        if layout_reasons:
             tried = [first]
             for c in ("1", "2", "3"):
                 tried.append(segment_text_layer(pdf, pnos, c, cache))
@@ -1589,6 +2384,8 @@ def choose_columns(pdf, pnos, columns):
             else:
                 msgs.append(f"自检：自动分栏有疑点（{'；'.join(first['reasons'])}），改用 --columns {best['columns']}"
                             f"（疑点 {len(best['reasons'])} 个，自动分栏 {len(first['reasons'])} 个）。")
+        elif first["reasons"]:
+            msgs.append("自检：自动分栏保留，需检查内容区域（" + "；".join(first["reasons"]) + "）。")
         else:
             cols = best["stats"]["multi_col"] + best["stats"]["two_col"]
             msgs.append(f"自检：分栏自动识别通过（多栏页 {cols}/{len(pnos)}），未发现串栏或混入参考文献的迹象。")
@@ -1779,8 +2576,18 @@ def main():
                 if JSTOR_RE.search(first_text) and len(pnos) > 1:
                     report.append(f"第 {pnos[0]} 页是 JSTOR 封面，已跳过")
                     pnos, chars = pnos[1:], chars[1:]
-            ocr_pnos = ocr_page_numbers(pdf, pnos, args.ocr)
+            text_counts = {}
+            ocr_pnos = ocr_page_numbers(pdf, pnos, args.ocr, text_counts)
             text_pnos = [p for p in pnos if p not in ocr_pnos]
+            usable_pages = [p for p in pnos if text_counts[p] >= 30]
+            usable = bool(usable_pages)
+            if not usable and not ocr_available(args.lang):
+                sys.exit("给执行的 agent（不是给用户的）：没有可用文字层。已装 MinerU 就用 --engine mineru；否则自行安装 Tesseract、Poppler 和 OCR Python 依赖后重试，不要让用户动手。")
+            if ocr_pnos and not ocr_available(args.lang):
+                skipped = [p for p in ocr_pnos if p not in usable_pages]
+                text_pnos = sorted(set(text_pnos) | set(usable_pages))
+                report.append(f"OCR unavailable; using text layer, skipped image-only pages {skipped}.")
+                ocr_pnos = []
             if not text_pnos:
                 mode = f"OCR（tesseract {args.lang}）"
                 blocks, body, info, stats = from_ocr(src, pnos, args.lang, args.dpi)

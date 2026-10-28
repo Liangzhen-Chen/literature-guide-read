@@ -6,6 +6,8 @@ English | [中文](README.zh.md)
 
 An agent skill for papers and course readings. Give the agent a PDF and you get one offline web page built around the original text, with notes in English, Chinese or both. It works in Claude Code, Codex, claude.ai and other agents that support [Agent Skills](https://agentskills.io).
 
+The page holds the full original text, and you read it yourself. The guide points out where your time is best spent and what to look for, and afterwards the summaries and recall questions show you how much you took in.
+
 Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://liangzhen-chen.github.io/literature-guide-read/), or [the DPO paper (2023), notes in Chinese](https://liangzhen-chen.github.io/literature-guide-read/dpo.html). Both papers are openly licensed: [Ioannidis](https://doi.org/10.1371/journal.pmed.0020124) (CC BY) and [Rafailov et al.](https://arxiv.org/abs/2305.18290) (CC BY 4.0).
 
 ![The top of a reading page: title, conclusion and the mind map](assets/readme/page-top.png)
@@ -48,7 +50,7 @@ pip install -r ~/.codex/skills/literature-guide-read/requirements.txt
 
 ```bash
 npx skills@latest add Liangzhen-Chen/literature-guide-read
-pip install pdfplumber beautifulsoup4
+pip install pdfplumber fonttools beautifulsoup4
 ```
 
 The installer asks which agents to install to; add `-g` to install for your user instead of the current project.
