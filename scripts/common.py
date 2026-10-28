@@ -59,7 +59,7 @@ def fix_split_ligatures(texts, min_hits=3):
     # a stray "fi" after a name ("Sufi mystic") is no proof; the defect shows as a bare fragment, twice or more
     if sum(1 for m in cands if m.group(1) in ("fi", "fl", "ffi", "ffl", "ff")
            and (m.group(1).lower(), m.group(2)) not in _LIG_NOT_SPLIT
-           and not re.search(r"(?:wi|hi|sci)\s$", m.string[max(0, m.start() - 4):m.start()], re.I)) < 2:
+           and not re.search(r"\b(?:wi|hi|sci)\s$", m.string[max(0, m.start() - 4):m.start()], re.I)) < 2:
         return list(texts)
     rest, last = [], 0
     for m in cands:
@@ -246,12 +246,29 @@ def _cn_value(s):
     return total + section + num
 
 
+ORDINAL_NUMS = {"third": 3, "fourth": 4, "fifth": 5, "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10,
+                "eleventh": 11, "twelfth": 12, "twentieth": 20, "thirtieth": 30, "fortieth": 40, "fiftieth": 50,
+                "sixtieth": 60, "seventieth": 70, "eightieth": 80, "ninetieth": 90}  # not "first"/"second": too common
+TENS_RE = re.compile(r"\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[- ](one|two|three|four|five|six|seven|eight|nine|"
+                     r"first|second|third|fourth|fifth|sixth|seventh|eighth|ninth)\b", re.I)
+SPLIT_DIGITS_RE = re.compile(r"(?<![\d.,])\d(?: \d)+(?![\d.,])")
+
+
 def source_numbers(text):
-    """Numbers a source text states, including spelled-out ones ("three", "三")."""
+    """Numbers a source text states, including spelled-out ones ("three", "forty-eight", "twenty-fifth", "三") and numbers
+    whose digits a text layer set apart ("1 0" for 10: only runs of single digits, never "25 75")."""
     out = numbers_in(text)
+    merged = SPLIT_DIGITS_RE.sub(lambda m: m.group(0).replace(" ", ""), text or "")
+    if merged != (text or ""):
+        out |= numbers_in(merged)
     for w in re.findall(r"[A-Za-z]+", text or ""):
         if w.lower() in WORD_NUMS:
             out.add(float(WORD_NUMS[w.lower()]))
+        elif w.lower() in ORDINAL_NUMS:
+            out.add(float(ORDINAL_NUMS[w.lower()]))
+    units = dict(WORD_NUMS, **{"first": 1, "second": 2}, **ORDINAL_NUMS)
+    for m in TENS_RE.finditer(text or ""):
+        out.add(float(WORD_NUMS[m.group(1).lower()] + units[m.group(2).lower()]))
     for m in re.findall(r"[零〇一二两三四五六七八九十百千万]+", text or ""):
         out.add(float(_cn_value(m)))
     return out

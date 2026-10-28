@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import drop_cap_for, put_drop_cap, use_utf8  # noqa: E402
-from segment import NUM_HEAD_RE, body_size, get_words, join_open_paragraphs, join_text, link_notes  # noqa: E402
+from segment import NUM_HEAD_RE, body_size, get_words, join_marked, join_open_paragraphs, link_notes  # noqa: E402
 
 MASTHEAD_LINE_RE = re.compile(r"\b(vol\.|volume|issue|no\.)\s*[\dIVXLCM]+", re.I)
 
@@ -166,7 +166,7 @@ def convert(sc, source_name, source_path):
                 blocks.append(dict(base, type="note", text=text))
             elif t == "text" and text and _continues_without_flag(blocks, text, page):
                 a = next(x for x in reversed(blocks) if x["type"] == "para")
-                a["text"] = join_text(a["text"], text)
+                a["text"] = join_marked(a["text"], text)
                 a.setdefault("pages", {a["page"]}).add(page)
             elif t == "ref_text":
                 n_refs += 1
@@ -185,7 +185,7 @@ def convert(sc, source_name, source_path):
                         j -= 1
                     if j >= 0:
                         a = blocks[j]
-                        a["text"] = join_text(a["text"], text)
+                        a["text"] = join_marked(a["text"], text)
                         a.setdefault("pages", {a["page"]}).add(page)
                         continue
                 blocks.append(dict(base, type="para", text=text))

@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (DENSITY, DENSITY_ALIASES, LANGS, TIER_ALIASES, TIERS, as_lang, compress,  # noqa: E402
-                    find_anchor, fmt_num, use_utf8, load_elements, load_guide, load_json, numbers_in,
+                    find_anchor, fmt_num, inline_math_spans, use_utf8, load_elements, load_guide, load_json, numbers_in,
                     parse_range, pnum, source_numbers, suggest_anchor)
 
 DESCRIPTIVE = {
@@ -408,7 +408,9 @@ def run_checks(doc, guide, density=None):
                 errors.append(f"{where}: contains a backspace/form-feed character, so a LaTeX backslash was eaten by JSON "
                               f"(\\b -> backspace, \\f -> form feed); {fix}: «{v[:50]!r}»")
             else:  # a tab/newline/return before a letter is often legitimate, so only inside maths and only a warning
-                spans = [v] if key == "tex" else re.findall(r"\$([^$]*)\$", v)  # a tab right after $ is not a normal span start
+                # money ("$500") is not a maths span; a tab right after the opening $ is a span whose first backslash was eaten
+                spans = [v] if key == "tex" else ([m.group(1) for m in inline_math_spans(v)]
+                                                  + re.findall(r"\$([\t\n\r][^$]*)\$", v))
                 if any(re.search(r"[\t\n\r][a-z]", x) for x in spans):
                     warns.append(f"{where}: a tab/newline/return is followed by a letter inside maths, perhaps \\theta, \\nu or \\rho eaten by JSON "
                                  f"(\\t, \\n, \\r); {fix}: «{v[:50]!r}»")

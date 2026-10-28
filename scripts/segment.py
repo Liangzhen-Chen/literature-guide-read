@@ -87,16 +87,72 @@ def join_words(a, b):
     return a + " " + b
 
 
-def join_text(a, b):
+HY = ""  # marks a line-end hyphen that was dropped; resolve_hyphens decides, per document, whether it was part of the word
+
+
+def join_text(a, b, mark=False):
     if not a:
         return b
     if not b:
         return a
     if a.endswith("-") and len(a) > 1 and a[-2].isalpha() and b[:1].islower():
-        return a[:-1] + b
+        return a[:-1] + (HY if mark else "") + b
     if is_cjk(a[-1]) and is_cjk(b[0]):
         return a + b
     return a + " " + b
+
+
+def join_marked(a, b):
+    return join_text(a, b, mark=True)
+
+
+NUMBER_WORDS = set("one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen "
+                   "eighteen nineteen twenty thirty forty fifty sixty seventy eighty ninety hundred thousand million "
+                   "first second third fourth fifth sixth seventh eighth ninth tenth eleventh twelfth twentieth "
+                   "thirtieth fortieth fiftieth half".split())
+HY_TOKEN_RE = re.compile("[A-Za-z]+(?:-[A-Za-z]+)*")
+
+
+def resolve_hyphens(texts):
+    """Decide for every dropped line-end hyphen whether it belonged to the word, using the document as evidence.
+    Keep it when both pieces are number words ("twenty-fifth"), when the document writes the hyphenated form elsewhere,
+    when the word before the break is already a compound and the next piece is a word ("out-of-" "pocket"), when the
+    second piece has a hyphen itself, or when both pieces occur as words and the closed form never does. Drop it when the
+    document writes the closed form elsewhere ("refer-" "ence-dependent"). With no evidence it is dropped, as before.
+    Returns the texts without markers and the decisions as (closed, hyphenated, kept)."""
+    if not any(HY in x for x in texts):
+        return list(texts), []
+    tokens, pieces = set(), Counter()
+    for x in texts:
+        for w in HY_TOKEN_RE.findall(re.sub("[A-Za-z-]*" + HY + "[A-Za-z-]*", " ", x)):
+            tokens.add(w.lower())
+            for part in w.lower().split("-"):
+                pieces[part] += 1
+    joined = " " + " ".join(sorted(tokens))
+    decisions, out = [], []
+    for x in texts:
+        while HY in x:
+            k = x.index(HY)
+            left = re.search("[A-Za-z-]*$", x[:k]).group(0)
+            right = re.match("[A-Za-z-]*", x[k + 1:]).group(0)
+            first, rfirst = left.lower().split("-")[-1], right.lower().split("-")[0]
+            stem, hyph = first + rfirst, first + "-" + rfirst
+            if first in NUMBER_WORDS and rfirst in NUMBER_WORDS:
+                keep = True
+            elif (" " + hyph) in joined:
+                keep = True
+            elif pieces[stem] or (len(stem) >= 6 and any(p.startswith(stem) for p in pieces)):
+                keep = False
+            elif "-" in left:
+                keep = len(rfirst) >= 4 or bool(pieces[rfirst]) or "-" in right
+            elif "-" in right:
+                keep = True
+            else:
+                keep = bool(pieces[first] and pieces[rfirst] and len(first) > 2 and len(rfirst) > 2)
+            decisions.append((left + right, left + "-" + right, keep))
+            x = x[:k] + ("-" if keep else "") + x[k + 1:]
+        out.append(x)
+    return out, decisions
 
 
 def word_count(text):
@@ -616,7 +672,7 @@ def finish_block(b):
     lines = b["lines"]
     text = ""
     for ln in lines:
-        text = join_text(text, ln["text"])
+        text = join_marked(text, ln["text"])
     n = sum(len(l["text"]) for l in lines) or 1
     sizes = sorted((l["size"], len(l["text"])) for l in lines)
     acc, size = 0, sizes[0][0]
@@ -995,8 +1051,11 @@ def is_heading_block(b, body):
                   and sum(1 for w in big_words if w[:1].isupper()) / len(big_words) >= 0.8
                   and b["size"] >= 1.04 * body and b["n_lines"] <= 2)
     # a small-caps subheading ("A. generating Bounds on risk Aversion"): numbered, one line, capitals further in
+    # (the capitals of small caps are often lost, "C. industry comparisons": then it must at least stand centred)
+    centred = "pw" not in b or abs((b["x0"] + b["x1"]) / 2 - b["pw"] / 2) < 0.12 * b["pw"]
     small_caps = (bool(numbered) and words <= 8 and b["n_lines"] == 1 and not end_terminal(t)
-                  and re.match(r"^\S+\s+[a-z]{3,}", t) is not None and any(k[:1].isupper() for k in toks[1:]))
+                  and re.match(r"^\S+\s+[a-z]{3,}", t) is not None
+                  and (any(k[:1].isupper() for k in toks[1:]) or (centred and re.match(r"^([A-H]|[IVX]+)[.)]\s", t))))
     return big or bold or caps or plain_numbered or known or title_case or cn or small_caps
 
 
@@ -1280,7 +1339,7 @@ def join_open_paragraphs(blocks):
                 j -= 1
             if j >= 0 and out[j]["type"] == "para" and paragraph_continues(out[j], b, across_breaks=False):
                 a = out[j]
-                a["text"] = join_text(a["text"], b["text"])
+                a["text"] = join_marked(a["text"], b["text"])
                 a.setdefault("pages", {a["page"]}).add(b["page"])
                 joins += 1
                 continue
@@ -1295,13 +1354,13 @@ def merge_continuations(blocks, body=None):
     for b in blocks:
         if (b["type"] == "note" and starts_lower(b["text"]) and out and out[-1]["type"] in ("para", "note")
                 and out[-1]["page"] == b["page"] and re.match(r"^(\d{1,2}[A-Z]|['’]\s?[A-Z])", out[-1]["text"])):
-            out[-1]["text"] = join_text(out[-1]["text"], b["text"])
+            out[-1]["text"] = join_marked(out[-1]["text"], b["text"])
             out[-1]["type"] = "note"
             merges += 1
             continue
         if (b["type"] == "para" and out and out[-1]["type"] == "caption" and starts_lower(b["text"])
                 and not end_terminal(out[-1]["text"])):
-            out[-1]["text"] = join_text(out[-1]["text"], b["text"])  # 图注跨栏的后半句
+            out[-1]["text"] = join_marked(out[-1]["text"], b["text"])  # 图注跨栏的后半句
             merges += 1
             continue
         if b["type"] in ("para", "frag") and STAT_RE.match(b["text"]) and len(b["text"]) < 120 \
@@ -1327,7 +1386,7 @@ def merge_continuations(blocks, body=None):
                     for x in between:
                         if (x["type"] == "frag" and x["page"] == a["page"] and x.get("key") == a.get("key")
                                 and x.get("mono", 0) < 0.5 and not x.get("pull") and not x.get("table")):
-                            text = join_text(text, x["text"])  # 夹在段内的公式等
+                            text = join_marked(text, x["text"])  # 夹在段内的公式等
                             if is_display_equation(x):
                                 a["has_math"] = True
                             if x["page"] == a["page"] and all(k in a and k in x for k in ("x0", "x1", "bottom")):
@@ -1335,7 +1394,7 @@ def merge_continuations(blocks, body=None):
                                 a["bottom"] = max(a["bottom"], x["bottom"])
                         else:
                             kept.append(x)
-                    a["text"] = join_text(text, b["text"])
+                    a["text"] = join_marked(text, b["text"])
                     a["jumps"] = a.get("jumps", 0) + b.get("jumps", 0)
                     a.setdefault("pages", {a["page"]}).add(b["page"])
                     out[j + 1:] = kept
@@ -1554,7 +1613,7 @@ def from_text(path):
         if buf:
             text = ""
             for ln in buf:
-                text = join_text(text, ln)
+                text = join_marked(text, ln)
             typ = "caption" if CAPTION_RE.match(text) else "para"
             items.append({"type": typ, "text": text, "page": page})
             buf.clear()
@@ -1593,6 +1652,10 @@ def page_tag(it, labels):
 
 def write_outputs(doc, out, chunk_chars):
     its = [i for i in doc["items"] if isinstance(i.get("text"), str)]
+    resolved, doc_decisions = resolve_hyphens([i["text"] for i in its])
+    for i, t in zip(its, resolved):
+        i["text"] = t
+    write_outputs.decisions = doc_decisions
     for i, t in zip(its, fix_split_ligatures([i["text"] for i in its])):
         i["text"] = t
     out.mkdir(parents=True, exist_ok=True)
