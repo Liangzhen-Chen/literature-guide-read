@@ -10,11 +10,9 @@ Installed separately with `pip install -r requirements.txt`; none is bundled.
 | --- | --- | --- |
 | pdfplumber | MIT | https://github.com/jsvine/pdfplumber |
 | pillow | MIT-CMU (HPND) | https://github.com/python-pillow/Pillow |
-| pytesseract | Apache-2.0 | https://github.com/madmaze/pytesseract |
-| pdf2image | MIT | https://github.com/Belval/pdf2image |
 | beautifulsoup4 | MIT | https://www.crummy.com/software/BeautifulSoup/ |
 
-Their distributions contain their full copyright and licence notices. Transitive dependencies retain their own notices. OCR additionally uses separately installed Tesseract and Poppler, which are not included here.
+Their distributions contain their full copyright and licence notices. Transitive dependencies retain their own notices. The optional page-image fallback uses separately installed Poppler (pdftoppm), which is not included here or required for segmentation.
 
 ## KaTeX
 

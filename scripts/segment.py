@@ -4,7 +4,6 @@
 用法：
   python segment.py reading.pdf --out WORK
   python segment.py reading.pdf --out WORK --pages 3-28 --columns 2
-  python segment.py reading.pdf --out WORK --ocr on          # 扫描件
   python segment.py reading.txt --text --out WORK            # 纯文本
 
 纯文本格式：空行分段；以 # 开头的行是标题（# 一级，## 二级）；单独一行 [[p.12]] 表示下面的内容在第 12 页。
@@ -19,8 +18,6 @@ import json
 import math
 import re
 import statistics
-import shutil
-import importlib.util
 import unicodedata
 import sys
 from collections import Counter, defaultdict
@@ -1633,41 +1630,25 @@ def mark_graphic_labels(lines, body):
             j -= 1
 
 
-# ---------- OCR ----------
-
-def ocr_available(lang="eng"):
-    """Check Python adapters, executables and requested language data before starting OCR."""
-    if not all(importlib.util.find_spec(m) for m in ("pytesseract", "pdf2image")):
-        return False
-    if not all(shutil.which(m) for m in ("tesseract", "pdftoppm", "pdfinfo")):
-        return False
-    try:
-        import pytesseract
-        return set(lang.split("+")).issubset(pytesseract.get_languages(config=""))
-    except Exception:
-        return False
+# ---------- Text-layer coverage ----------
 
 
-def ocr_page_numbers(pdf, pnos, mode, text_counts=None):
-    """Low text coverage calls for OCR only when a raster covers the page's centre.
+def scan_page_numbers(pdf, pnos, text_counts=None):
+    """Identify low-text pages with a central page-sized raster.
 
-    Sparse vector pages and blank versos need no OCR. A central image spanning both
-    page midlines distinguishes a page scan from a logo or a small illustration.
+    Keep blank versos and sparse vector pages out of the scan list. A logo or
+    small illustration does not span both page midlines.
     """
     counts = {} if text_counts is None else text_counts
     for p in pnos:
         counts[p] = sum(len(w["text"]) for w in get_words(pdf.pages[p - 1]))
-    if mode == "on":
-        return list(pnos)
-    if mode == "off":
-        return []
     out = []
     for p in pnos:
         page = pdf.pages[p - 1]
         if counts[p] >= 30:
             continue
         if not hasattr(page, "images"):
-            out.append(p)  # unknown raster coverage: retain the OCR candidate
+            out.append(p)  # unknown raster coverage: conservatively treat it as a scan
             continue
         ox, oy = page.bbox[:2]
         if any(i["x0"] <= ox + page.width / 4 and i["x1"] >= ox + 3 * page.width / 4
@@ -1677,68 +1658,19 @@ def ocr_page_numbers(pdf, pnos, mode, text_counts=None):
     return out
 
 
-def from_ocr(pdf_path, pnos, lang, dpi):
-    try:
-        import pytesseract
-        from pdf2image import convert_from_path
-    except ImportError as e:
-        sys.exit(f"OCR 需要 pytesseract 和 pdf2image：{e}")
-    have = pytesseract.get_languages(config="")
-    lacking = [x for x in lang.split("+") if x not in have]
-    if lacking:
-        sys.exit(f"tesseract is missing language data {lacking}; installed: {', '.join(have)}")
-    pages, blocks = [], []
-    sc = 72.0 / dpi
-    for i, pno in enumerate(pnos, 1):
-        print(f"  OCR 第 {pno} 页（{i}/{len(pnos)}）", file=sys.stderr, flush=True)
-        img = convert_from_path(str(pdf_path), dpi=dpi, first_page=pno, last_page=pno)[0]
-        d = pytesseract.image_to_data(img, lang=lang, output_type=pytesseract.Output.DICT)
-        groups, order = defaultdict(lambda: defaultdict(list)), []
-        for k, raw in enumerate(d["text"]):
-            t = clean_text(raw)
-            try:
-                conf = float(d["conf"][k])
-            except (TypeError, ValueError):
-                conf = -1
-            if not t or conf < 0:
-                continue
-            if conf < 35 and not re.search(r"[A-Za-z0-9\u4e00-\u9fff]{2,}", t):
-                continue
-            key = (d["block_num"][k], d["par_num"][k])
-            if key not in groups:
-                order.append(key)
-            groups[key][d["line_num"][k]].append({
-                "text": t, "x0": d["left"][k] * sc, "x1": (d["left"][k] + d["width"][k]) * sc,
-                "top": d["top"][k] * sc, "bottom": (d["top"][k] + d["height"][k]) * sc})
-        p = {"pno": pno, "w": img.size[0] * sc, "h": img.size[1] * sc, "blocks": []}
-        for key in order:
-            lines = []
-            for ln_no in sorted(groups[key]):
-                ws = sorted(groups[key][ln_no], key=lambda w: w["x0"])
-                text = ""
-                for w in ws:
-                    text = join_words(text, w["text"])
-                hs = sorted(w["bottom"] - w["top"] for w in ws)
-                lines.append({"text": text, "x0": ws[0]["x0"], "x1": max(w["x1"] for w in ws),
-                              "top": min(w["top"] for w in ws), "bottom": max(w["bottom"] for w in ws),
-                              "size": round(hs[len(hs) // 2], 1), "bold": 0.0})
-            p["blocks"].append(finish_block({"lines": lines, "page": pno, "key": (pno, key[0])}))
-        for b in p["blocks"]:
-            b["pw"], b["ph"] = p["w"], p["h"]
-        pages.append(p)
-    labels = []
-    removed = strip_margins(pages, lambda p: p["blocks"], lambda p, v: p.__setitem__("blocks", v), labels)
-    for p in pages:
-        blocks += p["blocks"]
-    cnt = Counter()
-    for b in blocks:
-        cnt[round(b["size"] * 2) / 2] += len(b["text"])
-    body = cnt.most_common(1)[0][0] if cnt else 10.0
-    info = {p["pno"]: {"h": p["h"], "w": p["w"]} for p in pages}
-    return blocks, body, info, {"two_col": 0, "removed": removed, "labels": labels}
+SCAN_ONLY_MESSAGE = "给执行的 agent（不是给用户的）：基础版无法读取扫描 PDF。已安装 MinerU 时请用 --engine mineru 重试；否则按 SKILL.md 第 0 步向用户提供 MinerU 选项，用户同意后由 agent 安装。"
 
 
-# ---------- 分类、续接、编号 ----------
+def basic_text_pages(pdf, pnos):
+    """Keep readable and blank pages; report scans once, or stop a scan-only run."""
+    counts = {}
+    scans = scan_page_numbers(pdf, pnos, counts)
+    if not any(n >= 30 for n in counts.values()):
+        sys.exit(SCAN_ONLY_MESSAGE)
+    messages = ([f"给执行的 agent（不是给用户的）：已跳过扫描页 {scans}；这些页是扫描件，MinerU 可以读取。"]
+                if scans else [])
+    return [p for p in pnos if p not in scans], messages
+
 
 def is_heading_block(b, body):
     t = b["text"]
@@ -2686,9 +2618,6 @@ def main():
     ap.add_argument("--pages", help="只处理这些 PDF 页，如 3-28 或 1,3-9")
     ap.add_argument("--columns", choices=["auto", "1", "2", "3"], default="auto",
                     help="auto detects the columns of every page and, when the result looks wrong, tries the other settings")
-    ap.add_argument("--ocr", choices=["auto", "on", "off"], default="auto")
-    ap.add_argument("--lang", default="eng", help="OCR languages, e.g. eng, chi_sim or eng+chi_sim")
-    ap.add_argument("--dpi", type=int, default=300)
     ap.add_argument("--chunk-chars", type=int, default=12000)
     ap.add_argument("--engine", choices=["auto", "pdfplumber", "mineru"], default="auto",
                     help="auto uses MinerU when it is installed (see requirements.txt), otherwise pdfplumber")
@@ -2707,8 +2636,8 @@ def main():
     doc = None
     if engine == "mineru" and not is_text:
         from mineru_backend import convert, run
-        if args.ocr != "auto" or args.columns != "auto" or args.lang != "eng":
-            print("注意：MinerU 引擎自己判断 OCR 和分栏，--ocr、--columns、--lang 在这里不起作用")
+        if args.columns != "auto":
+            print("注意：MinerU 引擎自己判断分栏，--columns 在这里不起作用")
         try:
             sc_path = run(src, out / "_mineru", args.pages)
             doc = convert(json.loads(sc_path.read_text(encoding="utf-8")), src.name, str(src.resolve()))
@@ -2757,59 +2686,18 @@ def main():
             pnos = parse_pages(args.pages, page_count)
             if not pnos:
                 sys.exit("--pages 选出的页为空")
-            chars = [len(pdf.pages[p - 1].chars) for p in pnos]
             if pnos and not args.pages:
                 first_text = pdf.pages[pnos[0] - 1].extract_text() or ""
                 if JSTOR_RE.search(first_text) and len(pnos) > 1:
                     report.append(f"第 {pnos[0]} 页是 JSTOR 封面，已跳过")
-                    pnos, chars = pnos[1:], chars[1:]
-            text_counts = {}
-            ocr_pnos = ocr_page_numbers(pdf, pnos, args.ocr, text_counts)
-            text_pnos = [p for p in pnos if p not in ocr_pnos]
-            usable_pages = [p for p in pnos if text_counts[p] >= 30]
-            usable = bool(usable_pages)
-            if not usable and not ocr_available(args.lang):
-                sys.exit("给执行的 agent（不是给用户的）：没有可用文字层。已装 MinerU 就用 --engine mineru；否则自行安装 Tesseract、Poppler 和 OCR Python 依赖后重试，不要让用户动手。")
-            if ocr_pnos and not ocr_available(args.lang):
-                skipped = [p for p in ocr_pnos if p not in usable_pages]
-                text_pnos = sorted(set(text_pnos) | set(usable_pages))
-                report.append(f"OCR unavailable; using text layer, skipped image-only pages {skipped}.")
-                ocr_pnos = []
-            if not text_pnos:
-                mode = f"OCR（tesseract {args.lang}）"
-                blocks, body, info, stats = from_ocr(src, pnos, args.lang, args.dpi)
-            else:
-                mode = "PDF 文字层"
-                if ocr_pnos:
-                    blocks, body, info, stats = from_pdf_text(pdf, text_pnos, args.columns)
-                else:
-                    res, check_msgs = choose_columns(pdf, text_pnos, args.columns)
-                    blocks, body, info, stats = res["blocks"], res["body"], res["info"], res["stats"]
-                    n_refs, merges = res["n_refs"], res["merges"]
-                    report.extend(check_msgs)
-                if ocr_pnos:
-                    # Classify each extraction mode at its own font-size scale. OCR character
-                    # heights are not PDF font sizes. Preserve page order before continuation.
-                    classify(blocks, body, info, pnos[0])
-                    ob, osize, oi, ostats = from_ocr(src, ocr_pnos, args.lang, args.dpi)
-                    classify(ob, osize, oi, pnos[0])
-                    blocks.extend(ob)
-                    blocks.sort(key=lambda b: b["page"])
-                    info.update(oi)
-                    stats["removed"] += ostats["removed"]
-                    stats["labels"].extend(ostats["labels"])
-                    mode = f"PDF 文字层 + OCR（tesseract {args.lang}；页 {ocr_pnos}）"
-                if args.ocr == "off":
-                    empty = [p for p in pnos if chars[pnos.index(p)] < 30]
-                    if empty:
-                        report.append(f"警告：页 {empty} 几乎没有文字层；可用 --ocr auto")
-        if text_pnos and not ocr_pnos:
-            pass  # classified, sectioned and merged by choose_columns
-        else:
-            if not (ocr_pnos and text_pnos):
-                classify(blocks, body, info, pnos[0])
-            n_refs = mark_sections(blocks)
-            blocks, merges = merge_continuations(blocks, body)
+                    pnos = pnos[1:]
+            text_pnos, scan_messages = basic_text_pages(pdf, pnos)
+            report.extend(scan_messages)
+            mode = "PDF 文字层"
+            res, check_msgs = choose_columns(pdf, text_pnos, args.columns)
+            blocks, body, info, stats = res["blocks"], res["body"], res["info"], res["stats"]
+            n_refs, merges = res["n_refs"], res["merges"]
+            report.extend(check_msgs)
 
     items, counters = finalize(blocks)
     labels = page_labels_from(stats["labels"], pnos) if pnos else {}
@@ -2818,7 +2706,7 @@ def main():
            "pages_processed": [pnos[0], pnos[-1]] if pnos else None,
            "page_labels": labels, "title_guess": title, "items": items}
     if counters["P"] == 0:
-        sys.exit("没有切出任何段落。扫描件试试 --ocr on；版式特殊时可以把正文整理成纯文本再用 --text。")
+        sys.exit("给执行的 agent（不是给用户的）：没有切出任何段落。请检查版式并尝试 --engine mineru，或自行整理正文后用 --text 重试。")
     names = write_outputs(doc, out, args.chunk_chars)
     made = {}
     if pnos:

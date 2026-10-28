@@ -59,7 +59,7 @@ pip install pdfplumber fonttools pillow beautifulsoup4
 <details>
 <summary><b>claude.ai</b></summary>
 
-从 [最新 Release](https://github.com/Liangzhen-Chen/literature-guide-read/releases/latest) 下载 `literature-guide-read.zip`，在 Settings → Capabilities → Skills 上传。扫描件和公式多的论文在本地 agent 里效果更好。
+从 [最新 Release](https://github.com/Liangzhen-Chen/literature-guide-read/releases/latest) 下载 `literature-guide-read.zip`，在 Settings → Capabilities → Skills 上传。扫描件在 claude.ai 上读不了，要在本地 agent 里装上 MinerU；公式多的论文也是在本地效果更好。
 </details>
 
 <details>
@@ -90,30 +90,18 @@ python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json
 
 ### 两档提取
 
-按上面的方法装好就是基础档。再装上 [MinerU](https://github.com/opendatalab/MinerU) 就是完整档，装好后 skill 会自动使用，不用切换。没装的话，agent 会在开始时问你要不要装，说清楚能多得到什么、要付出什么；你说要，它就自己装。
+按上面的方法装好就是基础档。再装上 [MinerU](https://github.com/opendatalab/MinerU) 就是完整档，装好后 skill 会自动使用，不用切换。没装的话，agent 会在开始时问你要不要装，说清楚能多得到什么、要付出什么；你说要，它就自己装。扫描版 PDF 只有 MinerU 能读，遇到扫描件 agent 会建议你装。
 
 | | 基础档 | 装 MinerU |
 | --- | --- | --- |
 | 安装 | 上面已经装好 | `pip install "mineru>=4,<5" && mineru-kit models download --tier basic`（约 0.8 GB，CPU 即可） |
 | 版式 | 单栏、双栏、三栏 | 另外更稳地处理侧栏、跨栏表格和特殊版式；表格保留成表格 |
 | 公式 | 从 PDF 上裁图，重要的由 agent 转写 | 识别更全，自动转成 LaTeX |
-| 扫描件 | 要另装 Tesseract 和 Poppler（见下表） | 自带 OCR，不用另装 |
+| 扫描件 | 读不了 | 能读（自带 OCR） |
 | 读 PDF 用时 | 几秒 | 1 到 3 分钟 |
 | claude.ai | 能用 | 不能用（沙箱下载不了模型） |
 
 两档里的图都显示成所在那一整页的截图；论文在 arXiv 上有网页版时，换成作者的原图。
-
-### 可选依赖
-
-| 依赖 | 用来做什么 | 不装会怎样 | 代价 |
-| --- | --- | --- | --- |
-| fonttools | 读 PDF 里嵌入的字体，认出粗体、斜体和小型大写，修正大小写错乱的字 | 照样能用，只按字体名判断，个别小标题可能认不出 | 纯 Python，体积小 |
-| Pillow | 重新压缩公式和表格的截图 | 截图按原样放进页面，页面文件大一些 | 常用的图像库 |
-| beautifulsoup4 | 解析 arXiv 论文的网页版，拿到更清楚的图、表、公式，并找出 PDF 文字层漏掉的字 | 只用 PDF；不是 arXiv 的论文不受影响 | 纯 Python，体积小；需要能联网 |
-| pytesseract、pdf2image，以及 Tesseract（含 `eng`、`chi_sim` 语言包）和 Poppler | 基础档给扫描页做 OCR | 有文字层的 PDF 不受影响；零星的扫描页会跳过；整本扫描件由 agent 改用 MinerU，或者自己装上这些 | Tesseract 和 Poppler 是独立程序，pip 装不了，要用系统的方式安装 |
-| MinerU | 完整档的版面分析，自带 OCR | 用基础档 | 约 0.8 GB，每篇 1 到 3 分钟 |
-
-上面的安装命令已经装好前三个和两个 OCR 的 Python 接口；Tesseract、Poppler 和 MinerU 用到时由 agent 问你、再自己装。
 
 ## 用法
 

@@ -9,24 +9,14 @@ def block(text, page=1, top=100, size=10, **kw):
                 n_lines=3, bold=0, **kw)
 
 
-def test_blank_and_logo_pages_do_not_request_ocr(monkeypatch):
+def test_blank_and_logo_pages_are_not_scans(monkeypatch):
     blank=SimpleNamespace(words=[], bbox=(0,0,600,800), width=600, height=800, images=[])
     logo=SimpleNamespace(**dict(vars(blank), images=[dict(x0=20,x1=80,top=20,bottom=80)]))
     scan=SimpleNamespace(**dict(vars(blank), images=[dict(x0=0,x1=600,top=0,bottom=800)]))
     text=SimpleNamespace(**dict(vars(blank), words=[dict(text='Neutral ordinary wording. '*5)]))
     monkeypatch.setattr(s,'get_words',lambda p:p.words)
     pdf=SimpleNamespace(pages=[blank,logo,scan,text])
-    assert s.ocr_page_numbers(pdf,[1,2,3,4],'auto') == [3]
-    assert s.ocr_page_numbers(pdf,[1,2,3,4],'on') == [1,2,3,4]
-    assert s.ocr_page_numbers(pdf,[1,2,3,4],'off') == []
-
-
-def test_ocr_preflight_missing_adapter_or_executable(monkeypatch):
-    monkeypatch.setattr(s.importlib.util,'find_spec',lambda _:None)
-    assert not s.ocr_available()
-    monkeypatch.setattr(s.importlib.util,'find_spec',lambda _:True)
-    monkeypatch.setattr(s.shutil,'which',lambda _:None)
-    assert not s.ocr_available()
+    assert s.scan_page_numbers(pdf,[1,2,3,4]) == [3]
 
 
 @pytest.mark.parametrize('text',['A result. 4','A result.) 12','A result.4'])
@@ -275,15 +265,14 @@ def test_display_grouping_respects_tables_and_equation_numbers():
     assert len(rows)==3
 
 
-def test_ocr_page_counts_are_reusable_in_every_mode(monkeypatch):
+def test_scan_detection_counts_are_reused(monkeypatch):
     pdf=SimpleNamespace(pages=[SimpleNamespace(words=[dict(text='Neutral words '*5)],images=[])])
     calls=[]
     monkeypatch.setattr(s,'get_words',lambda page:calls.append(page) or page.words)
-    for mode in ['on','off','auto']:
-        counts={}
-        s.ocr_page_numbers(pdf,[1],mode,counts)
-        assert counts=={1:70}
-    assert len(calls)==3
+    counts={}
+    assert s.scan_page_numbers(pdf,[1],counts)==[]
+    assert counts=={1:70}
+    assert len(calls)==1
 
 
 def test_visible_unmapped_operators_are_not_letter_spacing():

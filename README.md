@@ -59,7 +59,7 @@ The installer asks which agents to install to; add `-g` to install for your user
 <details>
 <summary><b>claude.ai</b></summary>
 
-Download `literature-guide-read.zip` from the [latest release](https://github.com/Liangzhen-Chen/literature-guide-read/releases/latest) and upload it under Settings, Capabilities, Skills. Scans and formula-heavy papers come out better in a local agent.
+Download `literature-guide-read.zip` from the [latest release](https://github.com/Liangzhen-Chen/literature-guide-read/releases/latest) and upload it under Settings, Capabilities, Skills. Scanned PDFs cannot be read on claude.ai; they need a local agent with MinerU. Formula-heavy papers also come out better locally.
 </details>
 
 <details>
@@ -90,30 +90,18 @@ To update, run `git pull` in the skill folder, run the `npx` line again, or uplo
 
 ### Two tiers for reading the PDF
 
-The install above gives you the basic tier. Adding [MinerU](https://github.com/opendatalab/MinerU) gives you the full tier; once it is installed the skill uses it on its own, with nothing to switch. If it is not installed, the agent asks at the start whether you want it, tells you what you gain and what it costs, and installs it for you if you say yes.
+The install above gives you the basic tier. Adding [MinerU](https://github.com/opendatalab/MinerU) gives you the full tier; once it is installed the skill uses it on its own, with nothing to switch. If it is not installed, the agent asks at the start whether you want it, tells you what you gain and what it costs, and installs it for you if you say yes. Only MinerU can read a scanned PDF, so for a scan the agent recommends it.
 
 | | Basic | With MinerU |
 | --- | --- | --- |
 | Install | included above | `pip install "mineru>=4,<5" && mineru-kit models download --tier basic` (about 0.8 GB, a CPU is enough) |
 | Layouts | one, two or three columns | also side columns, wide tables and unusual layouts; tables kept as tables |
 | Formulas | cropped from the PDF; the agent transcribes the ones that matter | found more reliably and turned into LaTeX for you |
-| Scanned PDFs | need Tesseract and Poppler as well (see below) | OCR built in, nothing else to install |
+| Scanned PDFs | cannot read them | reads them (OCR built in) |
 | Time to read the PDF | a few seconds | 1 to 3 minutes |
 | claude.ai | yes | no (the sandbox cannot download the models) |
 
 In both tiers a figure is shown as an image of its whole page; when the paper has a web version on arXiv, the authors' own figures are used instead.
-
-### Optional dependencies
-
-| Dependency | What it does | Without it | Cost |
-| --- | --- | --- | --- |
-| fonttools | Reads the fonts embedded in the PDF to tell bold, italic and small capitals, and repairs text whose capitals came out wrong | Still works, judging by font names only; a few headings may be missed | Pure Python, small |
-| Pillow | Recompresses the crops of formulas and tables | Crops go into the page as they are, so the file is larger | A common image library |
-| beautifulsoup4 | Parses the web version of an arXiv paper for cleaner figures, tables and formulas, and finds words the PDF's text layer dropped | Only the PDF is used; papers not on arXiv are unaffected | Pure Python, small; needs network access |
-| pytesseract, pdf2image, plus Tesseract (with `eng`, `chi_sim` data) and Poppler | OCR for scanned pages in the basic tier | PDFs with a text layer are unaffected; a stray scanned page is skipped; for a fully scanned PDF the agent switches to MinerU or installs these itself | Tesseract and Poppler are separate programs that pip cannot install; they go in through the system's own installer |
-| MinerU | Layout analysis for the full tier, with its own OCR | The basic tier is used | About 0.8 GB, 1 to 3 minutes per paper |
-
-The install commands above already cover the first three and the two OCR adapters. Tesseract, Poppler and MinerU are installed by the agent when a PDF needs them, after asking you.
 
 ## Use it
 

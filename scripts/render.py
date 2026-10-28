@@ -72,8 +72,8 @@ def page_images(pdf_path, pages, res=110):
                 im.save(buf, "JPEG", quality=72, optimize=True)
                 imgs[str(p)] = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
         return imgs
-    except Exception as e:  # fall back to poppler
-        print(f"pdfplumber could not render pages ({e}); trying pdftoppm")
+    except Exception:  # silently try the optional Poppler page-image fallback
+        pass
     try:
         with tempfile.TemporaryDirectory() as tmp:
             for p in sorted(pages):

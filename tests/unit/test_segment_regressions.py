@@ -24,17 +24,14 @@ def test_numbered_subheading_is_separate_from_other_heading():
     assert len(blocks)==3
 
 
-def test_auto_ocr_decides_each_page_from_usable_words():
-    class Page:
-        def __init__(self,words): self.words=words
-    class Pdf: pages=[Page([]),Page([{'text':'Body text '*10}]),Page([])]
-    original=s.get_words
-    try:
-        s.get_words=lambda page:page.words
-        assert s.ocr_page_numbers(Pdf(),[1,2,3],'auto') == [1,3]
-        assert s.ocr_page_numbers(Pdf(),[1,2,3],'off') == []
-        assert s.ocr_page_numbers(Pdf(),[1,2,3],'on') == [1,2,3]
-    finally: s.get_words=original
+def test_scan_detection_decides_each_page_from_usable_words(monkeypatch):
+    from types import SimpleNamespace
+    def page(words):
+        return SimpleNamespace(words=words,bbox=(0,0,600,800),width=600,height=800,
+                               images=[dict(x0=0,x1=600,top=0,bottom=800)])
+    pdf=SimpleNamespace(pages=[page([]),page([{'text':'Neutral body text '*10}]),page([])])
+    monkeypatch.setattr(s,'get_words',lambda p:p.words)
+    assert s.scan_page_numbers(pdf,[1,2,3]) == [1,3]
 
 
 def test_narrow_small_font_sidebar_detected_without_equal_columns():
