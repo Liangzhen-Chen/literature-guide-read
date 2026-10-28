@@ -902,11 +902,15 @@ def prepare_typing_lines(lines, body):
             cut += 1
         if 0 < cut < len(words):
             prefix = line_from_words(words[:cut])
+            previous = next((x for x in reversed(out) if x["band"] == line["band"] and x["col"] == line["col"]), None)
+            continued_head = (previous and NUM_HEAD_RE.match(previous["text"]) and is_heading_block(dict(previous, n_lines=1), body)
+                              and previous.get("font") == prefix.get("font")
+                              and 0 <= line["top"] - previous["bottom"] <= line["size"])
             # A styled lead phrase, rather than an initial, abbreviation or number.
-            if ((line["size"] >= body - 0.5 or line.get("text_box")) and prefix["text"].endswith(".") and len(re.findall(r"[A-Za-z]{3,}", prefix["text"])) >= 1
+            if ((line["size"] >= body - max(1, 0.15 * body) or line.get("text_box")) and (prefix["text"].endswith(".") or continued_head) and len(re.findall(r"[A-Za-z]{3,}", prefix["text"])) >= 1
                     and not CAPTION_RE.match(prefix["text"])):
                 previous = next((x for x in reversed(out) if x["band"] == line["band"] and x["col"] == line["col"]), None)
-                if (previous and previous.get("words") and all(emphasized(w) for w in previous["words"])
+                if (not continued_head and previous and previous.get("words") and all(emphasized(w) for w in previous["words"])
                         and previous.get("font") == prefix.get("font")
                         and 0 <= line["top"] - previous["bottom"] <= line["size"]
                         and not headingish(previous, body)):
@@ -930,11 +934,20 @@ def prepare_typing_lines(lines, body):
         for i, line in enumerate(ls):
             previous = ls[i - 1] if i else None
             following = ls[i + 1] if i + 1 < len(ls) else None
+            if (previous and following and NUM_HEAD_RE.match(previous["text"])
+                    and previous.get("words") and all(emphasized(w) for w in previous["words"])
+                    and not end_terminal(previous["text"])
+                    and previous.get("font") == line.get("font")
+                    and all(emphasized(w) for w in line.get("words", []))
+                    and following.get("words") and not emphasized(following["words"][0])
+                    and 0 <= line["top"] - previous["bottom"] <= line["size"]):
+                line["force_heading"] = True
             if (line.get("bold", 0) >= 0.85 and line["text"].endswith(".")
                     and following and following.get("words") and not emphasized(following["words"][0])
                     and previous and previous.get("bold", 0) >= 0.85 and not end_terminal(previous["text"])):
                 line["force_heading"] = True
             if (line.get("italic", 0) >= 0.85 and 2 <= word_count(line["text"]) <= 12
+                    and not re.search(r"\w_\w", line["text"])
                     and not end_terminal(line["text"]) and not display_variable_style([line])
                     and following and following.get("words") and not emphasized(following["words"][0])
                     and following.get("italic", 0) < 0.5 and following.get("bold", 0) < 0.5
@@ -965,7 +978,7 @@ def prepare_typing_lines(lines, body):
         for line in lost:
             if any(x is not line and abs(x["lost_marker"][0] - line["lost_marker"][0]) <= 0.15 * body for x in lost):
                 line["list_start"], line["list_indent"] = True, line["x0"]
-        hanging = [(a, b) for a, b in zip(ls, ls[1:]) if not a.get("force_heading") and not a.get("cell_edges")
+        hanging = [(a, b) for a, b in zip(ls, ls[1:]) if not headingish(a, body) and not display_variable_style([a]) and not a.get("cell_edges")
                    and b["x0"] > a["x0"] + 0.8 * body and abs(a["size"] - body) <= 0.5
                    and abs(b["size"] - body) <= 0.5 and not end_terminal(a["text"])
                    and 0 <= b["top"] - a["bottom"] <= body]
@@ -1021,7 +1034,8 @@ def build_blocks(lines, pno, body):
                             and (prev.get("bold", 0) >= 0.85 and ln.get("bold", 0) >= 0.85
                                  or prev.get("italic", 0) >= 0.85 and ln.get("italic", 0) >= 0.85)
                             and not NUM_HEAD_RE.match(ln["text"]))
-            if (ln.get("list_start") or ln.get("toc") or prev.get("toc") or (prev.get("force_heading") and not same_heading) or ln.get("runin_body")
+            if (any(bool(ln.get(flag)) != bool(prev.get(flag)) for flag in ("front_meta", "abstract", "contents_page"))
+                    or ln.get("list_start") or ln.get("toc") or prev.get("toc") or (prev.get("force_heading") and not same_heading) or ln.get("runin_body")
                     or (ln.get("force_heading") and not ((headingish(prev, body) or same_heading) and abs(prev["size"] - ln["size"]) <= 0.5
                                                          and ln["top"] - prev["bottom"] <= gap_med + max(0.45 * sz, 2.5)))):
                 new = True
@@ -1041,7 +1055,7 @@ def build_blocks(lines, pno, body):
                 pass
             elif body_like and not same_heading and ln["x0"] - le > 0.8 * ln["size"] and prev["x0"] - le < 0.4 * prev["size"]:
                 new = True
-            elif (prev["x1"] < right_edge[key] - 2.5 * prev["size"] and end_terminal(prev["text"])
+            elif (not same_heading and prev["x1"] < right_edge[key] - 2.5 * prev["size"] and end_terminal(prev["text"])
                   and not starts_lower(ln["text"])):
                 new = True
             elif ((headingish(prev, body) != headingish(ln, body) and not same_heading)
@@ -1087,13 +1101,13 @@ def display_variable_style(lines):
     text = " ".join(line["text"] for line in lines)
     # Inspect reconstructed words too: tracked italic headings can have one
     # extracted token per glyph. Long uppercase labels need an actual operator.
-    if any(not token.isupper() or not EQUATION_RE.search(text)
+    if any((not token.isupper() or not EQUATION_RE.search(text)) and not re.search(r"[a-z][A-Z]", token)
            for token in re.findall(r"[A-Za-z]{3,}", text)):
         return False
     words = [w for line in lines for w in line.get("words", []) if w["text"].isalpha()]
-    if any(len(w["text"]) > 2 and not w["text"].isupper() for w in words):
+    if any(len(w["text"]) > 2 and not w["text"].isupper() and not re.search(r"[a-z][A-Z]", w["text"]) for w in words):
         return False  # prose lead-ins stay visible even when they contain many variables
-    variables = [w for w in words if len(w["text"]) <= 2 and (w.get("italic") or re.search(r"italic|oblique", w.get("font", ""), re.I))]
+    variables = [w for w in words if (len(w["text"]) <= 2 or re.search(r"[a-z][A-Z]", w["text"])) and (w.get("italic") or re.search(r"italic|oblique", w.get("font", ""), re.I))]
     return len(variables) >= 3 and len(variables) > len(words) / 2
 
 
@@ -1136,6 +1150,11 @@ def finish_block(b):
             "title_suffix": trailing_title_marker(lines),
             "font": lines[0].get("font", ""),
             "force_heading": any(l.get("force_heading") for l in lines),
+            "front_meta": any(l.get("front_meta") for l in lines),
+            "abstract": any(l.get("abstract") for l in lines),
+            "article_title": any(l.get("article_title") for l in lines),
+            "contents_page": any(l.get("contents_page") for l in lines),
+            "graphic": any(l.get("graphic") for l in lines),
             "list": bool(lines[0].get("list_start")), "toc": any(l.get("toc") for l in lines),
             "line_gap": b.get("line_gap"),
             "cell_edges": [l.get("cell_edges", []) for l in lines],
@@ -1452,11 +1471,16 @@ def from_pdf_text(pdf, pnos, columns, cache=None):
         if split is not None:
             two_col += 1
         p["lines"] = order_lines(p["words"], segs, split)
+    repair_front_regions(pages, body)
+    for p in pages:
+        mark_numeric_regions(p["lines"], body)
+        mark_graphic_labels(p["lines"], body)
+        mark_contents_page(p["lines"])
     for p in pages:  # text between the rules of a table is table content, whatever its size
         tabs = [f for f in p["figs"] if len(f) > 4]
         for ln in p["lines"]:
             cx, cy = (ln["x0"] + ln["x1"]) / 2, (ln["top"] + ln["bottom"]) / 2
-            if any(f[0] <= cx <= f[2] and f[1] <= cy <= f[3] for f in tabs):
+            if not ln.get("abstract") and any(f[0] <= cx <= f[2] and f[1] <= cy <= f[3] for f in tabs):
                 ln["tab"] = True
     labels = []
     removed = strip_margins(pages, lambda p: p["lines"], lambda p, v: p.__setitem__("lines", v), labels)
@@ -1475,6 +1499,138 @@ def from_pdf_text(pdf, pnos, columns, cache=None):
                 and any(i.get("width", 0) >= p["w"] / 2 and i.get("height", 0) >= p["h"] / 2
                         for i in getattr(pdf.pages[p["pno"] - 1], "images", [])))} for p in pages}
     return blocks, body, info, {"two_col": two_col, "multi_col": multi_col, "removed": removed, "labels": labels}
+
+
+SCHOLAR_META_RE = re.compile(r"^(?:article\s*(?:info|history)|received\b|revised\b|accepted\b|published\b|available online\b|keywords?\b|history\s*:|supplemental material\b|copyright\b|ISSN\b|doi\s*:|https?://doi\.)|©|\ball rights reserved\b", re.I)
+
+
+def mark_contents_page(lines):
+    entries = [l for l in lines if TOC_RE.search(l["text"]) and re.search(r"\d+\s*$", l["text"])]
+    if len(entries) >= 3 and len(entries) > len(lines) / 2:
+        for ln in lines:
+            ln["contents_page"] = True
+
+
+def repair_front_regions(pages, body):
+    """Segment scholarly headers independently of body columns (GROBID's front/body cascade)."""
+    for p in pages:
+        segs = make_lines(p["words"], gap_split=True)
+        abstracts = [l for l in segs if re.sub(r"\s+", "", l["text"]).lower().startswith("abstract")]
+        for abstract in abstracts:
+            sections = [l for l in segs if l["top"] > abstract["bottom"] and NUM_HEAD_RE.match(l["text"])
+                        and l["bold"] >= 0.85 and l["size"] >= body - 0.5]
+            if not sections:
+                continue
+            end = min(l["top"] for l in sections)
+            start = abstract["top"] - 0.5 * body
+            region = [l for l in segs if start <= l["top"] < end]
+            metadata = [l for l in region if SCHOLAR_META_RE.search(l["text"])]
+            left = [l for l in metadata if l["x1"] < abstract["x0"]]
+            if not left:
+                continue  # a normal single-column abstract needs no new layout cut
+            gutter = (max(l["x1"] for l in left) + abstract["x0"]) / 2
+            trailing = [l["top"] for l in metadata if l["x0"] >= gutter and l["top"] > abstract["bottom"]]
+            abstract_end = min(trailing, default=end)
+            words = [w for w in p["words"] if start <= w["top"] < end]
+            before = [l for l in p["lines"] if l["top"] < start]
+            after = [l for l in p["lines"] if l["top"] >= end]
+            groups = [[w for w in words if (w["x0"] + w["x1"]) / 2 < gutter],
+                      [w for w in words if (w["x0"] + w["x1"]) / 2 >= gutter]]
+            ordered = []
+            for k, ws in enumerate(groups):
+                for ln in make_lines(ws):
+                    ln.update(band=-2 + k, col=0)
+                    ln["front_meta"] = k == 0 or ln["top"] >= abstract_end or bool(SCHOLAR_META_RE.search(ln["text"]))
+                    ln["abstract"] = not ln["front_meta"]
+                    ordered.append(ln)
+            p["lines"] = before + ordered + after
+            titles = [l for l in before if l["size"] >= body + 2.5 and word_count(l["text"]) >= 3
+                      and not re.search(r"https?://|www\.|\bISSN\b", l["text"], re.I)]
+            if titles:
+                title = max(titles, key=lambda l: l["top"])
+                title["article_title"] = True
+                norm = lambda t: re.sub(r"\W+", "", t).casefold()
+                for earlier in pages:
+                    if earlier["pno"] >= p["pno"]:
+                        break
+                    if any(norm(l["text"]) == norm(title["text"]) for l in earlier["lines"]):
+                        for ln in earlier["lines"]:
+                            ln["front_meta"] = True  # redundant publisher cover sheet
+            # Bibliographical footer text belongs to the header, not the argument.
+            for ln in p["lines"]:
+                if SCHOLAR_META_RE.search(ln["text"]) and ln["size"] < body:
+                    ln["front_meta"] = True
+
+
+def mark_numeric_regions(lines, body):
+    """Borderless tables: repeated numeric alignments, snapped at the page's word-gap scale.
+
+    Like pdfplumber's text strategy, use either left or right word edges. Requiring
+    multiple numeric columns across three rows keeps prose lists out of tables.
+    """
+    gaps = [w.get("word_gap", 0.15) * w["size"] for l in lines for w in l.get("words", [])]
+    tolerance = statistics.median(gaps) if gaps else 0.15 * body
+    candidates = []
+    for l in lines:
+        ws = l.get("words", [])
+        nums = [w for w in ws if re.search(r"\d", w["text"])]
+        if len(nums) >= 2 and len(nums) >= len(ws) / 2:
+            candidates.append((l, nums))
+    hits = set()
+    for l, nums in candidates:
+        matched = 0
+        for w in nums:
+            peers = {id(r) for r, ns in candidates if abs(r["top"] - l["top"]) <= 6 * body
+                     and any(min(abs(v["x0"] - w["x0"]), abs(v["x1"] - w["x1"])) <= tolerance for v in ns)}
+            matched += len(peers) >= 3
+        if matched >= 2:
+            hits.add(id(l))
+    runs, run = [], []
+    for l in sorted(lines, key=lambda l: l["top"]):
+        if id(l) in hits:
+            if run and l["top"] - run[-1]["bottom"] > 2 * body:
+                runs.append(run); run = []
+            run.append(l)
+    if run:
+        runs.append(run)
+    captions = [l for l in lines if re.match(r"^table\s*\d", l["text"], re.I)]
+    for run in runs:
+        top, bottom = run[0]["top"], run[-1]["bottom"]
+        left, right = min(l["x0"] for l in run) - body, max(l["x1"] for l in run) + body
+        # Column labels can be text-only. Include adjacent, spatially separated
+        # cells above the numeric rows, without sweeping in a prose lead-in.
+        headers = [l for l in lines if 0 <= top - l["bottom"] <= 2 * body
+                   and left <= (l["x0"] + l["x1"]) / 2 <= right
+                   and not end_terminal(l["text"])
+                   and any(b["x0"] - a["x1"] >= body for a, b in zip(l.get("words", []), l.get("words", [])[1:]))]
+        if headers:
+            top = min(l["top"] for l in headers)
+        above = [l for l in captions if l["bottom"] <= top and top - l["bottom"] <= 6 * body]
+        if above:
+            top = max(above, key=lambda l: l["top"])["bottom"]
+        for l in lines:
+            if top <= l["top"] <= bottom and left <= (l["x0"] + l["x1"]) / 2 <= right and not CAPTION_RE.match(l["text"]):
+                l["tab"] = True
+                l.pop("list_start", None)
+
+
+def mark_graphic_labels(lines, body):
+    """A caption can delimit sparse chart lettering even on a page-sized scan."""
+    ordered = sorted(lines, key=lambda l: l["top"])
+    for i, caption in enumerate(ordered):
+        if not (re.match(r"^fig(?:ure)?\.?\s*\d", caption["text"], re.I)
+                and (CAPTION_RE.match(caption["text"]) or CAPTION_TITLE_RE.match(caption["text"]))):
+            continue
+        j = i - 1
+        while j >= 0 and word_count(ordered[j]["text"]) < 10 and not end_terminal(ordered[j]["text"]):
+            if ordered[j].get("tab"):
+                break
+            if j == 0 or ordered[j]["top"] - ordered[j - 1]["bottom"] > 2 * body:
+                if caption["top"] - ordered[i - 1]["bottom"] <= 2 * body:
+                    for ln in ordered[j:i]:
+                        ln["graphic"] = True
+                break
+            j -= 1
 
 
 # ---------- OCR ----------
@@ -1641,6 +1797,9 @@ NOTE_MARK_RE = re.compile(r"^(\d{1,3}|[*†‡§¶■•'’‘\u2460-\u2473])\s
 
 
 def classify(blocks, body, info, first_page):
+    article_title = next((b for b in blocks if b.get("article_title")), None)
+    if article_title:
+        first_page = article_title["page"]
     title_done = False
     tol = max(1.0, 0.15 * body)
     # the title is the largest type at the top of the first page, not a smaller label above it ("Essay", "Open access")
@@ -1682,7 +1841,11 @@ def classify(blocks, body, info, first_page):
         t = b["text"]
         h = info[b["page"]]["h"]
         letters = sum(1 for ch in t if ch.isalpha() or is_cjk(ch)) / max(1, len(t))
-        if b.get("toc"):
+        if b.get("front_meta") or b.get("contents_page") or b.get("graphic"):
+            b["type"] = "frag"
+        elif b.get("abstract"):
+            b["type"] = "para"
+        elif b.get("toc"):
             b["type"] = "para"
         elif b.get("list") and not b.get("_note") and not b.get("tab"):
             b["type"] = "para"
@@ -1737,7 +1900,7 @@ def classify(blocks, body, info, first_page):
         return None
 
     for b in blocks:  # text set smaller than the body inside a drawn table or figure is table content
-        if b["type"] in ("note", "para", "heading") and b.get("level") != 0 and b["size"] <= body - 0.5:
+        if b["type"] in ("note", "para", "heading") and not b.get("abstract") and b.get("level") != 0 and b["size"] <= body - 0.5:
             if drawn(b):
                 b["type"], b["table"] = "frag", True
     for b in blocks:
@@ -1830,7 +1993,7 @@ def classify(blocks, body, info, first_page):
                 reach, previous_size = max(reach, b["bottom"]), b["size"]
                 continue  # a subtitle belongs to the title region, not the byline
             marked = bool(re.search(r"[†‡∗*]", b["text"]))
-            names = [w for w in re.findall(r"[A-Za-z]+", b["text"]) if w.lower() not in SMALL_WORDS]
+            names = [w for w in re.findall(r"[A-Za-z]+", b["text"]) if len(w) > 1 and w.lower() not in SMALL_WORDS]
             if ((b["top"] - reach > 2 * previous_size and not marked) or b["n_lines"] > 2 or len(names) < 2
                     or sum(w[0].isupper() for w in names) < 0.8 * len(names)
                     or end_terminal(b["text"]) or NUM_HEAD_RE.match(b["text"])
@@ -2030,6 +2193,8 @@ def paragraph_continues(a, b, across_breaks=True):
     run, or a after-a-function-word. With across_breaks, a b that merely starts in another column or on another page
     also counts, provided the geometry (when known) says a ran to the bottom and b opens the next column or page."""
     a = dict(a, page=a.get("_end_page", a["page"]))
+    if a.get("byline") or b.get("byline") or a.get("abstract") != b.get("abstract"):
+        return False
     if b.get("list") or (a.get("list") and a["page"] == b["page"] and a.get("key") == b.get("key")) or a.get("toc") or b.get("toc") or a.get("backmatter") or b.get("backmatter"):
         return False
     if a.get("closed") or end_terminal(a["text"]):
@@ -2218,6 +2383,20 @@ def uses_roman_numerals(blocks):
 
 
 def finalize(blocks):
+    # Byline fragments are excluded from section inference and paragraph joins,
+    # then emitted as a single visible paragraph beneath the title.
+    visible = []
+    for b in blocks:
+        if b.get("byline"):
+            b = dict(b, type="para")
+            if visible and visible[-1].get("byline") and visible[-1]["page"] == b["page"]:
+                a = visible[-1]
+                a["text"] = a["text"] + " " + b["text"]
+                a["x0"], a["x1"] = min(a["x0"], b["x0"]), max(a["x1"], b["x1"])
+                a["bottom"] = max(a["bottom"], b["bottom"])
+                continue
+        visible.append(b)
+    blocks = visible
     note_numbers = defaultdict(set)
     for b in blocks:
         if b["type"] == "note":
@@ -2267,7 +2446,7 @@ def finalize(blocks):
 # ---------- 自检：切分结果的好坏 ----------
 
 REF_ENTRY_RE = re.compile(r"^\W{0,2}(?:\d{1,3}[.\]]?\s+)?[A-Z][\w'’-]+,?\s+(?:[A-Z]{1,3}\b|[A-Z]\.)")
-REF_TAIL_RE = re.compile(r"\b(?:19|20)\d\d\b[^.]{0,30}[;:,]\s*\d+\s*[(:]?\s*\d*|\b\d+\s*:\s*\d+\s*[-–]\s*\d+")
+REF_TAIL_RE = re.compile(r"\b(?:19|20)\d\d\b[^.]{0,30}[;:,]\s*\d+\s*[(:]?\s*\d*|\b\d+(?:\s*\(\d+\))?\s*:\s*\d+\s*[-–]\s*\d+")
 
 
 def looks_like_reference(text):
@@ -2281,6 +2460,11 @@ def layout_signals(blocks, n_pages, info=None):
     if not paras:
         return 99.0, ["no paragraphs"]
     n = len(paras)
+    joined_refs = []
+    for b in blocks:
+        m = re.match(r"^(references?|bibliography)\s+(.+)$", b["text"], re.I)
+        if b["type"] in ("para", "note") and m and looks_like_reference(m.group(2)):
+            joined_refs.append(b["page"])
     # A footnote sits at the foot of its page; a "footnote" in the upper half is body text or a reference list that
     # was set small. A footnote-heavy paper is fine as long as its notes are where footnotes are.
     notes = 0
@@ -2313,6 +2497,8 @@ def layout_signals(blocks, n_pages, info=None):
         reasons.append(f"{notes} footnotes in the upper half of the page, next to {n} paragraphs")
     if leak >= 3 and leak >= 0.1 * n:
         reasons.append(f"{leak} paragraphs look like reference entries")
+    if joined_refs:
+        reasons.append(f"bibliography heading merged with entries on pages {sorted(set(joined_refs))}")
     page_blocks = defaultdict(list)
     for b in blocks:
         if b["type"] != "ref":
@@ -2326,6 +2512,7 @@ def layout_signals(blocks, n_pages, info=None):
                and LIST_MARK_RE.match(b["text"]) for b in rows):
             hidden_lists.append(page)
         frags = [b for b in rows if b["type"] == "frag" and word_count(b["text"]) >= 6
+                 and not b.get("front_meta") and not b.get("contents_page")
                  and not b.get("equation") and not b.get("pull") and not TABLE_NOTE_RE.match(b["text"])
                  and sum(c.isalpha() for c in b["text"]) > 0.5 * len(b["text"])]
         if sum(len(b["text"]) for b in frags) > total / 2:
