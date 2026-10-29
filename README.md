@@ -72,6 +72,8 @@ pip install -r requirements.txt
 python scripts/segment.py reading.pdf --out work
 ```
 
+`scripts/fix.py`: render item IDs on page overlays and apply an agent's explicit fixes before writing guide data.
+
 Give the model the files in `references/` and `work/paragraphs_part*.txt`, with this prompt:
 
 > Write guide data for this reading. The rules are in method.md, elements.md and genres.md; the format is in schema.md. The text is already split into numbered paragraphs: use those ids and do not re-split. Read every paragraph first, then follow method.md. Write the notes in [Chinese/English]. Output only two JSON blocks, saved as guide.json and paras_01.json. Copy every anchor verbatim from the original.

@@ -72,6 +72,8 @@ pip install -r requirements.txt
 python scripts/segment.py reading.pdf --out work
 ```
 
+`scripts/fix.py`：在页面图上标出每段的编号；按 AI 写的改正文件修改分段，在写导读数据之前用。
+
 把 `references/` 里的文件和 `work/paragraphs_part*.txt` 给模型，配这段提示词：
 
 > 为这篇读物写导读数据。规则在 method.md、elements.md、genres.md，格式在 schema.md。正文已经切成编号段落：用这些编号，不要重新切。先读完每一段，再按 method.md 写。笔记用[中文/英文]。只输出两个 JSON 块，分别存为 guide.json 和 paras_01.json。每条锚句逐字从原文复制。

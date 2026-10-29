@@ -533,6 +533,14 @@ def report(errors, warns, computed):
         print(f"  - {w}")
 
 
+def stale_fixes(paragraphs):
+    path = Path(paragraphs)
+    fixes = path.with_name("fixes.json")
+    if path.with_name("fixes_log.json").exists() and fixes.exists() and path.stat().st_mtime_ns < fixes.stat().st_mtime_ns:
+        return "fixes.json was edited but not applied; run fix.py apply before writing guide data"
+    return None
+
+
 def main():
     use_utf8()
     ap = argparse.ArgumentParser(description="Validate guide data")
@@ -541,6 +549,9 @@ def main():
     ap.add_argument("--density", choices=list(DENSITY))
     args = ap.parse_args()
     errors, warns, computed = run_checks(load_json(args.paragraphs), load_guide(args.guide), args.density)
+    stale = stale_fixes(args.paragraphs)
+    if stale:
+        warns.append(stale)
     report(errors, warns, computed)
     sys.exit(1 if errors else 0)
 
