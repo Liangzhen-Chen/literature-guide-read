@@ -266,3 +266,50 @@ def test_join_rejects_intervening_type(work, target_type, between_type):
     with pytest.raises(ValueError, match="op 1.*consecutive items of its type"):
         run(work, [dict(op="join", ids=["P1", "P3"], why="invalid gap")])
     assert work.read_bytes() == before
+
+
+def test_split_tail_names_accept_all_id_fields(work):
+    doc = json.loads(work.read_text())
+    doc["items"][2]["text"] = "First. Second. Third."
+    work.write_text(json.dumps(doc))
+    ops = [dict(op="split", id="P3", at="Second.", why="first split"),
+           dict(op="split", id="P3#2", at="Third.", why="split the tail"),
+           dict(op="type", ids=["P3#2"], to="caption", why="caption piece"),
+           dict(op="move", id="P3#3", after="P1", why="move tail"),
+           dict(op="type", ids=["P3"], to="heading", why="original head remains addressable"),
+           dict(op="move", id="P2", after="P3#2", why="tail as anchor"),
+           region_op(after="P3#3")]
+    result = run(work, ops)
+    items = {it["text"]: it for it in result["items"]}
+    mapping = json.loads(work.with_name("fixes_log.json").read_text())["id_map"]
+    assert mapping["P3#2"] == [items["Second."]["id"]]
+    assert mapping["P3#3"] == [items["Third."]["id"]]
+    assert set(mapping["P3"]) == {items[text]["id"] for text in ["First.", "Second.", "Third."]}
+    assert items["Second."]["type"] == "caption"
+    assert items["First."]["type"] == "heading"
+    assert result["items"][1]["text"] == "Third."
+    assert result["items"][2]["id"] == mapping["region1"][0]
+    before = work.read_bytes()
+    run(work, ops)
+    assert work.read_bytes() == before
+
+
+def test_join_tail_names_and_deduplicate_original_mapping(work):
+    ops = [dict(op="split", id="P3", at="Second sentence.", why="split"),
+           dict(op="join", ids=["P3", "P3#2"], why="join named pieces")]
+    doc = run(work, ops)
+    assert doc["items"][2]["text"] == "national Second sentence."
+    mapping = json.loads(work.with_name("fixes_log.json").read_text())["id_map"]
+    assert mapping["P3"] == mapping["P3#2"] == ["P3"]
+
+
+def test_split_tail_suffixes_follow_creation_order(work):
+    doc = json.loads(work.read_text())
+    doc["items"][2]["text"] = "First. Middle. Last."
+    work.write_text(json.dumps(doc))
+    result = run(work, [dict(op="split", id="P3", at="Last.", why="tail"),
+                        dict(op="split", id="P3", at="Middle.", why="another tail"),
+                        dict(op="type", ids=["P3#2"], to="caption", why="last piece"),
+                        dict(op="type", ids=["P3#3"], to="heading", why="middle piece")])
+    assert [(it["text"], it["type"]) for it in result["items"][2:5]] == [
+        ("First.", "para"), ("Middle.", "heading"), ("Last.", "caption")]

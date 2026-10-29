@@ -3,7 +3,8 @@
 
 Fixes are a JSON array (or {"ops": [...]}); IDs always name original items.
 After a split the original ID addresses the first piece; joined IDs address
-the merged item. The log maps each original ID to all surviving pieces.
+the merged item. New tails get the next unused #2, #3 suffix for that base ID.
+The log maps original IDs to surviving pieces and tail names to their items.
 """
 import argparse
 from collections import Counter
@@ -113,6 +114,7 @@ def corrected(original, ops):
     items = doc["items"]
     for it in items:
         it["_orig"] = [it["id"]]
+        it["_keys"] = [it["id"]]
         it["_crops"] = [original.get("crops", {}).get(it["id"])]
     known = {it["id"] for it in items}
     n_regions = 0
@@ -120,7 +122,7 @@ def corrected(original, ops):
     def find(key):
         if key not in known:
             raise ValueError(f"unknown id {key!r}")
-        return next(it for it in items if key in it["_orig"])
+        return next(it for it in items if key in it["_keys"])
 
     for index, op in enumerate(ops, 1):
         try:
@@ -159,7 +161,8 @@ def corrected(original, ops):
                 head = targets[0]
                 for other in targets[1:]:
                     head["text"] = segment.join_marked(head["text"], other["text"])
-                    head["_orig"] += other["_orig"]
+                    head["_orig"] = list(dict.fromkeys(head["_orig"] + other["_orig"]))
+                    head["_keys"] += other["_keys"]
                     head["_crops"] += other["_crops"]
                     pages = sorted(set(head.get("pages", [head["page"]]) + other.get("pages", [other["page"]])))
                     if len(pages) > 1:
@@ -177,6 +180,13 @@ def corrected(original, ops):
                 if not it["text"][:pos].strip():
                     raise ValueError("split would leave an empty first item")
                 tail = deepcopy(it)
+                root, suffix = op["id"].split("#", 1)[0], 2
+                while f"{root}#{suffix}" in known:
+                    suffix += 1
+                key = f"{root}#{suffix}"
+                known.add(key)
+                tail["_orig"] = [name for name in it["_orig"] if "#" not in name] + [key]
+                tail["_keys"] = [key]
                 it["text"], tail["text"] = it["text"][:pos].rstrip(), it["text"][pos:]
                 tail.pop("num", None)
                 items.insert(items.index(it)+1, tail)
@@ -188,7 +198,7 @@ def corrected(original, ops):
                 n_regions += 1
                 key = f"region{n_regions}"
                 known.add(key)
-                it.update(id=key, _orig=[key], _crops=[])
+                it.update(id=key, _orig=[key], _keys=[key], _crops=[])
                 pos = items.index(after)+1 if after is not None else next(
                     (i for i, old in enumerate(items) if old.get("page") == it["page"]), next(
                         (i for i, old in enumerate(items) if old.get("page", 0) > it["page"]), len(items)))
@@ -254,6 +264,7 @@ def apply(fixes, paras):
         for it in doc["items"]:
             paths = list(dict.fromkeys(path for path in it.pop("_crops") if path))
             it.pop("_orig")
+            it.pop("_keys")
             if len(paths) == 1:
                 crops[it["id"]] = paths[0]
             elif paths:

@@ -232,6 +232,19 @@ def run_checks(doc, guide, density=None):
     def text_nums(ids):
         return set().union(*map(source_numbers, scope_texts(ids)))
 
+    def part_source(ids):
+        selected = [items[i] for i in ids if i in items]
+        texts = [it["text"] for it in selected]
+        texts += [items[nid]["text"] for it in selected for nid in it.get("notes", [])]
+        positions = [index for index, it in enumerate(doc["items"]) if it["id"] in ids]
+        if positions:
+            end = max(positions) + 1
+            while end < len(doc["items"]) and doc["items"][end]["type"] in ("frag", "caption"):
+                end += 1  # a table or display that follows the part's last paragraph
+            texts += [it["text"] for it in doc["items"][min(positions):end]
+                      if it["type"] in ("frag", "caption")]
+        return set().union(*map(source_numbers, texts)), "\n".join(texts)
+
     for k, q in enumerate(questions or []):
         ids = q.get("p") or []
         if not isinstance(ids, list) or not ids:
@@ -264,13 +277,14 @@ def run_checks(doc, guide, density=None):
         ids = [f"P{i}" for i in range(a, b + 1)]
         for i in ids:
             part_of[i] = p
+        part_nums, part_text = part_source(ids)
         need(pid, p.get("title"), "title")
         need(pid, p.get("role"), "role")
         if not p.get("skip"):
             claim = need(pid, p.get("claim"), "claim")
             longer(f"{pid} claim", claim, "claim")
             tells(f"{pid} claim", claim)
-            nums_ok(f"{pid} claim", claim, text_nums(ids), text_scope(ids))
+            nums_ok(f"{pid} claim", claim, part_nums, part_text)
             cp = pnum(p.get("claim_p"))
             if cp is None or not a <= cp <= b:
                 errors.append(f"{pid}: claim_p must name a paragraph inside {p.get('range')}")
@@ -283,7 +297,7 @@ def run_checks(doc, guide, density=None):
                 for k, q in enumerate(recall):
                     for f in ("q", "a"):
                         rd = need(f"{pid} recall {k + 1}", q[f], f)
-                        nums_ok(f"{pid} recall {k + 1} {f}", rd, text_nums(ids), text_scope(ids))
+                        nums_ok(f"{pid} recall {k + 1} {f}", rd, part_nums, part_text)
                         tells(f"{pid} recall {k + 1} {f}", rd)
     if parts and pos - 1 != n:
         errors.append(f"parts end at P{pos - 1}; they must end at P{n}")
@@ -333,6 +347,7 @@ def run_checks(doc, guide, density=None):
         except ValueError:
             continue
         inside = {f"P{i}" for i in range(a0, b0 + 1)}
+        part_nums, part_text = part_source(inside)
         inside |= {n for i in list(inside) for n in (items.get(i) or {}).get("notes", [])}
         if not 2 <= len(flow) <= 7:
             warns.append(f"{pid}: flow has {len(flow)} steps; 3 to 6 is usual")
@@ -342,7 +357,7 @@ def run_checks(doc, guide, density=None):
             if k and st.get("rel") not in STEP_RELS:
                 errors.append(f"{pid} flow step {k + 1}: 'rel' must be one of {', '.join(sorted(STEP_RELS))}")
             x = need(f"{pid} flow step {k + 1}", st.get("x"), "x")
-            nums_ok(f"{pid} flow step {k + 1}", x, text_nums(sorted(inside)), text_scope(sorted(inside)))
+            nums_ok(f"{pid} flow step {k + 1}", x, part_nums, part_text)
             tells(f"{pid} flow step {k + 1}", x)
             note = as_lang((entries.get(st.get("p")) or {}).get("note"), primary)
             for lang, text in x.items():
