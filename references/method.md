@@ -45,7 +45,7 @@ The share of close reads is capped by `meta.density`: low 15%, medium 25%, high 
 - **evidence to cite**: close reads are the paragraphs with the main numbers, tables and figures and the limitations; mark every `exp`, `field`, `survey` element with a label `s` so the evidence list is complete.
 - **exam revision**: close reads as for whole argument, plus three or four recall questions per part instead of two.
 
-`meta.familiarity` changes the notes, not the tiers: a reader new to the field gets a `def` element at first use for every technical term the argument relies on (each method, model, test, measure and data series a step or claim needs) and notes that spell terms out; a reader who knows the field gets fewer definitions and shorter notes. Before writing, list the terms a newcomer would stop at and check each has its `def`. When familiarity was not given, write for a reader who knows the field in general but not this paper's methods. Each question in `questions` is answered in `a` from the text only, with `p` naming the paragraphs that answer it; the page shows the questions at the top with links. If the text does not answer a question, say so in `a`.
+`meta.familiarity` changes the notes, not the tiers: a reader new to the field gets a `def` element at first use for every technical term the argument relies on (each method, model, test, measure and data series a step or claim needs) and notes that spell terms out; a reader who knows the field gets fewer definitions and shorter notes. Before writing, list the terms a newcomer would stop at, starting with the terms the paper's question and the reader's own questions turn on (often a distinction, such as two kinds of protection an asset can give), then the terms the method and results use, and check each has its `def`. When familiarity was not given, write for a reader who knows the field in general but not this paper's methods. Each question in `questions` is answered in `a` from the text only, with `p` naming the paragraphs that answer it; the page shows the questions at the top with links. If the text does not answer a question, say so in `a`.
 
 ## 4 What to write for each tier
 
@@ -115,7 +115,7 @@ The argument map at the top of the page is drawn from two fields on each part.
 
 Add secondary entries only for links a reader must see (Part 4 `explains` Parts 2 and 3). Give each a short `label` saying what the link is about: "the endowment effect survives market experience", not "supports the thesis".
 
-`flow` lists three to six steps inside the part, in reading order. Each step names a paragraph (or one of its footnotes) and says in one sentence (about 45 Chinese characters or 25 English words) what it adds, and every step after the first has a `rel` describing how it relates to the step before it: supports, challenges, answers, rules out, implies, explains, qualifies, extends, names, raises or concludes. The flow is the part's reasoning ("objection, answered by the mug results, which rule out buyers' reluctance, which implies..."), not a list of every paragraph.
+`flow` lists three to six steps inside the part, in reading order. Each step names a paragraph (or one of its footnotes) and says in one sentence (about 45 Chinese characters or 25 English words) what it adds, and every step after the first has a `rel` describing how it relates to the step before it: supports, challenges, answers, rules out, implies, explains, qualifies, extends, names, raises or concludes. A step gives the move in one sentence and does not restate the paragraph's note. The flow is the part's reasoning ("objection, answered by the mug results, which rule out buyers' reluctance, which implies..."), not a list of every paragraph.
 
 A step explains the move, so a reader can follow it without the paper open:
 
@@ -135,7 +135,9 @@ Each part that is not skipped carries two or three `recall` questions: short que
 First reread each claim, flow step, note and recall answer beside its paragraph and check two things check.py cannot:
 
 - Direction: which variable rises or falls, which group is larger, the sign of each effect, which way a series responds. A reversed result is the worst error a guide can make.
-- Strength: keep the author's hedges and limits (may, suggests, in the short run, contemporaneous, in this sample, until a given year) and the sample or period a result comes from. A relation word such as "rules out" or "proves" needs the text to say as much; otherwise use "supports" or "qualifies".
+- Strength: keep the author's hedges and limits (may, suggests, in the short run, contemporaneous, in this sample, until a given year) and the sample or period a result comes from. A relation word such as "rules out" or "proves" needs the text to say as much; otherwise use "supports" or "qualifies". "Does not respond" is not "moves the other way".
+- The thesis, the part claims and the answers to the reader's questions are the shortest fields and lose hedges first; check them hardest.
+- A result the authors report but do not show ("available upon request", an appendix that is not in the PDF) is the authors' claim: say so, and say the reader cannot check it in the text.
 
 Then:
 
