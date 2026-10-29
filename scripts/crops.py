@@ -94,5 +94,6 @@ def crop_regions(pdf_path, items, out_dir, resolution=150, pad=0.006):
                 continue
             path = out_dir / f"{it['id']}.png"
             img.save(path, "PNG", optimize=True)
+            it["crop_bbox"]=[box[0]/w,box[1]/h,box[2]/w,box[3]/h]
             written[it["id"]] = str(path)
     return written

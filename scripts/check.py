@@ -114,8 +114,16 @@ def run_checks(doc, guide, density=None):
         langs = [x for x in langs if x in LANGS] or ["zh"]
     primary = langs[0]
     items = {i["id"]: i for i in doc["items"]}
+    equation_crops=[it for it in items.values() if it.get("type")=="frag" and it.get("equation")
+                    and it.get("bbox") and it["id"] in (doc.get("crops") or {})]
     for it in items.values():
-        if it.get("unmapped_glyphs") or re.search(r"⟦cid:\d+⟧", it.get("text", "")):
+        box=it.get("bbox")
+        cropped_equation = it.get("type")=="frag" and it.get("equation") and (
+            it["id"] in (doc.get("crops") or {}) or box and any(
+                crop["page"]==it["page"] and crop["bbox"][0]<=box[0] and crop["bbox"][1]<=box[1]
+                and crop["bbox"][2]>=box[2] and crop["bbox"][3]>=box[3] for crop in equation_crops))
+        own_text=it.get("text", "")+" "+" ".join(it.get("unmapped_text",[]))
+        if not cropped_equation and (it.get("unmapped_glyphs") or re.search(r"⟦cid:\d+⟧", own_text)):
             warns.append(f"{it['id']}: unmapped PDF glyphs remain; the agent must check the original page or use MinerU")
     pids = [i["id"] for i in doc["items"] if i["type"] == "para"]
     n = len(pids)

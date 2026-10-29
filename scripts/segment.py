@@ -24,7 +24,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import clean_text, drop_cap_for, fix_split_ligatures, is_cjk, put_drop_cap, use_utf8  # noqa: E402
+from common import LIGATURES, clean_text, drop_cap_for, fix_split_ligatures, is_cjk, put_drop_cap, use_utf8  # noqa: E402
 
 CAPTION_RE = re.compile(r"^(fig(ure)?s?\.?|table|tab\.|exhibit|chart|plate|图|表)\s*(?:(?:[A-Z][.-]?)?\d+|[IVXLCDM]+)(?:[.-]\d+)?\s*([.:：|—?]|$)", re.I)
 NUM_HEAD_RE = re.compile(r"^(\d+(\.\d+){0,3}|[IVXLC]+|[A-H])[.)]?\s+(\S)")
@@ -313,12 +313,29 @@ def font_properties(page):
             props["fallback_cids"] = {}
             props["symbolic"] = bool(desc.get("Flags", 0) & 4) and not bool(desc.get("Flags", 0) & 32)
             props["pua_glyphs"] = {}
+            props["glyph_names"] = {}
+            props["glyph_bounds"] = {}
             if not spec.get("DescendantFonts") and spec.get("Encoding"):
                 enc = resolve1(spec["Encoding"])
                 if isinstance(enc, dict):
                     props["fallback_cids"].update(EncodingDB.get_encoding(literal_name(enc.get("BaseEncoding")), resolve1(enc.get("Differences", []))))
+                    code=0
+                    for value in resolve1(enc.get("Differences", [])):
+                        if isinstance(value,int):
+                            code=value
+                        else:
+                            props["glyph_names"][code]=literal_name(value)
+                            code+=1
                 else:
                     props["fallback_cids"].update(EncodingDB.get_encoding(literal_name(enc)))
+            from pdfminer.fontmetrics import FONT_METRICS
+            # PDF Reference 5.5: Adobe's standard Type 1 .notdef is blank.
+            # Only unassigned controls in an unembedded standard font qualify;
+            # zero advance alone does not prove that a combining glyph is blank.
+            # https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/pdfreference1.3.pdf
+            props["blank_controls"] = (name in FONT_METRICS and literal_name(spec.get("Subtype"))=="Type1"
+                                        and not any(desc.get(k) for k in ("FontFile","FontFile2","FontFile3"))
+                                        and not spec.get("ToUnicode"))
             stream = resolve1(desc.get("FontFile2") or desc.get("FontFile3"))
             if desc.get("FontFile"):
                 try:
@@ -328,6 +345,7 @@ def font_properties(page):
                     program.data = resolve1(desc["FontFile"]).get_data()
                     program.encoding = "ascii"
                     program.parse()
+                    props["glyph_bounds"].update(unmapped_font_bounds(program.getGlyphSet(),props["glyph_names"],program.font.get("FontMatrix",[.001,0,0,.001,0,0])))
                     props["fallback_cids"].update({code: text for code, glyph in enumerate(program.font.get("Encoding", []))
                                                    if (text := toUnicode(glyph))})
                 except Exception:
@@ -351,6 +369,7 @@ def font_properties(page):
                         cff = CFFFontSet()
                         cff.decompile(BytesIO(data), None)
                         top = cff[cff.fontNames[0]]
+                        props["glyph_bounds"].update(unmapped_font_bounds(top.CharStrings,props["glyph_names"],top.FontMatrix))
                         props["bold"] |= bool(re.search(r"bold|black|heavy|demi", getattr(top, "Weight", ""), re.I))
                         props["italic"] |= bool(getattr(top, "ItalicAngle", 0))
                         if not spec.get("DescendantFonts"):
@@ -379,6 +398,30 @@ def font_properties(page):
             cache[name] = result[name] = props
         except Exception:
             continue
+    return result
+
+
+def unmapped_font_bounds(glyphs,names,matrix):
+    """Actual glyph outlines avoid substituting a font-wide ascent for ink.
+
+    https://fonttools.readthedocs.io/en/latest/pens/boundsPen.html
+    """
+    from fontTools.agl import toUnicode
+    from fontTools.pens.boundsPen import BoundsPen
+    from fontTools.misc.transform import Transform
+    result={}
+    for code,name in names.items():
+        if name not in glyphs or toUnicode(name):
+            continue
+        pen=BoundsPen(glyphs)
+        try:
+            glyphs[name].draw(pen)
+        except Exception:
+            continue  # unsupported/damaged outlines keep their original warning
+        if pen.bounds:
+            x0,y0,x1,y1=pen.bounds
+            pts=[Transform(*matrix).transformPoint(p) for p in [(x0,y0),(x0,y1),(x1,y0),(x1,y1)]]
+            result[code]=(min(x for x,y in pts),min(y for x,y in pts),max(x for x,y in pts),max(y for x,y in pts))
     return result
 
 
@@ -455,6 +498,13 @@ def repair_case_maps(chars, fonts):
         if len(matches) == 1:
             c["text"] = matches.pop()
         evidence = fonts.get(c.get("fontname"), {})
+        missing=re.fullmatch(r"\(cid:(\d+)\)",c["text"])
+        if (missing and evidence.get("blank_controls") and int(missing.group(1))<32
+                and int(missing.group(1)) not in evidence.get("glyph_names",{})
+                and int(missing.group(1)) not in evidence.get("fallback_cids",{})
+                and c.get("adv")==0 and c["x0"]==c["x1"]):
+            c["text"]=""
+            continue
         c["text"] = "".join(evidence.get("pua_glyphs", {}).get(ch, ch) for ch in c["text"])
         # Microsoft symbol cmaps store byte codes at F000 + code. Decode only
         # the known Symbol encoding, never arbitrary private-use characters.
@@ -508,10 +558,10 @@ def get_words(page):
     flow = source_spaces_overlap(chars)
     try:  # 按字号比例判断词间距；没有编码空格的 PDF（常见于 TeX）也能正确分词
         ws = page.extract_words(x_tolerance_ratio=0.15, keep_blank_chars=False,
-                                use_text_flow=flow, extra_attrs=["size", "fontname"])
+                                use_text_flow=flow, expand_ligatures=False, extra_attrs=["size", "fontname"])
     except TypeError:  # 旧版 pdfplumber
         ws = page.extract_words(x_tolerance=1.5, keep_blank_chars=False,
-                                use_text_flow=flow, extra_attrs=["size", "fontname"])
+                                use_text_flow=flow, expand_ligatures=False, extra_attrs=["size", "fontname"])
     ratios = font_word_tolerances(chars) if not flow else {}
     if any(r < 0.15 for r in ratios.values()):
         from pdfplumber.utils.text import WordExtractor
@@ -532,13 +582,22 @@ def get_words(page):
         # by font would join text across intervening symbols and superscripts.
         try:
             ws = FontWordExtractor(x_tolerance_ratio=0.15,keep_blank_chars=False,
-                                   use_text_flow=flow,extra_attrs=["size","fontname"]).extract_words(chars)
+                                   use_text_flow=flow,expand_ligatures=False,extra_attrs=["size","fontname"]).extract_words(chars)
         except TypeError:
             pass  # older pdfplumber: retain the extraction obtained above
-    out, unmapped, marks = [], [], []
+    out, unmapped, marks, sources = [], [], [], []
     # pdfplumber reports coordinates in a frame whose origin is page.bbox, not the page corner; a MediaBox
     # that does not start at (0, 0) (JSTOR scans) would otherwise shift margins, crops and every bbox.
     ox, oy = float(page.bbox[0]), float(page.bbox[1])
+    baselines={(c.get("fontname"),round(c["x0"],4),round(c["top"],4),round(c.get("size",0),3)):
+               float(page.bbox[3])-float(c["matrix"][5])-oy
+               for c in chars if c.get("matrix") and c.get("upright",True)}
+    ligature_starts={(c.get("fontname"),round(c["x0"],4),round(c["top"],4)) for c in chars
+                     if c.get("text") in LIGATURES or c.get("text") in LIGATURES.values()}
+    space_before={(c.get("fontname"),round(c["x0"],4),round(c["top"],4)) for i,c in enumerate(chars)
+                  if i and chars[i-1].get("text","").isspace()}
+    space_after={(c.get("fontname"),round(c["x1"],4),round(c["bottom"],4)) for i,c in enumerate(chars[:-1])
+                 if chars[i+1].get("text","").isspace()}
     for w in ws:
         if not w.get("upright", True):
             continue  # 侧边竖排水印等
@@ -547,6 +606,27 @@ def get_words(page):
             unmapped.append((float(w["x0"]) - ox, float(w["x1"]) - ox,
                              float(w["top"]) - oy, float(w["bottom"]) - oy))
             marks.append((re.findall(r"\(cid:(\d+)\)", t), unmapped[-1], t))
+            sources.append(dict(codes=[f"⟦cid:{cid}⟧" for cid in marks[-1][0]],
+                                bbox=[round(unmapped[-1][0]/page.width,8),round(unmapped[-1][2]/page.height,8),
+                                      round(unmapped[-1][1]/page.width,8),round(unmapped[-1][3]/page.height,8)],
+                                raw=re.sub(r"\(cid:(\d+)\)",r"⟦cid:\1⟧",t),font=w["fontname"],
+                                glyph_names=[props.get(w["fontname"],{}).get("glyph_names",{}).get(int(cid),"") for cid in marks[-1][0]]))
+            ink=[]
+            outlined=0
+            for c in chars:
+                match=re.fullmatch(r"\(cid:(\d+)\)",c.get("text",""))
+                bounds=props.get(w["fontname"],{}).get("glyph_bounds",{}).get(int(match.group(1))) if match else None
+                if (bounds and c.get("matrix") and c.get("fontname")==w["fontname"]
+                        and w["x0"]<=c["x0"]<=c["x1"]<=w["x1"] and w["top"]<=c["top"]<=c["bottom"]<=w["bottom"]):
+                    a,b,d,e,x,y=c["matrix"]
+                    for gx,gy in [(bounds[0],bounds[1]),(bounds[0],bounds[3]),(bounds[2],bounds[1]),(bounds[2],bounds[3])]:
+                        ink.append((a*gx+d*gy+x,b*gx+e*gy+y))
+                    outlined+=1
+            if ink and outlined==len(marks[-1][0]):
+                sources[-1]["ink_bbox"]=[(min(x for x,y in ink)-ox)/page.width,
+                    (float(page.bbox[3])-max(y for x,y in ink)-oy)/page.height,
+                    (max(x for x,y in ink)-ox)/page.width,
+                    (float(page.bbox[3])-min(y for x,y in ink)-oy)/page.height]
             continue  # preserve the raw token, code and geometry as item metadata
         t = re.sub(r"\(cid:(\d+)\)", r"⟦cid:\1⟧", t)
         if not t:
@@ -562,6 +642,13 @@ def get_words(page):
             "italic": props.get(w["fontname"], {}).get("italic", False) or font_name_style(w["fontname"])[1],
             "smallcaps": props.get(w["fontname"], {}).get("smallcaps", False) or bool(re.search(r"smallcaps|small.capitals|[.-]sc$", w["fontname"], re.I)),
             "font": w["fontname"],
+            # Keep the glyph identity until line construction. pdfplumber's
+            # extra_attrs deliberately splits font runs, including fallback
+            # ligature fonts: https://github.com/jsvine/pdfplumber#extracting-text
+            "ligature": any(c in LIGATURES for c in w["text"]) or (w["fontname"],round(float(w["x0"]),4),round(float(w["top"]),4)) in ligature_starts,
+            "baseline": baselines.get((w["fontname"],round(float(w["x0"]),4),round(float(w["top"]),4),round(float(w["size"]),3)),float(w["bottom"])-oy),
+            "space_before": (w["fontname"],round(float(w["x0"]),4),round(float(w["top"]),4)) in space_before,
+            "space_after": (w["fontname"],round(float(w["x1"]),4),round(float(w["bottom"]),4)) in space_after,
             "symbolic": props.get(w["fontname"], {}).get("symbolic", False),
             "mono": bool(MONO_RE.search(w["fontname"])),
         })
@@ -574,6 +661,7 @@ def get_words(page):
         for w in out:
             w["unmapped_boxes"] = unmapped
             w["unmapped_marks"] = marks
+            w["unmapped_sources"] = sources
     if gaps:
         word_gap = statistics.median(gaps)
         for w in out:
@@ -715,6 +803,10 @@ def line_from_words(ws):
         elif (prev is not None and w["x0"] - prev["x1"] < 0.1 * max(w["size"], prev["size"])
                 and (w["size"] != prev["size"] or w.get("font") != prev.get("font"))
                 and (prev["text"][-1:] in ")]" or w["text"][:1] in "([" or (
+                    (prev.get("ligature") or w.get("ligature"))
+                    and not prev.get("space_after") and not w.get("space_before")
+                    and prev["text"][-1:].isalpha() and w["text"][:1].isalpha()
+                    and abs(w.get("baseline",w["bottom"])-prev.get("baseline",prev["bottom"])) <= .12*max(w["size"],prev["size"])) or (
                     prev["text"].isalpha() and w["text"].isalpha() and w["size"] != prev["size"]
                     and not w["text"].isdigit() and not prev["text"].isdigit()
                     and abs(w["bottom"] - prev["bottom"]) <= 0.12 * max(w["size"], prev["size"])))):
@@ -2134,6 +2226,24 @@ def early_float_regions(page, words, boxes, body):
     for box in floats:
         drawing_bounds = box[:4]
         if len(box)==4:
+            def family(font):
+                font=re.sub(r"^[A-Z]{6}\+","",font)
+                return re.sub(r"[-,.](?:bold|italic|oblique|regular|roman|medium|bolditalic|boldoblique)(?:MT)?$","",font,flags=re.I)
+            label_fonts={family(w.get("font","")) for w in words if w["size"]<body-.5
+                         and box[0]<=w["x0"] and w["x1"]<=box[2]
+                         and box[1]<=w["top"] and w["bottom"]<=box[3]}
+            prose_fonts={family(l.get("font","")) for l in lines if word_count(l["text"])>=6
+                         and abs(l["size"]-body)<=.5}
+            # Plot titles can be larger than body type. Their font family and
+            # immediate placement above the panel connect them to its labels;
+            # they must not become section barriers during paragraph joining.
+            for ln in lines:
+                if (ln["size"]>body+.5 and 0<=box[1]-ln["bottom"]<=body and box[0]<=ln["x0"] and ln["x1"]<=box[2]
+                        and word_count(ln["text"])<=12 and not end_terminal(ln["text"])
+                        and family(ln.get("font","")) in label_fonts-prose_fonts
+                        and not (CAPTION_RE.match(ln["text"]) or CAPTION_TITLE_RE.match(ln["text"]))):
+                    for w in ln.get("words",[]):
+                        w["graphic"]=True
             # Disconnected panels may be far from their shared caption. Nearby
             # small lettering is evidence against a heading, without hiding any
             # prose in the gaps between panels or treating the union as a box.
@@ -2467,6 +2577,11 @@ def from_pdf_text(pdf, pnos, columns, cache=None):
         page_blocks = restore_drop_caps(page_blocks, p["caps"], body)
         for b in page_blocks:
             b["pw"], b["ph"] = p["w"], p["h"]
+            b["unmapped_sources"]=[dict(source,page=p["pno"]) for source in
+                                    (p["words"][0].get("unmapped_sources",[]) if p["words"] else [])
+                                    if b["top"]-b["size"]<=source["bbox"][3]*p["h"]
+                                    and b["bottom"]+b["size"]>=source["bbox"][1]*p["h"]
+                                    and b.get("column_x0",0)<=sum(source["bbox"][::2])*p["w"]/2<=b.get("column_x1",float("inf"))]
             if p.get("sidebar") is not None and b["x1"] <= p["sidebar"] + 2 and b["top"] <= p.get("sidebar_bottom", 0):
                 b["sidebar"] = True
         # An operator can occupy a line on its own. Associate every unresolved
@@ -2478,6 +2593,12 @@ def from_pdf_text(pdf, pnos, columns, cache=None):
                                                         max(b["top"] - cy, cy - b["bottom"], 0)))
                 target["unmapped_glyphs"] = sorted(set(target.get("unmapped_glyphs", [])) | {f"⟦cid:{cid}⟧" for cid in codes})
                 target.setdefault("unmapped_text", []).append(re.sub(r"\(cid:(\d+)\)", r"⟦cid:\1⟧", raw))
+                for source in p["words"][0].get("unmapped_sources",[]):
+                    if source["raw"]==re.sub(r"\(cid:(\d+)\)",r"⟦cid:\1⟧",raw) and all(
+                            abs(a-b)<1e-6 for a,b in zip(source["bbox"],(box[0]/p["w"],box[2]/p["h"],box[1]/p["w"],box[3]/p["h"]))):
+                        mark=dict(source,page=p["pno"])
+                        if mark not in target.setdefault("unmapped_sources",[]):
+                            target["unmapped_sources"].append(mark)
         blocks += page_blocks
     blocks = combine_caption_groups(blocks)
     blocks = join_chapter_openers(blocks, body)
@@ -3430,6 +3551,10 @@ def retain_unmapped(target, *pieces):
             values.update(p.get(key, []))
         if values:
             target[key] = sorted(values)
+    for piece in pieces:
+        for source in piece.get("unmapped_sources",[]):
+            if source not in target.setdefault("unmapped_sources",[]):
+                target["unmapped_sources"].append(source)
 
 
 def merge_continuations(blocks, body=None):
@@ -3641,10 +3766,15 @@ def finalize(blocks):
         it = {"id": f"{k}{counters[k]}", "type": b["type"], "text": text, "page": origin["page"]}
         if note_marks:
             it["note_marks"] = note_marks
-        if "⟦cid:" in text or b.get("unmapped_glyphs"):
-            it["unmapped_glyphs"] = sorted(set(re.findall(r"⟦cid:\d+⟧", text)) | set(b.get("unmapped_glyphs", [])))
+        # Missing glyphs may have been dropped completely from the text. Keep
+        # their codes and source boxes until actual equation crops are known.
+        own_codes=set(re.findall(r"⟦cid:\d+⟧",text)) | set(b.get("unmapped_glyphs",[]))
+        if own_codes:
+            it["unmapped_glyphs"] = sorted(own_codes)
         if b.get("unmapped_text"):
             it["unmapped_text"] = b["unmapped_text"]
+        if b.get("unmapped_sources"):
+            it["unmapped_sources"]=[dict(source) for source in b["unmapped_sources"]]
         if b["type"] == "heading":
             it["level"] = b.get("level", 1)
         if b.get("table"):
@@ -3871,6 +4001,51 @@ def page_tag(it, labels):
     return f"[p{p}/印{lab}]" if lab else f"[p{p}]"
 
 
+def unmapped_equation_regions(items):
+    """Snapshot actual display regions before crop rendering widens their boxes."""
+    return [dict(id=it["id"],page=it["page"],bbox=list(it["bbox"])) for it in items
+            if it["type"]=="frag" and it.get("equation") and it.get("bbox")]
+
+
+def filter_cropped_unmapped(doc, regions):
+    """Only source marks proven to lie inside an equation crop may lose their warning codes."""
+    def contains(outer,inner):
+        # Output region coordinates have four decimal places.
+        return all(a<=b+1e-4 for a,b in zip(outer[:2],inner[:2])) and all(
+            a+1e-4>=b for a,b in zip(outer[2:],inner[2:]))
+    crops=[it for it in doc["items"] if it["id"] in doc.get("crops",{}) and it.get("equation")]
+    covered=[dict(region,crop_id=crop["id"],crop_bbox=crop.get("crop_bbox",crop["bbox"])) for region in regions for crop in crops
+             if crop["page"]==region["page"] and contains(crop["bbox"],region["bbox"])]
+    def cropped(source,region):
+        if source["page"]!=region["page"]:
+            return False
+        box=source.get("ink_bbox",source["bbox"])
+        return contains(region["bbox"],box) or (source.get("ink_bbox")
+            and max(region["bbox"][0],box[0])<min(region["bbox"][2],box[2])
+            and max(region["bbox"][1],box[1])<min(region["bbox"][3],box[3])
+            and contains(region["crop_bbox"],box))
+    for it in doc["items"]:
+        if it["type"] not in ("para","heading","note","caption"):
+            continue
+        sources=it.get("unmapped_sources",[])
+        for source in sources:
+            source["crop_coverage"]=[dict(crop=region["crop_id"],display_bbox=region["bbox"])
+                                     for region in covered if cropped(source,region)]
+        remove=set()
+        for code in it.get("unmapped_glyphs",[]):
+            owners=[source for source in sources if code in source["codes"]]
+            if owners and all(source.get("crop_coverage") for source in owners):
+                remove.add(code)
+        if remove:
+            kept=set(it["unmapped_glyphs"])-remove
+            if kept:it["unmapped_glyphs"]=sorted(kept)
+            else:it.pop("unmapped_glyphs",None)
+            excerpts=[re.sub(r"⟦cid:\d+⟧",lambda m:"" if m.group() in remove else m.group(),t).strip()
+                      for t in it.get("unmapped_text",[])]
+            if any(excerpts):it["unmapped_text"]=[t for t in excerpts if t]
+            else:it.pop("unmapped_text",None)
+
+
 def write_outputs(doc, out, chunk_chars):
     its = [i for i in doc["items"] if isinstance(i.get("text"), str)]
     resolved, doc_decisions = resolve_hyphens([i["text"] for i in its])
@@ -3881,6 +4056,9 @@ def write_outputs(doc, out, chunk_chars):
     write_outputs.decisions = doc_decisions
     for i, t in zip(its, fix_split_ligatures([i["text"] for i in its])):
         i["text"] = t
+    for it in its:
+        codes=set(it.get("unmapped_glyphs",[])) | set(re.findall(r"⟦cid:\d+⟧",it["text"]))
+        if codes:it["unmapped_glyphs"]=sorted(codes)
     out.mkdir(parents=True, exist_ok=True)
     (out / "paragraphs.json").write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
     for old in out.glob("paragraphs_part*.txt"):
@@ -3959,10 +4137,12 @@ def main():
     if doc is not None:
         from crops import crop_regions
         names = write_outputs(doc, out, args.chunk_chars)
+        regions=unmapped_equation_regions(doc["items"])
         made = crop_regions(src, doc["items"], out / "crops")
         if made:
             doc["crops"] = {k: str(Path(v).relative_to(out)) for k, v in made.items()}
-            (out / "paragraphs.json").write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
+        filter_cropped_unmapped(doc,regions)
+        (out / "paragraphs.json").write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
         c = Counter(i["type"] for i in doc["items"])
         print(f"模式：{doc['mode']}")
         print(f"条目：段落 P {c['para']}，标题 H {c['heading']}，图表说明 C {c['caption']}，脚注 N {c['note']}，"
@@ -4015,9 +4195,6 @@ def main():
     title = next((i["text"] for i in items if i["type"] == "heading" and i.get("level") == 0), "")
     if not title and raster_cover:
         report.append("给执行的 agent（不是给用户的）：封面可能含图片标题，文字层未识别到标题；请用 --engine mineru 读取封面，不要用页眉猜标题。")
-    unknown_pages = sorted({i["page"] for i in items if i.get("unmapped_glyphs")})
-    if unknown_pages:
-        report.append(f"给执行的 agent（不是给用户的）：页 {unknown_pages} 有未映射字形，已保留 ⟦cid:N⟧ 标记；请对照原页或用 MinerU 补全。")
     doc = {"version": 2, "source": src.name, "source_path": str(src.resolve()), "mode": mode, "page_count": page_count,
            "pages_processed": [pnos[0], pnos[-1]] if pnos else None,
            "page_labels": labels, "title_guess": title, "items": items}
@@ -4026,12 +4203,17 @@ def main():
     names = write_outputs(doc, out, args.chunk_chars)
     title = doc.get("title_guess", title)
     made = {}
+    regions=unmapped_equation_regions(items)
     if pnos:
         from crops import crop_regions
         made = crop_regions(src, items, out / "crops")
         if made:
             doc["crops"] = {k: str(Path(v).relative_to(out)) for k, v in made.items()}
-            (out / "paragraphs.json").write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
+    filter_cropped_unmapped(doc,regions)
+    (out / "paragraphs.json").write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
+    unknown_pages = sorted({i["page"] for i in items if i.get("unmapped_glyphs") and i["type"]!="frag"})
+    if unknown_pages:
+        report.append(f"给执行的 agent（不是给用户的）：页 {unknown_pages} 有未映射字形，已保留代码和来源位置；请对照原页或用 MinerU 补全。")
 
     paras = [i for i in items if i["type"] == "para"]
     long_p = [f"{i['id']}（{len(i['text'])}）" for i in paras if len(i["text"]) > 2500]
