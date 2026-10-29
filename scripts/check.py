@@ -44,6 +44,42 @@ TELLS = [
 LIMITS = {"role": {"zh": 16, "en": 60}, "read": {"zh": 90, "en": 240},
           "claim": {"zh": 80, "en": 220}, "thesis": {"zh": 100, "en": 280}}
 SHORT_NOTE = {"zh": 40, "en": 25}
+
+MONTH_NAMES = {name.lower(): month for month, names in enumerate((
+    ("January", "Jan"), ("February", "Feb"), ("March", "Mar"), ("April", "Apr"),
+    ("May",), ("June", "Jun"), ("July", "Jul"), ("August", "Aug"),
+    ("September", "Sep", "Sept"), ("October", "Oct"), ("November", "Nov"), ("December", "Dec")), 1) for name in names}
+MONTH_NAME_RE = re.compile(r"(?<![A-Za-z])(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?(?![A-Za-z])", re.I)
+NUMERIC_DATE_RE = re.compile(r"(?<!\d)(?:(?P<year_zh>\d{4})\s*\u5e74\s*(?P<month_zh>\d{1,2})\s*\u6708(?:\s*(?P<day_zh>\d{1,2})\s*\u65e5)?|(?P<year_iso>\d{4})-(?P<month_iso>\d{1,2})(?:-(?P<day_iso>\d{1,2}))?|(?P<month_slash>\d{1,2})/(?P<year_slash>\d{4}))(?!\d)")
+
+
+def _date_month_spans(note, source):
+    """Return numeric month spans whose numeric dates match a named source month nearby."""
+    spans = []
+    source_months = list(MONTH_NAME_RE.finditer(source))
+    for date in NUMERIC_DATE_RE.finditer(note):
+        month_group = next(name for name in ("month_zh", "month_iso", "month_slash") if date.group(name))
+        month_text = date.group(month_group)
+        year = date.group("year_zh") or date.group("year_iso") or date.group("year_slash")
+        day = date.group("day_zh") or date.group("day_iso")
+        month = int(month_text)
+        if not 1 <= month <= 12:
+            continue
+        for named in source_months:
+            key = named.group(1).lower()
+            month_value = MONTH_NAMES[key]
+            nearby = source[max(0, named.start() - 40):named.end() + 40]
+            if month_value == month and (year in nearby or (day and re.search(rf"(?<!\d){int(day)}(?!\d)", nearby))):
+                spans.append((date.start(month_group), date.end(month_group)))
+                break
+    return spans
+
+
+def _numbers_with_date_months(note, source):
+    chars = list(note)
+    for start, end in _date_month_spans(note, source):
+        chars[start:end] = " " * (end - start)
+    return numbers_in("".join(chars))
 PART_RELS = {"supports", "explains", "qualifies", "extends", "frames", "challenges", "answers", "concludes"}
 STEP_RELS = PART_RELS | {"rules out", "implies", "names", "raises"}  # zh characters / en words for a skim note on a long paragraph
 
@@ -74,9 +110,9 @@ def run_checks(doc, guide, density=None):
                 errors.append(f"{where}: {field} is missing ({lang})")
         return d
 
-    def nums_ok(where, d, allowed):
+    def nums_ok(where, d, allowed, source_text=""):
         for lang, txt in d.items():
-            extra = sorted(x for x in numbers_in(txt) if x not in allowed)
+            extra = sorted(x for x in _numbers_with_date_months(txt, source_text) if x not in allowed)
             if extra:
                 errors.append(f"{where} ({lang}): numbers not in the source text: {', '.join(fmt_num(x) for x in extra)}")
 
@@ -103,10 +139,9 @@ def run_checks(doc, guide, density=None):
 
     if not str(meta.get("title", "")).strip():
         errors.append("meta.title is missing")
-    whole = set()
-    for it in doc["items"]:
-        if it["type"] in ("para", "note", "caption", "heading"):
-            whole |= source_numbers(it["text"])
+    whole_texts = [it["text"] for it in doc["items"] if it["type"] in ("para", "note", "caption", "heading")]
+    whole = set().union(*map(source_numbers, whole_texts))
+    whole_text = "\n".join(whole_texts)
     if not str(meta.get("purpose", "")).strip():
         warns.append("meta.purpose is missing: ask the reader what they read for before writing (SKILL.md, step 0)")
     questions = guide.get("questions")
@@ -116,8 +151,8 @@ def run_checks(doc, guide, density=None):
             questions = []
     thesis = need("guide", guide.get("thesis"), "thesis")
     overview = need("guide", guide.get("overview"), "overview")
-    nums_ok("thesis", thesis, whole)
-    nums_ok("overview", overview, whole)
+    nums_ok("thesis", thesis, whole, whole_text)
+    nums_ok("overview", overview, whole, whole_text)
     tells("thesis", thesis)
     tells("overview", overview)
     longer("thesis", thesis, "thesis")
@@ -130,17 +165,22 @@ def run_checks(doc, guide, density=None):
         elif cur and it["type"] in ("frag", "caption"):
             region.setdefault(cur, []).append(it["text"])
 
-    def text_nums(ids):
-        out = set()
+    def scope_texts(ids):
+        out = []
         for i in ids:
             it = items.get(i)
             if it:
-                out |= source_numbers(it["text"])
+                out.append(it["text"])
                 for nid in it.get("notes", []):
-                    out |= source_numbers(items[nid]["text"])
-                for t in region.get(i, []):
-                    out |= source_numbers(t)
+                    out.append(items[nid]["text"])
+                out.extend(region.get(i, []))
         return out
+
+    def text_scope(ids):
+        return "\n".join(scope_texts(ids))
+
+    def text_nums(ids):
+        return set().union(*map(source_numbers, scope_texts(ids)))
 
     for k, q in enumerate(questions or []):
         ids = q.get("p") or []
@@ -151,7 +191,7 @@ def run_checks(doc, guide, density=None):
         if bad:
             errors.append(f"question {k + 1}: 'p' names ids that are not paragraphs: {', '.join(bad)}")
         for f in ("q", "a"):
-            nums_ok(f"question {k + 1} {f}", need(f"question {k + 1}", q[f], f), text_nums([i for i in ids if i not in bad]))
+            nums_ok(f"question {k + 1} {f}", need(f"question {k + 1}", q[f], f), text_nums([i for i in ids if i not in bad]), text_scope([i for i in ids if i not in bad]))
 
     # parts: cover P1..Pn in order
     parts = guide.get("parts") or []
@@ -180,7 +220,7 @@ def run_checks(doc, guide, density=None):
             claim = need(pid, p.get("claim"), "claim")
             longer(f"{pid} claim", claim, "claim")
             tells(f"{pid} claim", claim)
-            nums_ok(f"{pid} claim", claim, text_nums(ids))
+            nums_ok(f"{pid} claim", claim, text_nums(ids), text_scope(ids))
             cp = pnum(p.get("claim_p"))
             if cp is None or not a <= cp <= b:
                 errors.append(f"{pid}: claim_p must name a paragraph inside {p.get('range')}")
@@ -193,7 +233,7 @@ def run_checks(doc, guide, density=None):
                 for k, q in enumerate(recall):
                     for f in ("q", "a"):
                         rd = need(f"{pid} recall {k + 1}", q[f], f)
-                        nums_ok(f"{pid} recall {k + 1} {f}", rd, text_nums(ids))
+                        nums_ok(f"{pid} recall {k + 1} {f}", rd, text_nums(ids), text_scope(ids))
                         tells(f"{pid} recall {k + 1} {f}", rd)
     if parts and pos - 1 != n:
         errors.append(f"parts end at P{pos - 1}; they must end at P{n}")
@@ -221,7 +261,7 @@ def run_checks(doc, guide, density=None):
                 if r.get("label") is not None:
                     try:
                         a0, b0 = parse_range(p.get("range", ""))
-                        nums_ok(f"{pid} rel {k + 1} label", as_lang(r["label"], primary), text_nums([f"P{i}" for i in range(a0, b0 + 1)]))
+                        nums_ok(f"{pid} rel {k + 1} label", as_lang(r["label"], primary), text_nums([f"P{i}" for i in range(a0, b0 + 1)]), text_scope([f"P{i}" for i in range(a0, b0 + 1)]))
                     except ValueError:
                         pass
         for pid in live:  # the first relation of every part must lead to the conclusion without a cycle
@@ -252,7 +292,7 @@ def run_checks(doc, guide, density=None):
             if k and st.get("rel") not in STEP_RELS:
                 errors.append(f"{pid} flow step {k + 1}: 'rel' must be one of {', '.join(sorted(STEP_RELS))}")
             x = need(f"{pid} flow step {k + 1}", st.get("x"), "x")
-            nums_ok(f"{pid} flow step {k + 1}", x, text_nums(sorted(inside)))
+            nums_ok(f"{pid} flow step {k + 1}", x, text_nums(sorted(inside)), text_scope(sorted(inside)))
             tells(f"{pid} flow step {k + 1}", x)
 
     missing = [pnum(p) for p in pids if p not in entries]
@@ -287,7 +327,7 @@ def run_checks(doc, guide, density=None):
                 warns.append(f"{eid}: close read has no 'note' (the after-reading summary); add one so a reader who only has the page gets the argument (method.md section 4)")
             else:
                 cn = need(eid, g.get("note"), "note")
-                nums_ok(f"{eid} note", cn, allowed)
+                nums_ok(f"{eid} note", cn, allowed, text_scope(base + neighbours))
                 style(f"{eid} note", cn)
         else:
             d = need(eid, g.get("note"), "note")
@@ -299,8 +339,8 @@ def run_checks(doc, guide, density=None):
                                      f"a skim note should let the reader move on without the original")
             if tier == "skip":
                 why = need(eid, g.get("why"), "why")
-                nums_ok(f"{eid} why", why, allowed)
-        nums_ok(f"{eid} {'read' if tier == 'close' else 'note'}", d, allowed)
+                nums_ok(f"{eid} why", why, allowed, text_scope(base + neighbours))
+        nums_ok(f"{eid} {'read' if tier == 'close' else 'note'}", d, allowed, text_scope(base + neighbours))
         style(f"{eid} {'read' if tier == 'close' else 'note'}", d, restating=tier != "close")
         spans = []
         for i, e in enumerate(g.get("els") or []):
@@ -320,7 +360,7 @@ def run_checks(doc, guide, density=None):
                     spans.append((found[0], found[1], i))
             for f in ("s", "x", "term"):
                 if e.get(f) is not None:
-                    nums_ok(f"{eid} element {i + 1} {f}", as_lang(e.get(f), primary), allowed)
+                    nums_ok(f"{eid} element {i + 1} {f}", as_lang(e.get(f), primary), allowed, text_scope(base + neighbours))
                     tells(f"{eid} element {i + 1} {f}", as_lang(e.get(f), primary))
             if t == "formula":
                 if "tex" in e and not str(e.get("tex") or "").strip():
@@ -349,9 +389,9 @@ def run_checks(doc, guide, density=None):
                         errors.append(f"{eid} element {i + 1}: syms must be a list of objects with 's' (symbol) and 'm' (meaning)")
                     else:
                         for k, y in enumerate(syms):
-                            nums_ok(f"{eid} element {i + 1} sym {k + 1}", as_lang(y["m"], primary), allowed)
+                            nums_ok(f"{eid} element {i + 1} sym {k + 1}", as_lang(y["m"], primary), allowed, text_scope(base + neighbours))
                 if e.get("why") is not None:
-                    nums_ok(f"{eid} element {i + 1} why", as_lang(e["why"], primary), allowed)
+                    nums_ok(f"{eid} element {i + 1} why", as_lang(e["why"], primary), allowed, text_scope(base + neighbours))
             if e.get("s") is not None:
                 need(f"{eid} element {i + 1}", e.get("s"), "s")
                 mapped.add(eid if it["type"] == "para" else it.get("ref"))

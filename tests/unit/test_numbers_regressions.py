@@ -42,3 +42,34 @@ def test_numbered_statements_are_references_not_data():
     # Kőszegi & Rabin (2006): "inequality (8)", "expression (15)", "Definition 1", "Lemma 2" are labels
     from common import numbers_in
     assert numbers_in("by inequality (8), expression (15), Definition 1, Lemma 2, Theorem 3 and Corollary 4; 不等式 (8) 与定义 1") == set()
+
+@pytest.mark.parametrize('source,note,valid', [
+    ('The event occurred on July 21, 2010.', '\u4e8b\u4ef6\u53d1\u751f\u4e8e 2010 \u5e74 7 \u6708 21 \u65e5\u3002', True),
+    ('The event occurred on Jul. 2010.', 'Event date: 2010-07.', True),
+    ('The event occurred on July 21, 2010.', 'Event date: 2011-07.', False),
+    ('July is named in an unrelated passage.', 'The value is 7.', False),
+])
+def test_numeric_month_matches_source_date_only(clean, source, note, valid):
+    doc, guide = clean
+    for item in doc['items']:
+        item['text'] = source
+    guide['paras']['P2']['note'] = note
+    errors, _, _ = run_checks(doc, guide)
+    assert (not any('P2 note' in e for e in errors)) == valid, errors
+
+def test_date_month_does_not_exempt_same_number_elsewhere(clean):
+    doc, guide = clean
+    for item in doc['items']:
+        item['text'] = 'The event occurred on July 21, 2010.'
+    guide['paras']['P2']['note'] = 'Event date: 2010-07; growth was 7%.'
+    errors, _, _ = run_checks(doc, guide)
+    assert any('P2 note' in e and '7' in e for e in errors), errors
+
+
+def test_date_in_part_claim_uses_paragraph_source_scope(clean):
+    doc, guide = clean
+    for item in doc['items']:
+        item['text'] = 'The event occurred on July 21, 2010.'
+    guide['parts'][0]['claim'] = 'The event occurred on 2010-07-21.'
+    errors, _, _ = run_checks(doc, guide)
+    assert not any('A claim' in e for e in errors), errors

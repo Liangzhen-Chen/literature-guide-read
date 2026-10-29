@@ -39,13 +39,13 @@ The share of close reads is capped by `meta.density`: low 15%, medium 25%, high 
 
 `meta.purpose` is what the reader said they read for. Apply the profile, then the criteria above within it:
 
-- **whole argument** (default): the criteria above as written.
+- **whole argument** (default): the criteria above as written. In an empirical paper the identification (what lets the authors read an estimate as the effect they claim: an ordering of variables, an instrument, a control group, a restriction), the main results and the robustness checks that bear on the reader's questions are close reads; if the density cap forces a choice, these come before background and literature.
 - **core claims only**: close reads are the thesis, each part's claim and the qualifications; design, data and robustness paragraphs are skim with full restating notes, so the reader can trust the claim without reading the evidence. Density low.
 - **method and design only**: close reads are the design, assumptions, identification and measurement paragraphs; results paragraphs are skim with their key numbers in the note. Density medium.
 - **evidence to cite**: close reads are the paragraphs with the main numbers, tables and figures and the limitations; mark every `exp`, `field`, `survey` element with a label `s` so the evidence list is complete.
 - **exam revision**: close reads as for whole argument, plus three or four recall questions per part instead of two.
 
-`meta.familiarity` changes the notes, not the tiers: a reader new to the field gets a `def` element for every technical term at first use and notes that spell terms out; a reader who knows the field gets fewer definitions and shorter notes. Each question in `questions` is answered in `a` from the text only, with `p` naming the paragraphs that answer it; the page shows the questions at the top with links. If the text does not answer a question, say so in `a`.
+`meta.familiarity` changes the notes, not the tiers: a reader new to the field gets a `def` element at first use for every technical term the argument relies on (each method, model, test, measure and data series a step or claim needs) and notes that spell terms out; a reader who knows the field gets fewer definitions and shorter notes. Before writing, list the terms a newcomer would stop at and check each has its `def`. When familiarity was not given, write for a reader who knows the field in general but not this paper's methods. Each question in `questions` is answered in `a` from the text only, with `p` naming the paragraphs that answer it; the page shows the questions at the top with links. If the text does not answer a question, say so in `a`.
 
 ## 4 What to write for each tier
 
@@ -128,12 +128,21 @@ Test: reading the flows in order should tell the argument with its turns: where 
 
 ## 11 Recall questions
 
-Each part that is not skipped carries two or three `recall` questions: short questions a reader should be able to answer after the part, each with its answer taken from the text ("What share of dealers traded? About 45%, against 20 to 25% of nondealers."). Retrieval practice is the best-supported study method; the page folds the questions at the end of the part with the answers hidden. Numbers in questions and answers must appear in the part.
+Each part that is not skipped carries two or three `recall` questions: short questions a reader should be able to answer after the part, each with its answer taken from the text ("What share of dealers traded? About 45%, against 20 to 25% of nondealers."). At least one per part asks why or how: why the authors chose a design, how a result supports or limits the claim, what would change the conclusion. Its answer gives the reason the text gives. A question answered by finding one number in the text is a look-up; keep those to one per part. Retrieval practice is the best-supported study method; the page folds the questions at the end of the part with the answers hidden. Numbers in questions and answers must appear in the part.
 
 ## 12 Before running check.py
+
+First reread each claim, flow step, note and recall answer beside its paragraph and check two things check.py cannot:
+
+- Direction: which variable rises or falls, which group is larger, the sign of each effect, which way a series responds. A reversed result is the worst error a guide can make.
+- Strength: keep the author's hedges and limits (may, suggests, in the short run, contemporaneous, in this sample, until a given year) and the sample or period a result comes from. A relation word such as "rules out" or "proves" needs the text to say as much; otherwise use "supports" or "qualifies".
+
+Then:
+
 
 - Does each part claim read as the part's conclusion?
 - Does each skim note let the reader move on?
 - Does each read line point at something specific?
 - Are the highlights what a skimming reader must not miss? More than four in a paragraph stops being a signal.
-- Can the recall questions be answered from the part alone?
+- Can the recall questions be answered from the part alone, and does each part have a why or how question?
+- Does every term the argument relies on have its definition at first use?
