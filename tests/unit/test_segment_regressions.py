@@ -232,3 +232,12 @@ def test_link_notes_superscript_digit_marker():
              dict(id='N1', type='note', text='2. Despite the clear evidence.', page=6)]
     s.link_notes(items)
     assert items[1]['num'] == 2 and items[1]['ref'] == 'P1'
+
+
+def test_column_cut_with_every_line_on_one_side_terminates():
+    # A narrow line touching the gutter and a wide line right of it: the gutter is free,
+    # yet both lines fall on its right side, so the cut makes no progress.
+    segs = [dict(x0=299.0, x1=302.0, top=100.0, bottom=110.0, size=10.0, text='a'),
+            dict(x0=310.0, x1=500.0, top=100.0, bottom=110.0, size=10.0, text='b')]
+    out = s.order_columns(segs, [300.0], 10.0)
+    assert sorted(ln['text'] for ln in out) == ['a', 'b']

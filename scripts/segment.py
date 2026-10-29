@@ -1225,12 +1225,14 @@ def order_columns(segs, gutters, body, boxes=(), page=(612.0, 792.0)):
             pieces = defaultdict(list)
             for s in S:
                 pieces[sum(1 for g in cuts if s["x0"] + s["x1"] > 2 * g)].append(s)
+            if len(pieces) < 2:  # every line on one side: cutting again would repeat this call forever
+                return False
             for k in sorted(pieces):
                 solve(pieces[k], leaves)
+            return True
 
         free = [g for g in gs if crossing(g) == 0]
-        if free:
-            cut(free)
+        if free and cut(free):
             return
         slabs = slabs_by_gap(S, thr)
         if len(slabs) > 1:
@@ -1240,8 +1242,7 @@ def order_columns(segs, gutters, body, boxes=(), page=(612.0, 792.0)):
         # a table or figure caption that straddles a gutter: a few such lines do not make it a wide region,
         # so cut anyway and let each straddling line go with the side that holds its middle
         soft = [g for g in gs if crossing(g) <= max(4, 0.12 * len(S))]
-        if soft:
-            cut(soft)
+        if soft and cut(soft):
             return
         leaves.append(("mixed", S))
 
