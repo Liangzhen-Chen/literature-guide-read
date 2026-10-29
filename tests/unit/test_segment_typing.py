@@ -27,6 +27,27 @@ def classify(blocks,body=10):
     return blocks
 
 
+def test_numeric_citation_tail_across_layout_band_stays_with_prose():
+    lead = block('The ordinary comparison follows earlier evidence (see Neutral Agency', 600,
+                 font='NeutralRoman', line_gap=5)
+    tail = block('Office, 2020).', 615, font='NeutralRoman', line_gap=5)
+    tail['key'] = (1, 0)
+    classify([lead, tail])
+    assert lead['type'] == tail['type'] == 'para'
+    joined, count = s.merge_continuations([lead, tail])
+    assert count == 1 and len(joined) == 1
+    assert joined[0]['text'].endswith('Neutral Agency Office, 2020).')
+
+
+def test_citation_tail_needs_matching_style_and_normal_line_gap():
+    lead = dict(block('The ordinary comparison follows evidence (see Green', 600),
+                type='para', font='NeutralRoman', line_gap=5)
+    tail = dict(block('2020).', 650), font='NeutralRoman')
+    assert not s.bracket_wrap(lead, tail)
+    tail.update(top=615, font='NeutralItalic')
+    assert not s.bracket_wrap(lead, tail)
+
+
 def test_list_wraps_currency_without_splitting_or_joining_items():
     lines=[line('• A neutral choice costs',100),line('£50 for each person.',112,x=58),
            line('• Another neutral choice costs',135),line('£80 for each person.',147,x=58)]

@@ -2,6 +2,62 @@ import json
 from pathlib import Path
 import mineru_backend as mb
 
+
+def test_open_citation_joins_numeric_page_continuation():
+    sc = _pages([_b('paragraph_title', 'Discussion', .1, level=2),
+                 _b('text', 'The neutral comparison follows earlier evidence (Green', .7, .85)],
+                [_b('text', '2020, pp. 12-13) and supports the conclusion.', .08, .2)])
+    items = mb.convert(sc, 'neutral.pdf', '/missing.pdf')['items']
+    paras = [i for i in items if i['type'] == 'para']
+    assert len(paras) == 1 and paras[0]['pages'] == [1, 2]
+    assert '(Green 2020, pp. 12-13)' in paras[0]['text']
+
+
+def test_closed_citation_does_not_join_numeric_page_restart():
+    sc = _pages([_b('paragraph_title', 'Discussion', .1, level=2),
+                 _b('text', 'The neutral comparison follows earlier evidence (Green 2020).', .7, .85)],
+                [_b('text', '2021 was a different period.', .08, .2)])
+    assert len([i for i in mb.convert(sc, 'neutral.pdf', '/missing.pdf')['items']
+                if i['type'] == 'para']) == 2
+
+
+def test_open_citation_needs_page_boundary_geometry():
+    a = dict(type='para', text='The comparison refers to (Green', page=1, bbox=[.1, .2, .9, .3])
+    b = dict(type='para', text='2020) for further evidence.', page=2, bbox=[.1, .1, .9, .2])
+    assert not mb.paragraph_continues(a, b, across_breaks=False)
+
+
+def test_new_citation_does_not_close_previous_pages_open_bracket():
+    sc = _pages([_b('paragraph_title', 'Discussion', .1, level=2),
+                 _b('text', 'The comparison follows earlier evidence (see Green', .7, .85)],
+                [_b('text', 'Brown et al. (2021) show a different result.', .08, .2)])
+    paras = [i for i in mb.convert(sc, 'neutral.pdf', '/missing.pdf')['items'] if i['type'] == 'para']
+    assert len(paras) == 2 and not any(i.get('pages') for i in paras)
+
+
+def test_metadata_labels_and_aligned_wraps_precede_prose_joining():
+    bs = [_b('doc_title', 'A Neutral Comparison', .1),
+          _b('paragraph_title', 'Abstract', .25), _b('text', 'A complete abstract.', .28, .32)]
+    records = [('ARTICLE HISTORY', .25), ('Received 1 May 2020', .27),
+               ('KEYWORDS', .31), ('neutral examples;', .33), ('ordinary comparisons', .35),
+               ('JEL CODES', .39), ('A10; B20', .41)]
+    for text, top in records:
+        b = _b('text', text, top, top + .02)
+        b['bbox'][0], b['bbox'][2] = .7, .9
+        bs.append(b)
+    bs += [_b('paragraph_title', 'Introduction', .5), _b('text', 'The body stays visible.', .55)]
+    items = mb.convert(_pages(bs), 'neutral.pdf', '/missing.pdf')['items']
+    meta = [i for i in items if i.get('front_meta')]
+    assert len(meta) == len(records) and all(i['type'] == 'frag' for i in meta)
+    assert any(i['type'] == 'para' and i['text'] == 'A complete abstract.' for i in items)
+    assert any(i['type'] == 'para' and i['text'] == 'The body stays visible.' for i in items)
+
+
+def test_conversion_preserves_equation_subscripts_and_relations():
+    tex = r'x_{-1} > y \geq z'
+    items = mb.convert(_pages([_b('equation', tex, .4)]), 'neutral.pdf', '/missing.pdf')['items']
+    assert items[0]['tex'] == tex
+
 FIX = Path(__file__).resolve().parent.parent / 'fixtures' / 'mineru_structured_small.json'
 
 

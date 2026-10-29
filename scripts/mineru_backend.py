@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import drop_cap_for, put_drop_cap, use_utf8  # noqa: E402
-from segment import CAPTION_RE, NUM_HEAD_RE, TABLE_NOTE_RE, paragraph_continues, body_size, get_words, join_marked, join_open_paragraphs, link_notes  # noqa: E402
+from segment import FRONT_META_LABEL_RE, CAPTION_RE, NUM_HEAD_RE, TABLE_NOTE_RE, paragraph_continues, body_size, get_words, join_marked, join_open_paragraphs, link_notes  # noqa: E402
 
 MASTHEAD_LINE_RE = re.compile(r"\b(vol\.|volume|issue|no\.)\s*[\dIVXLCM]+", re.I)
 
@@ -150,12 +150,16 @@ def convert(sc, source_name, source_path):
         attached = {key(x.get("content")): x for b in pblocks if b["type"] in ("image","table","chart")
                     for x in (b.get("captions") or []) + (b.get("footnotes") or []) if clean(x.get("content"))}
         emitted = set()
+        metadata = _metadata_blocks(pblocks)
         for k, b in enumerate(pblocks):
             t, c = b["type"], b.get("content")
             text = clean(c) if isinstance(c, str) else ""
             if t == "text" and text:
                 text = _restore_drop_cap(text, b.get("bbox"), layer(page))
             base = {"page": page, "bbox": b.get("bbox")}
+            if k in metadata:
+                blocks.append(dict(base, type="frag", text=text, front_meta=True))
+                continue
             if t in ("text", "paragraph_title") and key(text) in attached:
                 continue
             if t in ("text", "paragraph_title") and CAPTION_RE.match(text):
@@ -307,6 +311,32 @@ def _sidebar_rule(blocks):
                 b["type"] = "frag"
 
 
+def _metadata_blocks(pblocks):
+    """Label-led header records and their aligned wraps, before prose joining."""
+    if not any(b["type"] == "doc_title" for b in pblocks):
+        return set()
+    marked, previous = set(), None
+    for k, b in enumerate(pblocks):
+        text, box = clean(b.get("content") if isinstance(b.get("content"), str) else ""), b.get("bbox")
+        if (b["type"] == "paragraph_title" and not FRONT_META_LABEL_RE.match(text)
+                and not re.fullmatch(r"abstract\s*:?", text, re.I)):
+            break
+        if b["type"] not in ("text", "paragraph_title") or not box:
+            previous = None
+            continue
+        label = FRONT_META_LABEL_RE.match(text)
+        wrapped = (previous is not None and b["type"] == "text"
+                   and abs(box[0] - previous[0]) <= .01
+                   and -.25 * (previous[3] - previous[1]) <= box[1] - previous[3] <= previous[3] - previous[1]
+                   and .5 <= (box[3] - box[1]) / max(.001, previous[3] - previous[1]) <= 2)
+        if label or wrapped:
+            marked.add(k)
+            previous = box
+        else:
+            previous = None
+    return marked
+
+
 def _front_matter_rule(blocks):
     """On the title page, short text blocks above the first section heading (byline, affiliations) are not prose."""
     first = min((b["page"] for b in blocks), default=None)
@@ -327,7 +357,7 @@ def _number(blocks):
         k = prefix[b["type"]]
         counters[k] += 1
         it = {"id": f"{k}{counters[k]}", "type": b["type"], "text": b["text"], "page": b["page"]}
-        for f in ("level", "table", "tex", "html", "kind", "equation", "bbox"):
+        for f in ("level", "table", "tex", "html", "kind", "equation", "bbox", "front_meta"):
             if b.get(f) is not None:
                 it[f] = b[f]
         pages = sorted(b.get("pages", {b["page"]}))

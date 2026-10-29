@@ -2914,6 +2914,9 @@ def from_pdf_text(pdf, pnos, columns, cache=None):
     return blocks, body, info, {"two_col": two_col, "multi_col": multi_col, "removed": removed, "labels": labels}
 
 
+FRONT_META_LABEL_RE = re.compile(r"^(?:key\s*words?|JEL\s+(?:codes?|classification)|article\s+history\b|history\s*:?\s*$|"
+                                 r"received\b|accepted\b|revised\b|creative commons licen[cs]e|"
+                                 r"(?:selection\s+and/or\s+)?peer[- ]review\b|this (?:work|article) is (?:licensed|available))", re.I)
 SCHOLAR_META_RE = re.compile(r"^(?:article\s*(?:info|history)|received\b|revised\b|accepted\b|published\b|available online\b|keywords?\b|history\s*:|supplemental material\b|copyright\b|ISSN\b|doi\s*:|https?://doi\.)|©|\ball rights reserved\b", re.I)
 
 
@@ -3391,9 +3394,7 @@ def classify(blocks, body, info, first_page):
     # type. GROBID likewise separates the header before full-text labelling.
     for i,b in enumerate(first):
         t = b["text"]
-        label = re.match(r"^(?:key\s*words?|JEL\s+(?:codes?|classification)|article\s+history\b|history\s*:?\s*$|"
-                         r"received\b|accepted\b|revised\b|creative commons licen[cs]e|"
-                         r"(?:selection\s+and/or\s+)?peer[- ]review\b|this (?:work|article) is (?:licensed|available))",t,re.I)
+        label = FRONT_META_LABEL_RE.match(t)
         if label:
             b["front_meta"] = True
             for o in first[i+1:]:
@@ -3463,9 +3464,10 @@ def classify(blocks, body, info, first_page):
         b["quotation"] = bool(quotation)
         b["_note"] = not quotation and (small or b.get("footnote")) and not b.get("abstract") and (not b.get("inline_math_prose") or FOOT_MARK_RE.match(t0)) and not b.get("front_meta") and not b.get("independent_text") and not b.get("text_box") and not ref_head and not re.fullmatch(r"abstract",t0.strip(),re.I) and not CAPTION_RE.match(t0) and (
             below or unmarked_foot or b.get("footnote") or (NOTE_MARK_RE.match(t0) and b["top"] > 0.6 * h0))
-    for b in blocks:
+    for bi, b in enumerate(blocks):
         t = b["text"]
         h = info[b["page"]]["h"]
+        previous = blocks[bi - 1] if bi else None
         front_end = min((o["top"] for o in first if KNOWN_HEAD_RE.fullmatch(NUM_PREFIX_RE.sub("",o["text"]).strip().rstrip(":"))), default=0)
         if (b["page"] == first_page and b["top"] < min((o["top"] for o in first if NUM_HEAD_RE.match(o["text"]) and o["size"]>=body-.5),default=front_end)
                 and re.match(r"^(?:JEL\s+(?:codes?|classification)|key\s*words?)\b", t, re.I)):
@@ -3548,7 +3550,7 @@ def classify(blocks, body, info, first_page):
             b["type"], b["equation"] = "frag", True
         elif b.get("mono", 0) >= 0.6:
             b["type"] = "frag"  # 代码清单
-        elif b.get("page_top_continuation") or b.get("runin_para") or b.get("quotation") or b.get("inline_math_prose"):
+        elif b.get("page_top_continuation") or b.get("runin_para") or b.get("quotation") or b.get("inline_math_prose") or bracket_wrap(previous, b):
             b["type"] = "para"
         elif b.get("cell_sentence"):
             b["type"] = "para"
@@ -4082,6 +4084,27 @@ def block_span(b):
     return None
 
 
+def closes_open_delimiter(a, b):
+    """The next text closes an outstanding delimiter before starting another."""
+    return any(a.count(left) > a.count(right) and right in b
+               and (left not in b or b.index(right) < b.index(left))
+               for left, right in (("(", ")"), ("[", "]")))
+
+
+def bracket_wrap(a, b):
+    """An aligned citation tail can cross a layout band, not a prose boundary."""
+    if not a or a.get("type") != "para" or a["page"] != b["page"] or not closes_open_delimiter(a["text"], b["text"]):
+        return False
+    needed = ("top", "bottom", "size", "x0", "font")
+    if not all(k in a and k in b for k in needed):
+        return False
+    size = max(a["size"], b["size"])
+    gap = a.get("line_gap")
+    return (a["font"] == b["font"] and abs(a["size"] - b["size"]) <= .5
+            and abs(a["x0"] - b["x0"]) <= .15 * size
+            and 0 <= b["top"] - a["bottom"] <= (gap if gap is not None else .25 * size) + max(.45 * size, 2.5))
+
+
 def paragraph_continues(a, b, across_breaks=True, after_display=False):
     """Does paragraph b carry on from paragraph a? One rule for both engines.
 
@@ -4100,7 +4123,16 @@ def paragraph_continues(a, b, across_breaks=True, after_display=False):
                             and terminal_text(a["text"], marks).endswith(":"))
     if a.get("closed") or (end_terminal(a["text"], marks) and not display_continuation):
         return False
+    if bracket_wrap(a, b):
+        return True
     skipped_pages = b["page"] > a["page"] + 1
+    # A citation or parenthetical split at the page foot can resume with a
+    # year or capital letter. It must close the outstanding delimiter before
+    # opening another, and still needs adjacent-page foot/head geometry.
+    sa, sb = block_span(a), block_span(b)
+    if (b["page"] == a["page"] + 1 and sa and sb and sa[1] >= 0.55 and sb[0] <= 0.45
+            and closes_open_delimiter(a["text"], b["text"])):
+        return True
     if (starts_lower(b["text"]) or a["text"].endswith("-") or a["text"].rstrip().endswith(",")
             or (is_cjk(a["text"][-1]) and is_cjk(b["text"][0]))
             or last_word(a["text"]) in STOP_END or b["text"][:1] in ",;)("):
