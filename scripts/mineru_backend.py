@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import drop_cap_for, put_drop_cap, use_utf8  # noqa: E402
-from segment import NUM_HEAD_RE, body_size, get_words, join_marked, join_open_paragraphs, link_notes  # noqa: E402
+from segment import CAPTION_RE, NUM_HEAD_RE, TABLE_NOTE_RE, paragraph_continues, body_size, get_words, join_marked, join_open_paragraphs, link_notes  # noqa: E402
 
 MASTHEAD_LINE_RE = re.compile(r"\b(vol\.|volume|issue|no\.)\s*[\dIVXLCM]+", re.I)
 
@@ -143,12 +143,27 @@ def convert(sc, source_name, source_path):
     for pg in sc["pages"]:
         page = pg["page_idx"] + 1
         pblocks = pg["blocks"]
+        # Layout engines can emit a caption twice: attached to its figure and
+        # again as ordinary text. Deduplicate only against float attachments on
+        # this page, never against arbitrary repeated body prose.
+        key = lambda t: re.sub(r"\W+", "", clean(t)).casefold()
+        attached = {key(x.get("content")): x for b in pblocks if b["type"] in ("image","table","chart")
+                    for x in (b.get("captions") or []) + (b.get("footnotes") or []) if clean(x.get("content"))}
+        emitted = set()
         for k, b in enumerate(pblocks):
             t, c = b["type"], b.get("content")
             text = clean(c) if isinstance(c, str) else ""
             if t == "text" and text:
                 text = _restore_drop_cap(text, b.get("bbox"), layer(page))
             base = {"page": page, "bbox": b.get("bbox")}
+            if t in ("text", "paragraph_title") and key(text) in attached:
+                continue
+            if t in ("text", "paragraph_title") and CAPTION_RE.match(text):
+                blocks.append(dict(base, type="caption", text=text))
+                continue
+            if t == "text" and TABLE_NOTE_RE.match(text):
+                blocks.append(dict(base, type="frag", text=text, figure_note=True))
+                continue
             if t == "page_number":
                 m = re.match(r"^\s*(\d{1,4})", text)
                 if m:
@@ -183,7 +198,7 @@ def convert(sc, source_name, source_path):
                     j = len(blocks) - 1
                     while j >= 0 and blocks[j]["type"] != "para":
                         j -= 1
-                    if j >= 0:
+                    if j >= 0:  # an explicit engine continuation flag is structural evidence
                         a = blocks[j]
                         a["text"] = join_marked(a["text"], text)
                         a.setdefault("pages", {a["page"]}).add(page)
@@ -198,18 +213,23 @@ def convert(sc, source_name, source_path):
             elif t == "equation":
                 blocks.append(dict(base, type="frag", text=text or "[equation]", tex=text or None, equation=True))
             elif t in ("image", "table", "chart"):
-                caps = " ".join(clean(x.get("content")) for x in b.get("captions") or [])
-                fns = " ".join(clean(x.get("content")) for x in b.get("footnotes") or [])
-                if caps:
-                    blocks.append(dict(base, type="caption", text=caps, kind=t))
+                parts = (b.get("captions") or []) + (b.get("footnotes") or [])
+                # Keep each attached component once, with its own geometry;
+                # panel labels and notes are not separate body paragraphs.
+                for x in parts:
+                    txt = clean(x.get("content"))
+                    if not txt or key(txt) in emitted:
+                        continue
+                    emitted.add(key(txt))
+                    typ = "caption" if CAPTION_RE.match(txt) else "frag"
+                    blocks.append(dict(base, bbox=x.get("bbox",base["bbox"]),type=typ,text=txt,figure_note=typ=="frag",kind=t))
                 if t == "table":
                     blocks.append(dict(base, type="frag", text=(text or "")[:200], table=True, html=text))
-                if fns:
-                    blocks.append(dict(base, type="note", text=fns, figure_note=True))
             else:
                 blocks.append(dict(base, type="frag", text=text))
     _sidebar_rule(blocks)
     _front_matter_rule(blocks)
+    repair_continuation_titles(blocks)
     blocks, _ = join_open_paragraphs(blocks)  # a paragraph MinerU cut at a column break or around a figure
     items = _number(blocks)
     pnos = [pg["page_idx"] + 1 for pg in sc["pages"]]
@@ -227,6 +247,23 @@ def convert(sc, source_name, source_path):
             "page_count": len(layout) if layout else len(pnos),
             "pages_processed": [pnos[0], pnos[-1]] if pnos else None, "page_labels": page_labels,
             "title_guess": title, "items": items, "refs_excluded": n_refs}
+
+
+def repair_continuation_titles(blocks):
+    """A layout title label cannot override positive sentence-continuation evidence."""
+    previous = None
+    intervening_heading = False
+    for b in blocks:
+        if b["type"] == "heading":
+            if (previous and b.get("level") != 0 and b["page"] != previous["page"]
+                    and not NUM_HEAD_RE.match(b["text"]) and b["text"][:1].islower()
+                    and not intervening_heading and paragraph_continues(previous,b,across_breaks=False)):
+                b["type"]="para"
+            else:
+                intervening_heading=True
+        if b["type"] == "para":
+            previous=b
+            intervening_heading=False
 
 
 def _is_masthead(pblocks, k):
@@ -250,7 +287,7 @@ def _continues_without_flag(blocks, text, page):
     if any(b["page"] == page and b["type"] in ("para", "heading") for b in blocks):
         return False
     prev = next((b for b in reversed(blocks) if b["type"] in ("para", "heading", "caption")), None)
-    return prev is not None and prev["type"] == "para" and not re.search(r"[.!?。！？:]['\"’”)]*$", prev["text"])
+    return prev is not None and prev["type"] == "para" and paragraph_continues(prev,dict(text=text,page=page),across_breaks=False)
 
 
 def _sidebar_rule(blocks):
