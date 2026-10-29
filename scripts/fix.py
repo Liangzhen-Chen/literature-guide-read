@@ -19,6 +19,8 @@ import segment
 PREFIX = dict(para="P", heading="H", caption="C", note="N", frag="F")
 COLORS = dict(para="#1671bc", heading="#be2424", caption="#148345",
               note="#9b42b1", frag="#777777", ref="#777777")
+REQUIRED = dict(type=("ids", "to"), join=("ids",), split=("id", "at"),
+                move=("id", "after"), region=("page", "bbox", "to", "after"))
 
 
 def region(doc, op):
@@ -123,6 +125,9 @@ def corrected(original, ops):
     for index, op in enumerate(ops, 1):
         try:
             kind = op["op"]
+            for key in (*REQUIRED.get(kind, ()), "why"):
+                if key not in op:
+                    raise KeyError(key)
             if not isinstance(op.get("why"), str) or not op["why"].strip():
                 raise ValueError("why is required")
             if kind in ("type", "join"):
@@ -144,10 +149,13 @@ def corrected(original, ops):
                         it["level"] = op.get("level", 1)
             elif kind == "join":
                 positions = [items.index(it) for it in targets]
-                if len(targets) < 2 or positions != list(range(positions[0], positions[0]+len(targets))):
-                    raise ValueError("join needs consecutive items in reading order")
                 if len({it["type"] for it in targets}) != 1:
                     raise ValueError("join across types")
+                if len(targets) < 2 or positions != sorted(positions):
+                    raise ValueError("join needs at least two items in reading order")
+                between = [it for it in items[positions[0]:positions[-1]+1] if it not in targets]
+                if any(it["type"] == targets[0]["type"] or it["type"] not in ("note", "frag", "caption") for it in between):
+                    raise ValueError("join needs consecutive items of its type; only notes, frags or captions may intervene")
                 head = targets[0]
                 for other in targets[1:]:
                     head["text"] = segment.join_marked(head["text"], other["text"])
@@ -194,7 +202,8 @@ def corrected(original, ops):
             else:
                 raise ValueError(f"unknown operation {kind!r}")
         except (ValueError, KeyError, TypeError, StopIteration) as exc:
-            raise ValueError(f"op {index} ({op!r}): {exc}") from exc
+            detail = f"missing required key {exc.args[0]!r}" if isinstance(exc, KeyError) else str(exc)
+            raise ValueError(f"op {index} ({op!r}): {detail}") from exc
     counts, mapping = Counter(), {key: [] for key in known}
     for it in items:
         prefix = PREFIX.get(it["type"], "F")

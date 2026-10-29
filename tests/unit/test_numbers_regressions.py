@@ -89,3 +89,28 @@ def test_century_and_decade_note_numbers(clean, source, note, valid):
     guide['paras']['P2']['note'] = note
     errors, _, _ = run_checks(doc, guide)
     assert (not any('P2 note' in e for e in errors)) == valid, errors
+
+
+@pytest.mark.parametrize('dash', ['-', '\u2013'])
+@pytest.mark.parametrize('prefix', ['', 'A study ', 'The studies ', 'Conditions '])
+def test_numeric_range_keeps_both_endpoints(dash, prefix):
+    for gap in ['', ' ']:
+        text = f'{prefix}(1970{gap}{dash}{gap}1973)'
+        assert common.numbers_in(text) == {1970, 1973}
+        assert {1970, 1973} <= common.source_numbers(text)
+
+
+@pytest.mark.parametrize('text', ['-0.5', 'value -0.5', '(-0.5)', 'value (-0.5)'])
+def test_negative_number_still_uses_magnitude(text):
+    # Number checking has always compared magnitudes, including N(-496,114).
+    assert common.numbers_in(text) == {.5}
+
+
+@pytest.mark.parametrize('dash', ['-', '\u2013'])
+def test_range_start_allowed_in_note(clean, dash):
+    doc, guide = clean
+    for item in doc['items']:
+        item['text'] = f'The study (1970{dash}1973) reports stable output.'
+    guide['paras']['P2']['note'] = 'The period begins in 1970.'
+    errors, _, _ = run_checks(doc, guide)
+    assert not any('P2 note' in error for error in errors), errors

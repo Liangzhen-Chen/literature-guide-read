@@ -219,3 +219,50 @@ def test_region_page_start_after_reorder(work):
     assert doc["items"][0]["page"] == 2
     assert doc["items"][1]["bbox"] == [.09, .1, .95, .17]
     assert doc["items"][2]["text"] == "inter-"
+
+
+@pytest.mark.parametrize("kind,required", [(None, ("op",)), *fix.REQUIRED.items()])
+def test_missing_required_keys(work, kind, required):
+    complete = dict(op=kind, ids=["P1", "P2"], to="para", id="P1", at="intro.",
+                    after="P1", page=1, bbox=[.1, .1, .8, .2], why="synthetic correction")
+    for key in (*required, "why"):
+        op = {k: v for k, v in complete.items() if k != key}
+        with pytest.raises(ValueError, match=f"op 2 .*missing required key '{key}'"):
+            run(work, [dict(op="type", ids=["P1"], to="heading", why="valid first"), op])
+        assert not work.with_name("paragraphs.orig.json").exists()
+        assert not work.with_name("fixes_log.json").exists()
+
+
+def test_join_across_notes_fragments_captions(work):
+    doc = json.loads(work.read_text())
+    inserts = [dict(id=key, type=kind, page=1, text=text) for key, kind, text in
+               [("N2", "note", "First inset"), ("F1", "frag", "A fragment"),
+                ("C1", "caption", "A caption"), ("N3", "note", "Second inset")]]
+    doc["items"][2:2] = inserts
+    work.write_text(json.dumps(doc))
+    ops = [dict(op="join", ids=["P2", "P3"], why="paragraph interrupted by notes")]
+    result = run(work, ops)
+    assert result["items"][1]["text"] == "international Second sentence."
+    assert [it["text"] for it in result["items"][2:6]] == [it["text"] for it in inserts]
+    assert result["items"][6]["text"] == "Body.1"
+    log = json.loads(work.with_name("fixes_log.json").read_text())
+    assert log["id_map"]["P2"] == log["id_map"]["P3"] == ["P2"]
+    first = work.read_bytes()
+    run(work, ops)
+    assert work.read_bytes() == first
+
+
+@pytest.mark.parametrize("target_type,between_type", [
+    ("para", "heading"), ("para", "para"), ("note", "para"), ("note", "note"),
+    ("caption", "caption"), ("frag", "frag"),
+])
+def test_join_rejects_intervening_type(work, target_type, between_type):
+    doc = json.loads(work.read_text())
+    for it in doc["items"][:3]:
+        it["type"] = target_type
+    doc["items"][1]["type"] = between_type
+    work.write_text(json.dumps(doc))
+    before = work.read_bytes()
+    with pytest.raises(ValueError, match="op 1.*consecutive items of its type"):
+        run(work, [dict(op="join", ids=["P1", "P3"], why="invalid gap")])
+    assert work.read_bytes() == before
