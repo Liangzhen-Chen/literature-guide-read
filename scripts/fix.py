@@ -57,8 +57,11 @@ def region(doc, op):
     return item
 
 
-def overlay(paras, pages=None, out=None):
-    doc = json.loads(paras.read_text(encoding="utf-8"))
+def overlay(paras, pages=None, out=None, orig=False):
+    backup = paras.with_name("paragraphs.orig.json")
+    drawn = backup if orig and backup.exists() else paras
+    numbering = "original" if drawn == backup else "current"
+    doc = json.loads(drawn.read_text(encoding="utf-8"))
     items = doc["items"]
     processed = doc.get("pages_processed")
     selected = segment.parse_pages(pages, doc.get("page_count", 1)) if pages else (
@@ -94,7 +97,7 @@ def overlay(paras, pages=None, out=None):
                 color = COLORS.get(it["type"], "#777777")
                 draw.rectangle(box, outline=color, width=2)
                 x, y = box[:2]
-                label = it["id"]
+                label = it["id"] + (f" L{it['level']}" if it["type"] == "heading" and "level" in it else "")
                 if x >= len(label)*7 + 5:
                     x -= len(label)*7 + 5
                 else:
@@ -105,11 +108,13 @@ def overlay(paras, pages=None, out=None):
             target.parent.mkdir(parents=True, exist_ok=True)
             img.save(target)
             written.append(target)
-            print(target)
+            print(f"{target} ({numbering} numbering)")
     return written
 
 
-def corrected(original, ops):
+def corrected(original, ops, messages=None, current=None):
+    messages = messages if messages is not None else []
+    current, texts = current or {}, {it["id"]: it["text"] for it in original["items"]}
     doc = deepcopy(original)
     items = doc["items"]
     for it in items:
@@ -188,6 +193,7 @@ def corrected(original, ops):
                 tail["_orig"] = [name for name in it["_orig"] if "#" not in name] + [key]
                 tail["_keys"] = [key]
                 it["text"], tail["text"] = it["text"][:pos].rstrip(), it["text"][pos:]
+                texts[key] = tail["text"]
                 tail.pop("num", None)
                 items.insert(items.index(it)+1, tail)
             elif kind == "region":
@@ -199,6 +205,7 @@ def corrected(original, ops):
                 key = f"region{n_regions}"
                 known.add(key)
                 it.update(id=key, _orig=[key], _keys=[key], _crops=[])
+                texts[key] = it["text"]
                 pos = items.index(after)+1 if after is not None else next(
                     (i for i, old in enumerate(items) if old.get("page") == it["page"]), next(
                         (i for i, old in enumerate(items) if old.get("page", 0) > it["page"]), len(items)))
@@ -211,6 +218,15 @@ def corrected(original, ops):
                 items.insert(items.index(after)+1, it)
             else:
                 raise ValueError(f"unknown operation {kind!r}")
+            refs = list(op["ids"]) if kind in ("type", "join") else [op["id"]] if kind == "split" else [op.get("id"), op.get("after")]
+            if kind == "region": refs.append(key)
+            refs = list(dict.fromkeys(ref for ref in refs if ref))
+            short = lambda text: json.dumps(" ".join(text.split()[:8]), ensure_ascii=False)
+            label = kind + (f"→{op['to']}" if kind in ("type", "region") else "")
+            messages.append(f"op {index} {label}: " + "; ".join(f"{ref} {short(texts[ref])}" for ref in refs))
+            for ref in refs:
+                if ref in current and current[ref] != texts[ref]:
+                    messages.append(f"Warning op {index}: {ref} means original {short(texts[ref])}; current files show {short(current[ref])} under {ref}. Using the original ID.")
         except (ValueError, KeyError, TypeError, StopIteration) as exc:
             detail = f"missing required key {exc.args[0]!r}" if isinstance(exc, KeyError) else str(exc)
             raise ValueError(f"op {index} ({op!r}): {detail}") from exc
@@ -255,7 +271,9 @@ def apply(fixes, paras):
         ops = ops.get("ops")
     if not isinstance(ops, list):
         raise ValueError("fixes must be an array or an object with an ops array")
-    doc, mapping = corrected(json.loads(raw), ops)
+    current = {it["id"]: it["text"] for it in json.loads(paras.read_text(encoding="utf-8"))["items"]} if backup.exists() else {}
+    messages = []
+    doc, mapping = corrected(json.loads(raw), ops, messages, current)
     # Validate all operations before writing anything, including the backup.
     from PIL import Image
     with tempfile.TemporaryDirectory(prefix="fix-", dir=paras.parent) as tmp:
@@ -299,6 +317,7 @@ def apply(fixes, paras):
                 dest = paras.parent / path.relative_to(stage)
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, dest)
+    for message in messages: print(message)
     print("Counts: " + ", ".join(f"{key}={n}" for key, n in sorted(Counter(it["type"] for it in doc["items"]).items())))
     return doc
 
@@ -311,13 +330,14 @@ def main():
     ov.add_argument("paragraphs", type=Path)
     ov.add_argument("--pages")
     ov.add_argument("--out", type=Path)
+    ov.add_argument("--orig", action="store_true", help="draw first-segmentation IDs from paragraphs.orig.json when available")
     fx = sub.add_parser("apply")
     fx.add_argument("fixes", type=Path)
     fx.add_argument("--paras", required=True, type=Path)
     args = ap.parse_args()
     try:
         if args.command == "overlay":
-            overlay(args.paragraphs, args.pages, args.out)
+            overlay(args.paragraphs, args.pages, args.out, args.orig)
         else:
             apply(args.fixes, args.paras)
     except (ValueError, OSError, KeyError) as exc:

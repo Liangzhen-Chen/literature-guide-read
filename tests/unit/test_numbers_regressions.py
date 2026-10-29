@@ -114,3 +114,25 @@ def test_range_start_allowed_in_note(clean, dash):
     guide['paras']['P2']['note'] = 'The period begins in 1970.'
     errors, _, _ = run_checks(doc, guide)
     assert not any('P2 note' in error for error in errors), errors
+
+
+@pytest.mark.parametrize('text', [
+    '\u65b9\u7a0b 1', '\u65b9\u7a0b (2)', '\u65b9\u7a0b 1 \u5230 4',
+    '\u65b9\u7a0b (1) \u81f3 (4)', '\u56fe 1 \u5230 4', '\u8868 2 \u81f3 5',
+    '\u56fe1\u52304', '\u88682\u81f35',
+])
+def test_chinese_reference_labels_and_ranges(text):
+    assert common.numbers_in(text) == set()
+    assert common.numbers_in(text + '\uff0c\u4f30\u8ba1\u503c\u4e3a 6.25') == {6.25}
+
+
+@pytest.mark.parametrize('text', ['\u56fe 24.03', '\u8868 24.03', '\u56fe 1 \u5230 4.5', '\u8868 2 \u81f3 5.25'])
+def test_chinese_reference_ranges_preserve_real_decimals(text):
+    assert common.numbers_in(text) == ({24.03} if '24.03' in text else {4.5} if '4.5' in text else {5.25})
+
+
+def test_chinese_equation_range_note_passes_checker(clean):
+    doc, guide = clean
+    guide['paras']['P2']['note'] = '\u65b9\u7a0b 1 \u5230 4 \u8bf4\u660e\u8f83\u5c0f\u5956\u52b1\u7684\u9009\u62e9\u3002'
+    errors, _, _ = run_checks(doc, guide)
+    assert not any('P2 note' in error and 'source text' in error for error in errors), errors

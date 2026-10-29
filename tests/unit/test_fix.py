@@ -313,3 +313,71 @@ def test_split_tail_suffixes_follow_creation_order(work):
                         dict(op="type", ids=["P3#3"], to="heading", why="middle piece")])
     assert [(it["text"], it["type"]) for it in result["items"][2:5]] == [
         ("First.", "para"), ("Middle.", "heading"), ("Last.", "caption")]
+
+
+def test_apply_echoes_original_targets_for_every_op(work, capsys):
+    run(work, [dict(op="type", ids=["P1"], to="heading", why="title"),
+               dict(op="join", ids=["P2", "P3"], why="join"),
+               dict(op="split", id="P3", at="Second sentence.", why="split"),
+               dict(op="type", ids=["P3#2"], to="caption", why="tail caption"),
+               dict(op="move", id="N1", after="P1", why="move"), region_op(after="P2")])
+    lines = capsys.readouterr().out.splitlines()
+    echoes = [line for line in lines if line.startswith("op ")]
+    assert len(echoes) == 6
+    assert 'op 1 type\u2192heading: P1 "An intro."' in echoes
+    assert 'P2 "inter-"; P3 "national Second sentence."' in echoes[1]
+    assert 'P3 "national Second sentence."' in echoes[2]
+    assert 'P3#2 "Second sentence."' in echoes[3]
+    assert 'N1 "A note."; P1 "An intro."' in echoes[4]
+    assert 'region1 "The normal distribution has two parameters, the mean"' in echoes[5]
+    assert not any(line.startswith("Warning") for line in lines)
+
+
+def test_reapply_warns_but_uses_original_ids(work, capsys):
+    run(work, [dict(op="type", ids=["P1"], to="heading", why="title")])
+    capsys.readouterr()
+    result = run(work, [dict(op="type", ids=["P1", "P2"], to="frag", why="hide originals"),
+                        dict(op="move", id="N1", after="P1", why="original anchor")])
+    output = capsys.readouterr().out
+    assert 'Warning op 1: P1 means original "An intro."; current files show "inter-" under P1.' in output
+    assert 'Warning op 1: P2 means original "inter-"; current files show "national Second sentence." under P2.' in output
+    assert 'Warning op 2: P1 means original "An intro."' in output
+    assert result['items'][0]['text'] == 'An intro.'
+    assert result['items'][0]['type'] == 'frag'
+    assert result['items'][1]['text'] == 'A note.'
+
+
+def test_reapply_unchanged_text_has_no_warning(work, capsys):
+    run(work, [])
+    capsys.readouterr()
+    run(work, [dict(op="type", ids=["P2"], to="heading", why="same original item")])
+    assert 'Warning' not in capsys.readouterr().out
+
+
+def test_overlay_original_numbering(work, capsys, monkeypatch):
+    from PIL import ImageDraw
+    run(work, [dict(op="type", ids=["P1"], to="heading", why="title")])
+    capsys.readouterr()
+    labels = []
+    draw_text = ImageDraw.ImageDraw.text
+    def record(self, xy, text, *args, **kwargs):
+        labels.append(text)
+        return draw_text(self, xy, text, *args, **kwargs)
+    monkeypatch.setattr(ImageDraw.ImageDraw, 'text', record)
+    fix.overlay(work, '1')
+    assert 'H1 L1' in labels  # headings show their level
+    assert '(current numbering)' in capsys.readouterr().out
+    labels.clear()
+    fix.overlay(work, '1', orig=True)
+    assert not any(label.startswith('H1') for label in labels) and 'P1' in labels
+    assert '(original numbering)' in capsys.readouterr().out
+
+
+def test_overlay_orig_without_backup_and_cli_flag(work, capsys, monkeypatch):
+    assert fix.overlay(work, '1', orig=True)
+    assert '(current numbering)' in capsys.readouterr().out
+    called = []
+    monkeypatch.setattr(fix, 'overlay', lambda *args: called.append(args))
+    monkeypatch.setattr('sys.argv', ['fix.py', 'overlay', str(work), '--orig'])
+    fix.main()
+    assert called[0] == (work, None, None, True)

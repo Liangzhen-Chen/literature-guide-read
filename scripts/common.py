@@ -184,8 +184,8 @@ def pnum(pid):
 REF_SKIP_RE = re.compile(r"\b(?:sections?|chapters?|parts?)\s?\d+(?:\.\d+)+\b|\b[PN]\d+\b|注\s?\d+|\b(?:figures?|figs?\.|tables?|notes?|footnotes?|experiments?|studies|study|"
                          r"questions?|problems?|sections?|chapters?|parts?|hypothes[ie]s|propositions?|equations?|eqs?\.|"
                          r"inequalit(?:y|ies)|expressions?|definitions?|lemmas?|theorems?|corollar(?:y|ies)|conditions?)\s?\(?\d+[a-z]?(?!\d|\s*[-–]\s*\d)\)?\b|"
-                         r"(?:实验|研究|问题|题|假说|命题|公式|不等式|定义|引理|定理|推论|条件)\s?\(?\d+[a-z]?\)?|式\s?\(\d+[a-z]?\)|"
-                         r"[图表]\s?\d+(?!\d|[.,]\d)|第\s?\d+(?:\.\d+)*\s?[页节章部分条]|\bpp?\.\s?\d+(?:\s?[–-]\s?\d+)?", re.I)
+                         r"(?:实验|研究|问题|题|假说|命题|公式|方程|不等式|定义|引理|定理|推论|条件)\s?\(?\d+[a-z]?\)?(?:\s*(?:到|至)\s*\(?\d+[a-z]?(?!\d|[.,]\d)\)?)?|式\s?\(\d+[a-z]?\)|"
+                         r"[图表]\s?\d+(?!\d|[.,]\d)(?:\s*(?:到|至)\s*\d+(?!\d|[.,]\d))?|第\s?\d+(?:\.\d+)*\s?[页节章部分条]|\bpp?\.\s?\d+(?:\s?[–-]\s?\d+)?", re.I)
 NUM_TOKEN_RE = re.compile(r"(?<![\w.])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)")
 # Inline LaTeX in notes: $...$. A span that starts with a digit is money ("$50,000 against $60,000")
 # unless it holds LaTeX or operators ("$1 + \eta$") or has no spaces at all ("$0$").
