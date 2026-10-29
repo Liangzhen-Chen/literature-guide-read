@@ -39,7 +39,7 @@ The share of close reads is capped by `meta.density`: low 15%, medium 25%, high 
 
 `meta.purpose` is what the reader said they read for. Apply the profile, then the criteria above within it:
 
-- **whole argument** (default): the criteria above as written. In an empirical paper the identification (what lets the authors read an estimate as the effect they claim: an ordering of variables, an instrument, a control group, a restriction), the main results and the robustness checks that bear on the reader's questions are close reads; if the density cap forces a choice, these come before background and literature.
+- **whole argument** (default): the criteria above as written. In an empirical paper the identification (what lets the authors read an estimate as the effect they claim: an ordering of variables, an instrument, a control group, a restriction), the main results and the robustness checks that bear on the reader's questions are close reads; if the density cap forces a choice, these come before background and literature. The notes on the identification say what assumption it rests on (for an instrument, that it moves the outcome only through the treated variable) and what the authors offer for it, so the reader can judge how strong it is.
 - **core claims only**: close reads are the thesis, each part's claim and the qualifications; design, data and robustness paragraphs are skim with full restating notes, so the reader can trust the claim without reading the evidence. Density low.
 - **method and design only**: close reads are the design, assumptions, identification and measurement paragraphs; results paragraphs are skim with their key numbers in the note. Density medium.
 - **evidence to cite**: close reads are the paragraphs with the main numbers, tables and figures and the limitations; mark every `exp`, `field`, `survey` element with a label `s` so the evidence list is complete.
@@ -136,7 +136,9 @@ First reread each claim, flow step, note and recall answer beside its paragraph 
 
 - Direction: which variable rises or falls, which group is larger, the sign of each effect, which way a series responds. A reversed result is the worst error a guide can make.
 - Strength: keep the author's hedges and limits (may, suggests, in the short run, contemporaneous, in this sample, until a given year) and the sample or period a result comes from. A relation word such as "rules out" or "proves" needs the text to say as much; otherwise use "supports" or "qualifies". "Does not respond" is not "moves the other way".
-- The thesis, the part claims and the answers to the reader's questions are the shortest fields and lose hedges first; check them hardest.
+- The thesis, the part claims and the answers to the reader's questions are the shortest fields and lose hedges first; check them hardest, against the paragraphs and tables they summarise rather than against your other notes.
+- Setting: every number names where it comes from (table and column, sample, specification). A comparison of two estimates says when they come from different samples or methods. When the robustness checks change the size of a headline estimate, give the range, not only that it stays significant. A result that is not significant in a subgroup or specification is said to be not significant, not that it has no effect or a different effect.
+- Consistency: a fact stated in several fields (what the instrument is, the sample, the period) reads the same in all of them.
 - A result the authors report but do not show ("available upon request", an appendix that is not in the PDF) is the authors' claim: say so, and say the reader cannot check it in the text.
 
 Then:
