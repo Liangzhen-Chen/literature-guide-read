@@ -22,6 +22,10 @@ KaTeX 0.16.11 (MIT licence, Khan Academy and contributors) is vendored under `as
 
 MinerU is an optional dependency that the user installs separately. `scripts/mineru_backend.py` calls it through a subprocess. This repository does not distribute MinerU; its licence is at https://github.com/opendatalab/MinerU/blob/master/LICENSE.md.
 
+## Adobe Symbol encoding table
+
+`scripts/adobe_symbol.txt` is the Adobe Symbol to Unicode mapping published by Unicode, Inc. (https://www.unicode.org/Public/MAPPINGS/VENDORS/ADOBE/symbol.txt). It is copied unchanged with its notice, which permits redistribution as long as the notice stays attached. `segment.py` uses it to read list bullets and symbols set in the Symbol font.
+
 ## Hallmark
 
 The layout of the reading page follows the rules of the Hallmark design skill (MIT, Copyright (c) 2026 Hallmark contributors, https://github.com/Nutlope/hallmark). None of its code is bundled; the first line of the template's CSS names the source.

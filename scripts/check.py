@@ -7,6 +7,7 @@ Usage:
 import argparse
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -82,6 +83,23 @@ def _numbers_with_date_months(note, source):
     return numbers_in("".join(chars))
 PART_RELS = {"supports", "explains", "qualifies", "extends", "frames", "challenges", "answers", "concludes"}
 STEP_RELS = PART_RELS | {"rules out", "implies", "names", "raises"}  # zh characters / en words for a skim note on a long paragraph
+
+
+def note_containment(step, note):
+    """Broder shingle containment, using character trigrams for unspaced scripts.
+
+    Ignore punctuation/case. Require five trigram-length units of text, so shared
+    short terms alone cannot warn. Near-complete containment means the step is
+    copied; this is a warning about wording, not a semantic similarity verdict.
+    """
+    normalize = lambda t: "".join(c for c in unicodedata.normalize("NFKC", t).casefold() if c.isalnum())
+    a, b = normalize(step), normalize(note)
+    n = 3
+    if len(a) < 5 * n or len(b) < 5 * n:
+        return 0.0
+    shingles = {a[i:i+n] for i in range(len(a)-n+1)}
+    other = {b[i:i+n] for i in range(len(b)-n+1)}
+    return len(shingles & other) / len(shingles)
 
 
 def run_checks(doc, guide, density=None):
@@ -294,6 +312,13 @@ def run_checks(doc, guide, density=None):
             x = need(f"{pid} flow step {k + 1}", st.get("x"), "x")
             nums_ok(f"{pid} flow step {k + 1}", x, text_nums(sorted(inside)), text_scope(sorted(inside)))
             tells(f"{pid} flow step {k + 1}", x)
+            note = as_lang((entries.get(st.get("p")) or {}).get("note"), primary)
+            for lang, text in x.items():
+                # 90% requires nearly all of the step's character trigrams to
+                # occur in its note. The 15-character minimum avoids warnings
+                # on short shared terms; punctuation and case edits still count.
+                if note_containment(text, note.get(lang, "")) >= 0.9:
+                    warns.append(f"{pid} flow step {k + 1} ({lang}): largely repeats {st.get('p')}'s note; give the reasoning move without restating the note (method.md section 10)")
 
     missing = [pnum(p) for p in pids if p not in entries]
     if missing:
