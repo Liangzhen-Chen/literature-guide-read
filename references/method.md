@@ -27,7 +27,7 @@ Read every part file in full before writing anything. Decide the genre with genr
 4. the key evidence for a central claim;
 5. a scope condition, limitation or concession, which summaries lose first;
 6. the author's reply to the strongest objection;
-7. a formula, model or estimating equation the argument relies on; the formula element carries its transcription and symbol table.
+7. a formula, model or estimating equation the argument relies on; the formula element carries its transcription and symbol table. The paragraph that states a result derived from such a formula is close too.
 
 `skim`: the note restates the paragraph well enough to move on.
 
@@ -52,7 +52,7 @@ The share of close reads is capped by `meta.density`: low 15%, medium 25%, high 
 - close, `read` and `note`. `read` is one line on what to watch for in the original, such as "How reversibility is stated, and how the offers trace each curve"; it must not give away the content, because the reader is about to read it. `note` is the after-reading summary: restate the paragraph under the same rules as a skim note (the claim or result, the specific numbers, the definition itself, the qualification). The page shows it below the original, folded, so the reader reads the original first. A close entry without `note` is a warning.
 - skim, `note`: restate the content: the claim or result, the specific numbers, the definition itself, the conclusion. A reader who skips the original must still know what it said and on what basis. Never describe what the paragraph does ("introduces", "discusses", "这段介绍了"). Length follows content: one sentence for a transition, three or four for a paragraph of data.
 - skip, `note` in one line, plus `why`.
-- every paragraph, `role`: what it does, in a few words ("Experiment 2 results"; at most 16 Chinese characters or 60 English characters, since the sidebar shows these). A role names the move; the content goes in `read` or `note`. `read` fits in 90 Chinese or 240 English characters.
+- every paragraph, `role`: what it does, in a few words ("Experiment 2 results"; at most 16 Chinese characters or 60 English characters, since the sidebar shows these). A role names the move; the content goes in `read` or `note`. Write every entry from the paragraph in hand: never start from another guide's files, whose roles and notes belong to a different text. `read` fits in 90 Chinese or 240 English characters.
 
 ## 5 Elements
 
@@ -137,7 +137,8 @@ First reread each claim, flow step, note and recall answer beside its paragraph 
 - Direction: which variable rises or falls, which group is larger, the sign of each effect, which way a series responds. A reversed result is the worst error a guide can make.
 - Strength: keep the author's hedges and limits (may, suggests, in the short run, contemporaneous, in this sample, until a given year) and the sample or period a result comes from. A relation word such as "rules out" or "proves" needs the text to say as much; otherwise use "supports" or "qualifies". "Does not respond" is not "moves the other way".
 - The thesis, the overview, the part claims, the flow steps and the answers to the reader's questions are the shortest fields and lose hedges first; check them hardest, against the paragraphs and tables they summarise rather than against your other notes. They also keep each claim's object: when the authors criticise one of several proposals, name only that one, and keep their qualifier on whose view it is ("as MMT defines it").
-- Position: when a paper answers other authors, the thesis and the first part say where the authors agree with them as well as where they disagree. A reader who meets the agreement only deep in the text reads the paper as a blanket rejection.
+- Conditions: a result derived in a model or under an assumption ("in a plausible model", "in equilibrium", a parameter range, a policy rule) keeps that condition in every field that repeats it. A result the authors assert without deriving it in this text is written as their assertion.
+- Position: when a paper answers other authors, the thesis and the first part say where the authors agree with them as well as where they disagree. A paragraph that corrects another author's reading is a close read, and the flow names that author as the object. A reader who meets the agreement only deep in the text reads the paper as a blanket rejection.
 - Setting: every number names where it comes from (table and column, sample, specification). A comparison of two estimates says when they come from different samples, methods, shocks or denominators; when a paper gives ranges from several methods, also compare within one method. Name the group a number covers when the authors' label is broader (an "EU" that is 19 member states), and carry the authors' limits on which members a result holds for. When the robustness checks change the size of a headline estimate, give the range, not only that it stays significant. A result that is not significant in a subgroup or specification is said to be not significant, not that it has no effect or a different effect.
 - Consistency: a fact stated in several fields (what the instrument is, the sample, the period) reads the same in all of them.
 - A result the authors report but do not show ("available upon request", an appendix that is not in the PDF) is the authors' claim: say so, and say the reader cannot check it in the text.

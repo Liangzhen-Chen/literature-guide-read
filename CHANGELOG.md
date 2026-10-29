@@ -5,6 +5,7 @@ Add an entry at the top for every change to the rules or the workflow: version, 
 ## 0.7.1 (2026-10-28)
 
 - More unseen papers exposed overprinted letters and metadata, table notes and equations mixed with prose. Titles, abstracts, quotations and paragraph continuations now stay together more reliably; unrecoverable Symbol-font characters remain visible as placeholders. A full trial with MinerU installed showed the MinerU tier splitting a citation at a page break and keeping first-page metadata as paragraphs; both now follow the basic tier, and a paragraph that ends inside a bracket continues only when the next block closes it. SKILL.md says MinerU prints no self-check line, and schema.md states the thesis and claim length limits.
+- A full guide trial on a monetary-theory paper found roles copied from another guide, a model result stated without its model, and a reply to a named critic left as skim. method.md now says to write every entry from the paragraph in hand, to keep a result's model conditions and mark what the authors only assert, and to close-read paragraphs that correct another author or state a result derived from a formula.
 
 - Further unseen papers exposed page-edge citations mistaken for headers, reference entries released by contact footers, and duplicated text layers. Covers, titles, bylines, inset quotations and OCR word breaks and equations now keep their place more reliably.
 
