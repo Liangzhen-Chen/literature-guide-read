@@ -4,6 +4,8 @@ Add an entry at the top for every change to the rules or the workflow: version, 
 
 ## 0.7.1 (2026-10-28)
 
+- More unseen papers exposed overprinted letters and metadata, table notes and equations mixed with prose. Titles, abstracts, quotations and paragraph continuations now stay together more reliably; unrecoverable Symbol-font characters remain visible as placeholders.
+
 - Further unseen papers exposed page-edge citations mistaken for headers, reference entries released by contact footers, and duplicated text layers. Covers, titles, bylines, inset quotations and OCR word breaks and equations now keep their place more reliably.
 
 - A full guide run exposed split ligature words and a paragraph stranded after a figure. Touching fallback-font ligatures now stay inside their words; plot titles no longer block the paragraph join. Missing-symbol warnings keep their source positions and exclude covered display ink and proven nonprinting marks.
