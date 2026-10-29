@@ -488,8 +488,28 @@ for _row in Path(__file__).with_name("adobe_symbol.txt").read_text(encoding="asc
         ADOBE_SYMBOL.setdefault(int(_byte, 16), chr(int(_unicode, 16)))
 
 
+TEX_OMS = {}
+for _row in Path(__file__).with_name("tex_oms.txt").read_text(encoding="ascii").splitlines():
+    if _row and not _row.startswith("#"):
+        _unicode, _byte = _row.split()[:2]
+        TEX_OMS[int(_byte, 16)] = chr(int(_unicode, 16))
+
+
+def tex_oms_char(fontname, cid):
+    """OMS only: cmsy[digits], or TeX_CM_Maths_Symbols / CMMathSymbols.
+
+    Strip a PDF subset prefix; allow family separators and a numeric size.
+    CMMI/CMEX and arbitrary fonts with 'symbol' in their names do not qualify.
+    These encodings differ even at slot zero (minus/Gamma/left parenthesis).
+    """
+    base = re.sub(r"^[A-Z]{6}\+", "", fontname, flags=re.I)
+    if re.fullmatch(r"CMSY\d*|(?:TeX[_-]?)?CM[_-]?Maths?[_-]?Symbols(?:[_-]?\d+)?", base, re.I):
+        return TEX_OMS.get(cid)
+    return None
+
+
 def repair_case_maps(chars, fonts):
-    for c in chars:
+    for index, c in enumerate(chars):
         if not c.get("size") or not c.get("upright", True):
             continue
         candidates = fonts.get(c.get("fontname"), {}).get("cases", {}).get(c["text"], [])
@@ -499,6 +519,18 @@ def repair_case_maps(chars, fonts):
             c["text"] = matches.pop()
         evidence = fonts.get(c.get("fontname"), {})
         missing=re.fullmatch(r"\(cid:(\d+)\)",c["text"])
+        if missing and (decoded := tex_oms_char(c.get("fontname", ""), int(missing.group(1)))):
+            c["text"] = decoded
+            # TeX emits a zero-advance \not before its base at the same origin;
+            # Unicode combining marks follow their base. Move only this newly
+            # decoded mark's logical anchor to the base's end, preserving ink
+            # and every already-mapped character (including the base itself).
+            if decoded == "\u0338" and index+1 < len(chars):
+                base = chars[index+1]
+                if (c["x0"] == c["x1"] == base["x0"] and c.get("matrix")
+                        and base.get("matrix") and c["matrix"][4:] == base["matrix"][4:]):
+                    c["x0"] = c["x1"] = base["x1"]
+            continue  # only unresolved CIDs change; mapped text is untouched
         if (missing and evidence.get("blank_controls") and int(missing.group(1))<32
                 and int(missing.group(1)) not in evidence.get("glyph_names",{})
                 and int(missing.group(1)) not in evidence.get("fallback_cids",{})
