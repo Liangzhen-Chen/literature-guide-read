@@ -4,6 +4,8 @@ Add an entry at the top for every change to the rules or the workflow: version, 
 
 ## 0.7.1 (2026-10-28)
 
+- Further unseen papers exposed page-edge citations mistaken for headers, reference entries released by contact footers, and duplicated text layers. Covers, titles, bylines, inset quotations and OCR word breaks and equations now keep their place more reliably.
+
 - A full guide run exposed split ligature words and a paragraph stranded after a figure. Touching fallback-font ligatures now stay inside their words; plot titles no longer block the paragraph join. Missing-symbol warnings keep their source positions and exclude covered display ink and proven nonprinting marks.
 
 The skill is now named `literature-guide-read`, the same as the repository, and the basic tier reads three-column pages. Prompted by a first-time-user trial of 0.7.0 on Ioannidis (2005): the basic tier mixed its three columns, put the references into the body and said nothing, and the agent had to extract the text by hand. Two economics readings the author tried next, an AEJ: Applied paper and a QJE paper, failed in the basic tier for other reasons, before and after the three-column work.
