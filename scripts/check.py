@@ -80,6 +80,30 @@ def _numbers_with_date_months(note, source):
     chars = list(note)
     for start, end in _date_month_spans(note, source):
         chars[start:end] = " " * (end - start)
+    # Chinese century/decade expressions and English ordinal centuries express
+    # dates at a coarser granularity than their component numerals suggest.
+    decade_expr = re.compile(r"(?<!\d)(\d{1,3})\s*世纪\s*(\d{1,2})\s*年代")
+    century_expr = re.compile(r"(?<!\d)(\d{1,3})\s*世纪|(?<!\d)(\d{1,3})(?:st|nd|rd|th)\s+century\b", re.I)
+    years = [int(x) for x in re.findall(r"(?<!\d)(?:1\d{3}|20\d{2})(?!\d)", source)]
+    src_centuries = {y // 100 + 1 for y in years}
+    decade_tokens = set()
+    for m in re.finditer(r"(?<!\d)(\d{3})0s?\b|\b(sixties|seventies|eighties|nineties)\b", source, re.I):
+        if m.group(1):
+            decade_tokens.add(int(m.group(1) + "0"))
+        else:
+            decade_tokens.add({"sixties": 1960, "seventies": 1970, "eighties": 1980, "nineties": 1990}[m.group(2).lower()])
+    for m in decade_expr.finditer(note):
+        century, decade = map(int, m.groups())
+        year = (century - 1) * 100 + decade
+        supported = decade % 10 == 0 and (year in decade_tokens or any(year <= y < year + 10 for y in years))
+        if supported:
+            chars[m.start():m.end()] = " " * (m.end() - m.start())
+    for m in century_expr.finditer(note):
+        number = int(m.group(1) or m.group(2))
+        supported = number in src_centuries or re.search(rf"\b{number}(?:st|nd|rd|th)\s+century\b|(?<!\d){number}\s*世纪", source, re.I)
+        if supported:
+            start, end = (m.start(1), m.end(1)) if m.group(1) else (m.start(2), m.end(2))
+            chars[start:end] = " " * (end - start)
     return numbers_in("".join(chars))
 PART_RELS = {"supports", "explains", "qualifies", "extends", "frames", "challenges", "answers", "concludes"}
 STEP_RELS = PART_RELS | {"rules out", "implies", "names", "raises"}  # zh characters / en words for a skim note on a long paragraph

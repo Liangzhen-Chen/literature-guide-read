@@ -73,3 +73,19 @@ def test_date_in_part_claim_uses_paragraph_source_scope(clean):
     guide['parts'][0]['claim'] = 'The event occurred on 2010-07-21.'
     errors, _, _ = run_checks(doc, guide)
     assert not any('A claim' in e for e in errors), errors
+
+
+@pytest.mark.parametrize('source,note,valid', [
+    ('The trend continued in the 1960s.', '趋势出现在 20 世纪 60 年代。', True),
+    ('The account covers 1900 through 1999.', '这发生在 20 世纪。', True),
+    ('The trend began in 1970.', '趋势出现在 20 世纪 60 年代。', False),
+    ('The trend began in 1865.', '这发生在 20 世纪。', False),
+    ('The account covers 1900 through 1999.', 'It changed in the 20th century.', True),
+])
+def test_century_and_decade_note_numbers(clean, source, note, valid):
+    doc, guide = clean
+    for item in doc['items']:
+        item['text'] = source
+    guide['paras']['P2']['note'] = note
+    errors, _, _ = run_checks(doc, guide)
+    assert (not any('P2 note' in e for e in errors)) == valid, errors
