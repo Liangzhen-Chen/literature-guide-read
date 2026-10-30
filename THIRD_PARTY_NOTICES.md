@@ -30,6 +30,8 @@ MinerU is an optional dependency that the user installs separately. `scripts/min
 
 `scripts/tex_oms.txt` lists the 128 slots of TeX's OMS encoding (the Computer Modern math-symbol fonts) with their Unicode characters. The slot assignments follow the encoding as LaTeX defines it in `omsenc.def` (LaTeX Project Public License); the file is a table of those facts written for this repository, with no LaTeX code copied. `segment.py` uses it to read minus signs and other symbols in PDFs typeset with TeX.
 
+`scripts/tex_oml.txt` similarly records the 128 slots of TeX's OML (Computer Modern math italic) encoding, following LaTeX `omlenc.def` / `fontdef.dtx` and the public-domain `texmital.enc` chart; it contains encoding facts, with no LaTeX code copied.
+
 ## Hallmark
 
 The layout of the reading page follows the rules of the Hallmark design skill (MIT, Copyright (c) 2026 Hallmark contributors, https://github.com/Nutlope/hallmark). None of its code is bundled; the first line of the template's CSS names the source.

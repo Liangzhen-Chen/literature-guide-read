@@ -495,6 +495,19 @@ for _row in Path(__file__).with_name("tex_oms.txt").read_text(encoding="ascii").
         TEX_OMS[int(_byte, 16)] = chr(int(_unicode, 16))
 
 
+TEX_OML = {}
+for _row in Path(__file__).with_name("tex_oml.txt").read_text(encoding="ascii").splitlines():
+    if _row and not _row.startswith("#"):
+        _unicode, _byte = _row.split()[:2]
+        TEX_OML[int(_byte, 16)] = chr(int(_unicode, 16))
+
+
+def tex_oml_char(fontname, cid):
+    """Standard OML only: CMMI plus optional size, after a PDF subset prefix."""
+    base = re.sub(r"^[A-Z]{6}\+", "", fontname, flags=re.I)
+    return TEX_OML.get(cid) if re.fullmatch(r"CMMI\d*", base, re.I) else None
+
+
 def tex_oms_char(fontname, cid):
     """OMS only: cmsy[digits], or TeX_CM_Maths_Symbols / CMMathSymbols.
 
@@ -508,6 +521,27 @@ def tex_oms_char(fontname, cid):
     return None
 
 
+def swapped_math_warning(pdf, pnos):
+    """Flag literal letters/quarter from Greek, MathSymb or MathPi families.
+
+    These short name markers cover custom math fonts without assuming an
+    encoding. Standard Adobe Symbol, OMS and OML families are excluded.
+    """
+    pages = []
+    for n in pnos:
+        for c in getattr(pdf.pages[n-1], "chars", []):
+            name = c.get("fontname", "")
+            base = re.sub(r"^[A-Z]{6}\+", "", name, flags=re.I)
+            if (re.search(r"Greek|Math[_-]?Symb|Math[_-]?Pi", base, re.I)
+                    and not re.fullmatch(r"Symbol(?:MT)?", base, re.I)
+                    and tex_oms_char(name, 0) is None and tex_oml_char(name, 0) is None
+                    and re.fullmatch(r"[A-Za-z\u00bc]+", c.get("text", ""))):
+                pages.append(n)
+                break
+    return (f"给执行的 agent（不是给用户的）：页 {pages} 的文字层把数学符号换成了普通字母（如 θ 变成 u、= 变成 ¼）；"
+            "符号一律按 crops/ 或页面图读（method.md 第 8 节）。") if pages else ""
+
+
 def repair_case_maps(chars, fonts):
     for index, c in enumerate(chars):
         if not c.get("size") or not c.get("upright", True):
@@ -519,7 +553,8 @@ def repair_case_maps(chars, fonts):
             c["text"] = matches.pop()
         evidence = fonts.get(c.get("fontname"), {})
         missing=re.fullmatch(r"\(cid:(\d+)\)",c["text"])
-        if missing and (decoded := tex_oms_char(c.get("fontname", ""), int(missing.group(1)))):
+        if missing and (decoded := (tex_oms_char(c.get("fontname", ""), int(missing.group(1)))
+                                    or tex_oml_char(c.get("fontname", ""), int(missing.group(1))))):
             c["text"] = decoded
             # TeX emits a zero-advance \not before its base at the same origin;
             # Unicode combining marks follow their base. Move only this newly
@@ -4924,6 +4959,8 @@ def main():
                     cover_text = first_text
                     report.append(f"第 {pnos[0]} 页是 JSTOR 封面，已跳过")
                     pnos = pnos[1:]
+            if warning := swapped_math_warning(pdf, pnos):
+                report.append(warning)
             rotated = rotated_text_regions(pdf, pnos)
             text_pnos, scan_messages = basic_text_pages(pdf, pnos, {r["page"] for r in rotated})
             report.extend(scan_messages)
