@@ -93,3 +93,27 @@ def test_document_field_still_rejects_absent_number(clean, name):
     guide[name] = 'The F-test probability is 0.038.'
     errors, _, _ = run_checks(doc, guide)
     assert any(error.startswith(name) and '0.038' in error for error in errors), errors
+
+
+@pytest.mark.parametrize('label,cite', [('Table 3. Fit indices', 'As Table 3 shows'), ('Fig. 2 Loadings', 'see Figure 2'),
+                                        ('表 3 拟合指标', '见表 3')])
+def test_paragraph_citing_a_labelled_exhibit_gets_its_rows(clean, label, cite):
+    doc, guide = clean
+    doc['items'][1:1] = [dict(id='C1', type='caption', text=label, page=1),
+                         dict(id='F1', type='frag', text='CFI 0.957', page=1)]
+    p3 = next(it for it in doc['items'] if it['id'] == 'P3')
+    p3['text'] = p3['text'] + f' {cite}, the fit is good.'
+    guide['paras']['P3']['note'] = 'CFI is 0.957.'
+    errors, _, _ = run_checks(doc, guide)
+    assert not any('P3 note' in error and '0.957' in error for error in errors), errors
+
+
+def test_citing_another_exhibit_number_does_not_widen_scope(clean):
+    doc, guide = clean
+    doc['items'][1:1] = [dict(id='C1', type='caption', text='Table 3. Fit indices', page=1),
+                         dict(id='F1', type='frag', text='CFI 0.957', page=1)]
+    p3 = next(it for it in doc['items'] if it['id'] == 'P3')
+    p3['text'] = p3['text'] + ' As Table 4 shows, the fit is good.'
+    guide['paras']['P3']['note'] = 'CFI is 0.957.'
+    errors, _, _ = run_checks(doc, guide)
+    assert any('P3 note' in error and '0.957' in error for error in errors), errors

@@ -47,6 +47,7 @@ LIMITS = {"role": {"zh": 16, "en": 60}, "read": {"zh": 90, "en": 240},
           "claim": {"zh": 80, "en": 220}, "thesis": {"zh": 100, "en": 280}}
 SHORT_NOTE = {"zh": 40, "en": 25}
 
+EXHIBIT_RE = re.compile(r"(?<![A-Za-z])(Tables?|Fig(?:ure)?s?\.?|Exhibits?|表|图)\s?(\d+)(?![\d.]\d)", re.I)
 NUMERIC_DATE_RE = re.compile(r"(?<!\d)(?:(?P<year_zh>\d{4})\s*\u5e74\s*(?P<month_zh>\d{1,2})\s*\u6708(?:\s*(?P<day_zh>\d{1,2})\s*\u65e5)?|(?P<year_iso>\d{4})-(?P<month_iso>\d{1,2})(?:-(?P<day_iso>\d{1,2}))?|(?P<month_slash>\d{1,2})/(?P<year_slash>\d{4}))(?!\d)")
 
 
@@ -204,12 +205,19 @@ def run_checks(doc, guide, density=None):
     longer("thesis", thesis, "thesis")
 
     # text that belongs to a paragraph's region: table rows, figure labels and captions up to the next paragraph
-    region, cur = {}, None
+    # and a labelled table or figure ("Table 3", "图 2"): its caption and the rows after it, for any paragraph that cites it
+    region, labelled, cur, label = {}, {}, None, None
     for it in doc["items"]:
         if it["type"] == "para":
-            cur = it["id"]
-        elif cur and it["type"] in ("frag", "caption"):
-            region.setdefault(cur, []).append(it["text"])
+            cur, label = it["id"], None
+        elif it["type"] in ("frag", "caption"):
+            if cur:
+                region.setdefault(cur, []).append(it["text"])
+            if it["type"] == "caption":
+                m = EXHIBIT_RE.match(it["text"])
+                label = (m.group(1)[0].lower(), m.group(2)) if m else None
+            if label:
+                labelled.setdefault(label, []).append(it["text"])
 
     def scope_texts(ids):
         out = []
@@ -220,6 +228,8 @@ def run_checks(doc, guide, density=None):
                 for nid in it.get("notes", []):
                     out.append(items[nid]["text"])
                 out.extend(region.get(i, []))
+                for m in EXHIBIT_RE.finditer(it["text"]):
+                    out.extend(labelled.get((m.group(1)[0].lower(), m.group(2)), []))
         return out
 
     def text_scope(ids):
