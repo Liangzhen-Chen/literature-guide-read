@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Crop formula and table regions out of the PDF so the page can show the typeset original next to the notes."""
+"""Crop formulas, tables and explicit image regions from the PDF for the reading page."""
 from pathlib import Path
 
 
@@ -7,9 +7,9 @@ def merge_table_runs(items):
     """Consecutive table rows on one page become one region on the first row; followers get table_part."""
     prev = None
     for it in items:
-        if it.get("rotated"):
+        if it.get("rotated") or it.get("region_crop"):
             prev = None
-            continue  # each rotated-text page owns its crop, even next to table rows
+            continue  # rotated pages and explicit regions each own their crop
         if it.get("table") and it.get("bbox"):
             if prev is not None and prev["page"] == it["page"]:
                 b, c = prev["bbox"], it["bbox"]
@@ -24,7 +24,7 @@ def merge_table_runs(items):
 
 def _short_math_part(it):
     """A fragment with at most three tokens next to an equation: a numerator, a denominator, a limit, a label."""
-    return it["type"] == "frag" and it.get("bbox") and not it.get("table") and not it.get("equation") and len(it["text"].split()) <= 3
+    return it["type"] == "frag" and it.get("bbox") and not it.get("region_crop") and not it.get("table") and not it.get("equation") and len(it["text"].split()) <= 3
 
 
 def merge_equation_runs(items):
@@ -34,7 +34,7 @@ def merge_equation_runs(items):
     i = 0
     while i < n:
         it = items[i]
-        if not (it.get("equation") and it.get("bbox") and not it.get("table")):
+        if not (it.get("equation") and it.get("bbox") and not it.get("table")) or it.get("region_crop"):
             i += 1
             continue
         start = i
@@ -42,7 +42,7 @@ def merge_equation_runs(items):
             start -= 1
         end = i
         while end + 1 < n and items[end + 1]["page"] == it["page"] and (
-                (items[end + 1].get("equation") and items[end + 1].get("bbox") and not items[end + 1].get("table"))
+                (items[end + 1].get("equation") and items[end + 1].get("bbox") and not items[end + 1].get("table") and not items[end + 1].get("region_crop"))
                 or _short_math_part(items[end + 1])):
             end += 1
         head = items[start]
@@ -60,16 +60,16 @@ def merge_equation_runs(items):
 def wants_crop(it):
     if not it.get("bbox") or it.get("table_part") or it.get("eq_part"):
         return False
-    return bool(it.get("equation") or it.get("table") or it.get("has_math"))
+    return bool(it.get("region_crop") or it.get("equation") or it.get("table") or it.get("has_math"))
 
 
 def crop_regions(pdf_path, items, out_dir, resolution=150, pad=0.006):
-    """Write out_dir/<id>.png for every equation, table and math paragraph with a bbox. Returns {id: path}."""
+    """Write out_dir/<id>.png for equations, tables, math and explicit regions. Returns {id: path}."""
     out_dir = Path(out_dir)
     merge_table_runs(items)
     merge_equation_runs(items)
     for it in items:  # a display equation sits alone on its line; its text box often misses glyphs, so take the column
-        if it.get("equation") and it.get("bbox"):
+        if it.get("equation") and it.get("bbox") and not it.get("region_crop"):
             b = it["bbox"]
             it["bbox"] = [min(b[0], 0.08), b[1], max(b[2], 0.92), b[3]]
     todo = [it for it in items if wants_crop(it)]

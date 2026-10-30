@@ -189,6 +189,27 @@ def test_short_year_range_does_not_match_partial_numbers(source):
     assert common.source_numbers(source) == common.numbers_in(source)
 
 
+@pytest.mark.parametrize('space', [' ', '\u00a0', '\u202f'])
+def test_grouped_thousands_before_sentence_period(space):
+    text = f'Cost was \u00a3 16{space}000.'
+    assert common.numbers_in(text) == {16000}
+    assert common.source_numbers(text) == {16000}
+    assert common.numbers_in(f'16{space}000.5') == {16, .5}
+
+
+def test_grouped_decimal_does_not_normalize_a_prefix():
+    assert common.numbers_in('16 000 000.5') == {16, 0, .5}
+
+
+def test_sentence_ending_grouped_amount_in_source(clean):
+    doc, guide = clean
+    doc['items'][0]['text'] = 'The cost was \u00a3 16 000.'
+    guide['paras']['P1']['els'] = []
+    guide['paras']['P1']['note'] = 'The cost was \u00a3 16,000.'
+    errors, _, _ = run_checks(doc, guide)
+    assert not any('P1 note' in error and 'source text' in error for error in errors), errors
+
+
 def test_abbreviated_year_source_accepts_expanded_note(clean):
     doc, guide = clean
     for it in doc['items']:

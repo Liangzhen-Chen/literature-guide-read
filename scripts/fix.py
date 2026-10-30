@@ -26,8 +26,9 @@ REQUIRED = dict(type=("ids", "to"), join=("ids",), split=("id", "at"),
 
 def region(doc, op):
     source, n, box = doc.get("source_path"), op["page"], op["bbox"]
-    if op["to"] not in ("para", "heading", "caption", "note"):
-        raise ValueError("region target must be para, heading, caption or note")
+    crop = dict(table="table", figure="figure", display="equation").get(op["to"])
+    if op["to"] not in ("para", "heading", "caption", "note") and not crop:
+        raise ValueError("region target must be para, heading, caption, note, table, figure or display")
     if "level" in op and (op["to"] != "heading" or type(op["level"]) is not int or op["level"] < 0):
         raise ValueError("level must be a nonnegative heading level")
     if (not isinstance(box, list) or len(box) != 4
@@ -48,12 +49,14 @@ def region(doc, op):
         words = [w for w in segment.get_words(page)
                  if box[0] <= (w["x0"]+w["x1"])/2/page.width <= box[2]
                  and box[1] <= (w["top"]+w["bottom"])/2/page.height <= box[3]]
-        if not words:
+        if not words and not crop:
             raise ValueError("region box contains no words")
         text = ""
         for line in segment.make_lines(words):
             text = segment.join_marked(text, line["text"])
-    item = dict(type=op["to"], text=text, page=n, bbox=list(box))
+    item = dict(type="frag" if crop else op["to"], text=text, page=n, bbox=list(box))
+    if crop:
+        item.update(region_crop=True, **{crop: True})
     if item["type"] == "heading":
         item["level"] = op.get("level", 1)
     return item
@@ -153,6 +156,8 @@ def corrected(original, ops, messages=None, current=None):
                     raise ValueError("level must be a nonnegative heading level")
                 for it in targets:
                     it["type"] = op["to"]
+                    if op["to"] == "frag":
+                        it["_crops"] = []  # explicit hiding also hides a replaced partial crop
                     it.pop("level", None)
                     if it["type"] == "heading":
                         it["level"] = op.get("level", 1)
@@ -207,6 +212,8 @@ def corrected(original, ops, messages=None, current=None):
                 key = f"region{n_regions}"
                 known.add(key)
                 it.update(id=key, _orig=[key], _keys=[key], _crops=[])
+                if it.get("region_crop"):
+                    it["_crops"] = [{k: deepcopy(v) for k, v in it.items() if not k.startswith("_")}]
                 texts[key] = it["text"]
                 anchor = (op["page"], op["after"])
                 previous_region = next((old for old in items if region_ends.get(anchor) in old["_keys"]), None)
@@ -236,7 +243,7 @@ def corrected(original, ops, messages=None, current=None):
         except (ValueError, KeyError, TypeError, StopIteration) as exc:
             detail = f"missing required key {exc.args[0]!r}" if isinstance(exc, KeyError) else str(exc)
             raise ValueError(f"op {index} ({op!r}): {detail}") from exc
-    counts, mapping = Counter(), {key: [] for key in known}
+    counts, mapping = Counter(), {key: [] for key in sorted(known)}
     for it in items:
         prefix = PREFIX.get(it["type"], "F")
         counts[prefix] += 1

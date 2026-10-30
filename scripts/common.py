@@ -287,7 +287,7 @@ def source_numbers(text):
 
 
 def numbers_in(text):
-    t = re.sub(r"(?<![\w.,])\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:\.\d+)?(?![\d.,])",
+    t = re.sub(r"(?<![\w.,])\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?![\d,]|\.\d|[ \u00a0\u202f]\d{3})",
                lambda m: re.sub(r"[ \u00a0\u202f]", "", m.group()), text or "")
     t = REF_SKIP_RE.sub(" ", strip_math_notation(t))
     # In explicit normal-distribution notation the comma separates parameters.

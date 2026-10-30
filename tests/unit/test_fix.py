@@ -454,3 +454,90 @@ def test_remove_running_head_with_split_tail_sequence_and_replay(work):
     before = work.read_bytes()
     run(work, ops)
     assert work.read_bytes() == before
+
+
+@pytest.mark.parametrize('target,flag', [('table', 'table'), ('figure', 'figure'), ('display', 'equation')])
+def test_region_crop_box_replay_renumber_and_render(work, clean, target, flag):
+    import pdfplumber
+    import render
+    from types import SimpleNamespace
+    box = [.1, .1, .65, .17]
+    ops = [region_op(to=target, bbox=box)]
+    doc = run(work, ops)
+    item = doc['items'][1]
+    assert item['type'] == 'frag' and item[flag] and item['bbox'] == box
+    assert item['text'].startswith('The normal distribution')
+    image = work.parent / doc['crops'][item['id']]
+    with pdfplumber.open(doc['source_path']) as pdf:
+        page = pdf.pages[0]
+        padded = [(box[0]-.006)*page.width, (box[1]-.006)*page.height,
+                  (box[2]+.006)*page.width, (box[3]+.006)*page.height]
+        expected = page.crop(padded, relative=True).to_image(resolution=150).original.convert('RGB')
+    with Image.open(image) as actual:
+        assert actual.size == expected.size and actual.tobytes() == expected.tobytes()
+    assert item['crop_bbox'] == pytest.approx([box[0]-.006, box[1]-.006, box[2]+.006, box[3]+.006])
+    first = image.read_bytes()
+    before = work.read_bytes()
+    run(work, ops)
+    assert work.read_bytes() == before and image.read_bytes() == first
+    doc = run(work, [dict(op='type', ids=['P1'], to='frag', why='hide front matter'), *ops])
+    mapping = json.loads(work.with_name('fixes_log.json').read_text())['id_map']
+    assert mapping['region1'] == ['F2']
+    assert (work.parent / doc['crops']['F2']).read_bytes() == first
+    assert not image.exists()  # F1 was created by the previous apply
+    # Restore the original numbering, then render with a synthetic guide.
+    doc = run(work, ops)
+    _, guide = clean
+    guide['paras']['P1']['els'] = []
+    args = SimpleNamespace(density=None, force=False, sources=None, no_page_images=True, pdf=None, lang=None)
+    output = work.parent / 'guide.html'
+    render.render(doc, guide, output, args, work_dir=work.parent)
+    data = json.loads(render.DATA_RE.search(output.read_text(encoding='utf-8'))[1])
+    assert data['frag_crops']['P1'] == ['F1']
+    assert data['crops']['F1'].startswith('data:image/png;base64,')
+    assert 'F1' not in data['guide']
+
+
+@pytest.mark.parametrize('target', ['table', 'figure', 'display'])
+def test_region_crop_accepts_textless_vector_box(work, target):
+    doc = run(work, [region_op(to=target, bbox=[.09, .59, .9, .63])])
+    item = doc['items'][1]
+    assert item['text'] == '' and item['type'] == 'frag'
+    with Image.open(work.parent / doc['crops'][item['id']]) as image:
+        assert image.getextrema()[0] == (0, 255)  # the synthetic PDF's vector bar
+
+
+def test_hiding_partial_crop_keeps_original_for_replay(work):
+    doc = json.loads(work.read_text())
+    image = work.parent / 'crops/P2.png'
+    image.parent.mkdir()
+    Image.new('RGB', (10, 10), 'red').save(image)
+    raw = image.read_bytes()
+    doc['crops'] = {'P2': 'crops/P2.png'}
+    work.write_text(json.dumps(doc))
+    ops = [region_op(to='table'), dict(op='type', ids=['P2'], to='frag', why='hide partial crop')]
+    result = run(work, ops)
+    assert list(result['crops']) == ['F1']
+    assert (work.parent / 'crops.orig/crops/P2.png').read_bytes() == raw
+    run(work, ops)
+    result = run(work, [region_op(to='table')])
+    assert (work.parent / result['crops']['P2']).read_bytes() == raw
+
+
+def test_split_region_crop_retains_source_on_both_pieces(work):
+    result = run(work, [region_op(to='display'),
+                        dict(op='split', id='region1', at='If X', why='split text')])
+    assert set(result['crops']) == {'F1', 'F2'}
+    assert (work.parent / result['crops']['F1']).read_bytes() == (work.parent / result['crops']['F2']).read_bytes()
+
+
+def test_region_crop_replay_in_fresh_process(work):
+    import subprocess
+    import sys
+    run(work, [region_op(to='figure')])
+    paths = [p for p in work.parent.rglob('*') if p.is_file()]
+    before = {p: p.read_bytes() for p in paths}
+    subprocess.run([sys.executable, fix.__file__, 'apply', str(work.with_name('fixes.json')),
+                    '--paras', str(work)], check=True, capture_output=True,
+                   env=dict(os.environ, PYTHONHASHSEED='1'))
+    assert all(p.read_bytes() == before[p] for p in paths)
