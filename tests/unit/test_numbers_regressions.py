@@ -231,3 +231,22 @@ def test_parenthesised_count_after_label_word_is_data():
     assert 14 in source_numbers('The environment part (14 questions) included items.')
     assert 3 not in source_numbers('Equation (3) shows the bound')
     assert 2 not in source_numbers('as Study 2 shows')
+
+
+def test_number_glued_to_chinese_is_read_whole():
+    from common import source_numbers
+    assert source_numbers('利率约为12.5%，共有37个区') == {12.5, 37.0}
+    assert 1234 in source_numbers('当铺数量为1,234家') and 234 not in source_numbers('当铺数量为1,234家')
+    assert not source_numbers('x2 与 P12')
+    assert not source_numbers('援引第13(3)条')
+
+
+def test_wrong_number_glued_to_chinese_is_caught(clean):
+    doc, guide = clean
+    guide['paras']['P1']['note'] = {'zh': '份额约为61.5%。'}
+    guide['meta']['notes_lang'] = ['zh']
+    errors, _, _ = run_checks(doc, guide)
+    assert any('P1 note' in error and '61.5' in error for error in errors), errors
+    guide['paras']['P1']['note'] = {'zh': '份额约为60.2%。'}
+    errors, _, _ = run_checks(doc, guide)
+    assert not any('P1 note' in error and 'source text' in error for error in errors), errors
