@@ -435,3 +435,22 @@ def test_ids_command_mapping_pages_and_cli(work, capsys, monkeypatch):
     monkeypatch.setattr('sys.argv',['fix.py','ids',str(work),'--pages','1'])
     fix.main()
     assert 'P1 | P2 | para | 1 | inter-' in capsys.readouterr().out
+
+
+def test_remove_running_head_with_split_tail_sequence_and_replay(work):
+    doc = json.loads(work.read_text())
+    doc['items'][2]['text'] = 'The argument continues 17 EXAMPLE JOURNAL Vol 16 on the next page.'
+    work.write_text(json.dumps(doc))
+    ops = [dict(op='split', id='P3', at='17 EXAMPLE JOURNAL', why='isolate running head'),
+           dict(op='split', id='P3#2', at='on the next page.', why='retain paragraph tail'),
+           dict(op='type', ids=['P3#2'], to='frag', why='hide page furniture'),
+           dict(op='join', ids=['P3', 'P3#3'], why='rejoin paragraph across furniture')]
+    result = run(work, ops)
+    assert [(it['type'], it['text']) for it in result['items'][2:4]] == [
+        ('para', 'The argument continues on the next page.'),
+        ('frag', '17 EXAMPLE JOURNAL Vol 16')]
+    mapping = json.loads(work.with_name('fixes_log.json').read_text())['id_map']
+    assert mapping['P3#3'] == ['P3'] and mapping['P3#2'] == ['F1']
+    before = work.read_bytes()
+    run(work, ops)
+    assert work.read_bytes() == before

@@ -185,7 +185,7 @@ def run_checks(doc, guide, density=None):
 
     if not str(meta.get("title", "")).strip():
         errors.append("meta.title is missing")
-    whole_texts = [it["text"] for it in doc["items"] if it["type"] in ("para", "note", "caption", "heading")]
+    whole_texts = [it["text"] for it in doc["items"] if it["type"] in ("para", "note", "caption", "heading", "frag")]
     whole = set().union(*map(source_numbers, whole_texts))
     whole_text = "\n".join(whole_texts)
     if not str(meta.get("purpose", "")).strip():

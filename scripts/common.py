@@ -259,10 +259,16 @@ MONTH_NAMES = {name.lower(): n for n, names in enumerate((
 MONTH_NAME_RE = re.compile(r"(?<![A-Za-z])(" + "|".join(sorted(MONTH_NAMES, key=len, reverse=True)) + r")\.?(?![A-Za-z])", re.I)
 
 
+SHORT_YEAR_RANGE_RE = re.compile(r"(?<!\d)(\d{4})\s*[-\u2013]\s*(\d{2})(?!\d)")
+
+
 def source_numbers(text):
     """Numbers a source text states, including spelled-out ones ("three", "forty-eight", "twenty-fifth", "三") and numbers
     whose digits a text layer set apart ("1 0" for 10: only runs of single digits, never "25 75")."""
     out = numbers_in(text)
+    for match in SHORT_YEAR_RANGE_RE.finditer(text or ""):
+        start, end = map(int, match.groups())
+        out.add(float(start // 100 * 100 + end + (100 if end < start % 100 else 0)))
     out.update(float(MONTH_NAMES[m.group(1).lower()]) for m in MONTH_NAME_RE.finditer(text or ""))
     merged = SPLIT_DIGITS_RE.sub(lambda m: m.group(0).replace(" ", ""), text or "")
     if merged != (text or ""):

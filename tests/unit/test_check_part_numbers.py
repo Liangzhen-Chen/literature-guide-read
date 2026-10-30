@@ -69,3 +69,27 @@ def test_part_scope_uses_item_positions_and_retains_linked_notes(clean):
     guide['parts'][0]['claim'] = 'The estimates are 17.25 and 28.5.'
     errors, _, _ = run_checks(doc, guide)
     assert not any('A claim' in error and 'source text' in error for error in errors), errors
+
+
+@pytest.mark.parametrize('name', ['thesis', 'overview'])
+@pytest.mark.parametrize('kind', ['frag', 'caption'])
+@pytest.mark.parametrize('before', [True, False])
+def test_document_field_accepts_all_fragment_and_caption_numbers(clean, name, kind, before):
+    doc, guide = clean
+    item = dict(id='F1' if kind == 'frag' else 'C1', type=kind,
+                text='F-test probability 0.037', page=1)
+    doc['items'].insert(0 if before else len(doc['items']), item)
+    guide[name] = 'The F-test probability is 0.037.'
+    guide['paras']['P1']['note'] = 'The F-test probability is 0.037.'
+    errors, _, _ = run_checks(doc, guide)
+    assert not any(error.startswith(name) and '0.037' in error for error in errors), errors
+    assert any('P1 note' in error and '0.037' in error for error in errors), errors
+
+
+@pytest.mark.parametrize('name', ['thesis', 'overview'])
+def test_document_field_still_rejects_absent_number(clean, name):
+    doc, guide = clean
+    doc['items'].append(dict(id='F1', type='frag', text='F-test probability 0.037', page=1))
+    guide[name] = 'The F-test probability is 0.038.'
+    errors, _, _ = run_checks(doc, guide)
+    assert any(error.startswith(name) and '0.038' in error for error in errors), errors

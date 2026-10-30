@@ -173,3 +173,26 @@ def test_chinese_page_ranges_are_reference_labels():
     assert numbers_in('引文见第 109–110 页') == set()
     assert numbers_in('见第 12 至 14 页') == set()
     assert numbers_in('第 3 页有 25 人') == {25.0}
+
+
+@pytest.mark.parametrize('dash', ['-', '\u2013'])
+@pytest.mark.parametrize('start,end,expanded', [(2006, '08', 2008), (2004, '19', 2019),
+                                               (1998, '02', 2002), (2006, '06', 2006)])
+def test_source_expands_abbreviated_year_range_only(dash, start, end, expanded):
+    source = f'The study ({start}{dash}{end}) reports output.'
+    assert expanded in common.source_numbers(source)
+    assert common.numbers_in(source) == {start, int(end)}
+
+
+@pytest.mark.parametrize('source', ['12006-08', '2006-080', '2006-2008'])
+def test_short_year_range_does_not_match_partial_numbers(source):
+    assert common.source_numbers(source) == common.numbers_in(source)
+
+
+def test_abbreviated_year_source_accepts_expanded_note(clean):
+    doc, guide = clean
+    for it in doc['items']:
+        it['text'] = 'Output increased during 1998-02.'
+    guide['paras']['P2']['note'] = 'Output increased through 2002.'
+    errors, _, _ = run_checks(doc, guide)
+    assert not any('P2 note' in error and 'source text' in error for error in errors), errors
