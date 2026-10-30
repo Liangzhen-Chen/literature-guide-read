@@ -8,7 +8,19 @@
   },
   "homepage": "https://liangzhen-chen.github.io/literature-guide-read/",
   "repository": "https://github.com/Liangzhen-Chen/literature-guide-read",
+  "documentationUrl": "https://github.com/Liangzhen-Chen/literature-guide-read#readme",
+  "supportUrl": "https://github.com/Liangzhen-Chen/literature-guide-read/issues",
+  "privacyPolicyUrl": "https://github.com/Liangzhen-Chen/literature-guide-read/blob/main/PRIVACY.md",
   "license": "MIT",
-  "keywords": ["reading", "papers", "pdf", "study", "education", "chinese"],
-  "skills": ["./"]
+  "keywords": [
+    "reading",
+    "papers",
+    "pdf",
+    "study",
+    "education",
+    "chinese"
+  ],
+  "skills": [
+    "./"
+  ]
 }
