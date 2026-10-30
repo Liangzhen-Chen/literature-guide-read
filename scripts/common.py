@@ -271,6 +271,7 @@ def source_numbers(text):
         out.add(float(start // 100 * 100 + end + (100 if end < start % 100 else 0)))
     out.update(float(MONTH_NAMES[m.group(1).lower()]) for m in MONTH_NAME_RE.finditer(text or ""))
     merged = SPLIT_DIGITS_RE.sub(lambda m: m.group(0).replace(" ", ""), text or "")
+    merged = re.sub(r"(?<=\d) (?=\.\d)", "", merged)  # a text layer that sets "62 .8" for 62.8
     if merged != (text or ""):
         out |= numbers_in(merged)
     for w in re.findall(r"[A-Za-z]+", text or ""):

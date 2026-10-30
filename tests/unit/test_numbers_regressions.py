@@ -217,3 +217,10 @@ def test_abbreviated_year_source_accepts_expanded_note(clean):
     guide['paras']['P2']['note'] = 'Output increased through 2002.'
     errors, _, _ = run_checks(doc, guide)
     assert not any('P2 note' in error and 'source text' in error for error in errors), errors
+
+
+def test_text_layer_space_before_decimal_point():
+    from common import source_numbers
+    assert 62.8 in source_numbers('a share of 62 .8 percent')
+    assert 5.26 in source_numbers('rose by 5 .26 points')
+    assert 0.5 not in source_numbers('ends here. 5 apples')

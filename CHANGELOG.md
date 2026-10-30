@@ -30,6 +30,7 @@ Full guide trials on unseen papers prompted two new workflow steps. Page inspect
 
 ### Number checks
 
+- A text layer that sets a decimal with a space before the point ("62 .8") still supplies 62.8.
 - Source-number extraction accepts spelled-out numbers, ordinal words, split digits, space/comma-grouped thousands, English month names and abbreviated year-range endpoints, including century rollover. Dates can use month numbers in Chinese notes; centuries and decades are accepted when the source has a corresponding year. Numeric ranges keep both endpoints; Chinese equation labels and page/figure/table ranges are treated as references. These changes address false errors from otherwise faithful notes.
 - Part claims, flow steps and recall questions/answers can use fragments and captions within the part's item range and the run after its last paragraph. Thesis and overview can use all document fragments and captions. Paragraph fields retain their local scope. The checker also warns when flow steps copy paragraph notes, and handles money beside inline maths without a spurious line-break warning. The schema and method state these scopes and the thesis/claim length limits.
 
