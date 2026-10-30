@@ -166,3 +166,10 @@ def test_chinese_month_note(clean, source, note):
 
 def test_unrelated_counts_are_not_thousands():
     assert common.numbers_in('25 75') == {25,75}
+
+
+def test_chinese_page_ranges_are_reference_labels():
+    from common import numbers_in
+    assert numbers_in('引文见第 109–110 页') == set()
+    assert numbers_in('见第 12 至 14 页') == set()
+    assert numbers_in('第 3 页有 25 人') == {25.0}
