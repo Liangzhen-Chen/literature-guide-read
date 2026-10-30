@@ -95,7 +95,7 @@ def test_crops_and_footnotes_survive(work):
                dict(op="join", ids=["P2", "P3"], why="join crops")])
     assert work.read_bytes() == first
     doc = run(work, [dict(op="type", ids=["P1"], to="caption", why="caption")])
-    assert doc["crops"]["P1"] == "crops/P2.png"
+    assert doc["crops"]["P1"] == "crops/P1.png"
 
 
 def test_overlay(work, capsys):
@@ -139,7 +139,7 @@ def test_split_crop_and_geometric_note(work):
     Image.new("RGB", (10, 10), "white").save(work.parent / "crops/original.png")
     work.write_text(json.dumps(doc))
     doc = run(work, [dict(op="split", id="P4", at="Another sentence.", why="false join")])
-    assert doc["crops"] == {"P4": "crops/original.png", "P5": "crops/original.png"}
+    assert doc["crops"] == {"P4": "crops/P4.png", "P5": "crops/P5.png"}
     assert doc["items"][-1]["ref"] == "P4"
     assert doc["items"][-3]["notes"] == ["N1"]
 
@@ -339,9 +339,9 @@ def test_reapply_warns_but_uses_original_ids(work, capsys):
     result = run(work, [dict(op="type", ids=["P1", "P2"], to="frag", why="hide originals"),
                         dict(op="move", id="N1", after="P1", why="original anchor")])
     output = capsys.readouterr().out
-    assert 'Warning op 1: P1 means original "An intro."; current files show "inter-" under P1.' in output
-    assert 'Warning op 1: P2 means original "inter-"; current files show "national Second sentence." under P2.' in output
-    assert 'Warning op 2: P1 means original "An intro."' in output
+    assert 'note: op 1 names original P1 "An intro."; the current files show that id on "inter-"' in output
+    assert 'note: op 1 names original P2 "inter-"; the current files show that id on "national Second sentence."' in output
+    assert output.count('names original P1') == 1
     assert result['items'][0]['text'] == 'An intro.'
     assert result['items'][0]['type'] == 'frag'
     assert result['items'][1]['text'] == 'A note.'
@@ -351,7 +351,7 @@ def test_reapply_unchanged_text_has_no_warning(work, capsys):
     run(work, [])
     capsys.readouterr()
     run(work, [dict(op="type", ids=["P2"], to="heading", why="same original item")])
-    assert 'Warning' not in capsys.readouterr().out
+    assert 'note:' not in capsys.readouterr().out
 
 
 def test_overlay_original_numbering(work, capsys, monkeypatch):
@@ -381,3 +381,56 @@ def test_overlay_orig_without_backup_and_cli_flag(work, capsys, monkeypatch):
     monkeypatch.setattr('sys.argv', ['fix.py', 'overlay', str(work), '--orig'])
     fix.main()
     assert called[0] == (work, None, None, True)
+
+
+def test_crop_names_collisions_cleanup_and_replay(work):
+    doc = json.loads(work.read_text())
+    crops = work.parent / 'crops'; crops.mkdir()
+    for key, color in [('P2', 'red'), ('P3', 'blue')]:
+        Image.new('RGB', (10,10), color).save(crops/f'{key}.png')
+    (crops/'manual.png').write_bytes(b'untouched manual asset')
+    doc['crops'] = {key:f'crops/{key}.png' for key in ['P2','P3']}
+    work.write_text(json.dumps(doc))
+    original = {key:(crops/f'{key}.png').read_bytes() for key in ['P2','P3']}
+    ops = [dict(op='type',ids=['P1'],to='heading',why='renumber')]
+    result = run(work, ops)
+    assert result['crops'] == {'P1':'crops/P1.png','P2':'crops/P2.png'}
+    assert (crops/'P1.png').read_bytes() == original['P2']
+    assert (crops/'P2.png').read_bytes() == original['P3']
+    for key in original:
+        assert (work.parent/'crops.orig/crops'/f'{key}.png').read_bytes() == original[key]
+    run(work, ops)
+    assert (crops/'P1.png').read_bytes() == original['P2']
+    run(work, [])
+    assert not (crops/'P1.png').exists()
+    assert (crops/'manual.png').read_bytes() == b'untouched manual asset'
+    for key in original:
+        assert (crops/f'{key}.png').read_bytes() == original[key]
+
+
+@pytest.mark.parametrize('anchor', ['P1', None])
+def test_regions_preserve_op_order_and_title_level(work, anchor):
+    ops = [region_op(after=anchor,to='heading',level=0), region_op(after=anchor,to='caption')]
+    doc = run(work, ops)
+    pos = 1 if anchor else 0
+    assert doc['items'][pos]['type'] == 'heading' and doc['items'][pos]['level'] == 0
+    assert doc['items'][pos+1]['type'] == 'caption'
+    assert doc['title_guess'] == doc['items'][pos]['text']
+
+
+@pytest.mark.parametrize('changes', [dict(to='para',level=0),dict(to='heading',level=-1),dict(to='heading',level=True)])
+def test_invalid_region_level(work, changes):
+    with pytest.raises(ValueError,match='level'):
+        run(work,[region_op(**changes)])
+
+
+def test_ids_command_mapping_pages_and_cli(work, capsys, monkeypatch):
+    run(work,[dict(op='type',ids=['P1'],to='heading',why='title')])
+    capsys.readouterr()
+    fix.ids(work,'1')
+    assert 'H1 | P1 | heading | 1 | An intro.' in capsys.readouterr().out
+    fix.ids(work,'2-3')
+    assert len(capsys.readouterr().out.splitlines()) == 1
+    monkeypatch.setattr('sys.argv',['fix.py','ids',str(work),'--pages','1'])
+    fix.main()
+    assert 'P1 | P2 | para | 1 | inter-' in capsys.readouterr().out

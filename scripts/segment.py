@@ -3278,11 +3278,11 @@ def scan_page_numbers(pdf, pnos, text_counts=None):
 SCAN_ONLY_MESSAGE = "给执行的 agent（不是给用户的）：基础版无法读取扫描 PDF。已安装 MinerU 时请用 --engine mineru 重试；否则按 SKILL.md 第 0 步向用户提供 MinerU 选项，用户同意后由 agent 安装。"
 
 
-def basic_text_pages(pdf, pnos):
+def basic_text_pages(pdf, pnos, keep=()):
     """Keep readable and blank pages; report scans once, or stop a scan-only run."""
     counts = {}
-    scans = scan_page_numbers(pdf, pnos, counts)
-    if not any(n >= 30 for n in counts.values()):
+    scans = [n for n in scan_page_numbers(pdf, pnos, counts) if n not in keep]
+    if not keep and not any(n >= 30 for n in counts.values()):
         sys.exit(SCAN_ONLY_MESSAGE)
     messages = ([f"给执行的 agent（不是给用户的）：已跳过扫描页 {scans}；这些页是扫描件，MinerU 可以读取。"]
                 if scans else [])
@@ -4601,6 +4601,32 @@ def layout_signals(blocks, n_pages, info=None):
     return score, reasons
 
 
+def rotated_text_regions(pdf, pnos):
+    """Keep quarter-turn /Rotate or predominantly non-upright pages as crops.
+
+    Orientation is measured by visible glyph counts; incidental vertical axis
+    labels and watermarks do not turn an otherwise upright page into a table.
+    """
+    regions = []
+    for n in pnos:
+        page = pdf.pages[n-1]
+        chars = [c for c in getattr(page, "chars", []) if c.get("text", "").strip()
+                 and page.bbox[0] <= (c["x0"]+c["x1"])/2 <= page.bbox[2]
+                 and page.bbox[1] <= (c["top"]+c["bottom"])/2 <= page.bbox[3]]
+        tilted = [c for c in chars if not c.get("upright", True)]
+        quarter_turn = getattr(page, "rotation", 0) % 180
+        chosen = tilted if len(tilted) > len(chars)/2 else chars if quarter_turn else []
+        if chosen:
+            x0 = max(0, (min(c["x0"] for c in chosen)-page.bbox[0])/page.width)
+            y0 = max(0, (min(c["top"] for c in chosen)-page.bbox[1])/page.height)
+            x1 = min(1, (max(c["x1"] for c in chosen)-page.bbox[0])/page.width)
+            y1 = min(1, (max(c["bottom"] for c in chosen)-page.bbox[1])/page.height)
+            regions.append(dict(type="frag", page=n, table=True, rotated=True,
+                                bbox=[round(v,4) for v in (x0,y0,x1,y1)],
+                                text=clean_text("".join(c["text"] for c in chosen))))
+    return regions
+
+
 def segment_text_layer(pdf, pnos, columns, cache=None):
     """One full pass of the default tier: blocks, classification, references, continuations."""
     blocks, body, info, stats = from_pdf_text(pdf, pnos, columns, cache)
@@ -4741,7 +4767,9 @@ def filter_cropped_unmapped(doc, regions):
 
 
 def write_outputs(doc, out, chunk_chars):
-    its = [i for i in doc["items"] if isinstance(i.get("text"), str)]
+    # Rotated table text is raw PDF character order, not prose evidence for
+    # document-wide hyphen/ligature repairs; retain it verbatim beside its crop.
+    its = [i for i in doc["items"] if isinstance(i.get("text"), str) and not i.get("rotated")]
     resolved, doc_decisions = resolve_hyphens([i["text"] for i in its])
     for i, t in zip(its, resolved):
         i["text"] = t
@@ -4807,6 +4835,7 @@ def main():
         sys.exit(f"找不到文件：{src}")
 
     report = []
+    rotated = []
     raster_cover = False
     is_text = args.text or src.suffix.lower() in (".txt", ".md")
     engine = args.engine
@@ -4878,7 +4907,8 @@ def main():
                     cover_text = first_text
                     report.append(f"第 {pnos[0]} 页是 JSTOR 封面，已跳过")
                     pnos = pnos[1:]
-            text_pnos, scan_messages = basic_text_pages(pdf, pnos)
+            rotated = rotated_text_regions(pdf, pnos)
+            text_pnos, scan_messages = basic_text_pages(pdf, pnos, {r["page"] for r in rotated})
             report.extend(scan_messages)
             mode = "PDF 文字层"
             if cover_text:
@@ -4889,6 +4919,16 @@ def main():
             report.extend(check_msgs)
 
     items, counters = finalize(blocks)
+    if rotated:
+        for region in rotated:
+            pos = next((j for j, it in enumerate(items) if it["page"] > region["page"]), len(items))
+            items.insert(pos, region)
+        counters["F"] = 0
+        for it in items:
+            if it["type"] == "frag":
+                counters["F"] += 1
+                it["id"] = f"F{counters['F']}"
+        report.append(f"给执行的 agent（不是给用户的）：页 {[r['page'] for r in rotated]} 含旋转文字，已保留为表格裁剪；请打开对应 crops/ 图片并在 step 1b 核对。")
     labels = page_labels_from(stats["labels"], pnos) if pnos else {}
     title = next((i["text"] for i in items if i["type"] == "heading" and i.get("level") == 0), "")
     if not title and raster_cover:
@@ -4896,7 +4936,7 @@ def main():
     doc = {"version": 2, "source": src.name, "source_path": str(src.resolve()), "mode": mode, "page_count": page_count,
            "pages_processed": [pnos[0], pnos[-1]] if pnos else None,
            "page_labels": labels, "title_guess": title, "items": items}
-    if counters["P"] == 0:
+    if counters["P"] == 0 and not rotated:
         sys.exit("给执行的 agent（不是给用户的）：没有切出任何段落。请检查版式并尝试 --engine mineru，或自行整理正文后用 --text 重试。")
     names = write_outputs(doc, out, args.chunk_chars)
     title = doc.get("title_guess", title)

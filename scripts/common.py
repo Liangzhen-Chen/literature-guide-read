@@ -252,12 +252,18 @@ ORDINAL_NUMS = {"third": 3, "fourth": 4, "fifth": 5, "sixth": 6, "seventh": 7, "
 TENS_RE = re.compile(r"\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[- ](one|two|three|four|five|six|seven|eight|nine|"
                      r"first|second|third|fourth|fifth|sixth|seventh|eighth|ninth)\b", re.I)
 SPLIT_DIGITS_RE = re.compile(r"(?<![\d.,])\d(?: \d)+(?![\d.,])")
+MONTH_NAMES = {name.lower(): n for n, names in enumerate((
+    ("January", "Jan"), ("February", "Feb"), ("March", "Mar"), ("April", "Apr"), ("May",),
+    ("June", "Jun"), ("July", "Jul"), ("August", "Aug"), ("September", "Sep", "Sept"),
+    ("October", "Oct"), ("November", "Nov"), ("December", "Dec")), 1) for name in names}
+MONTH_NAME_RE = re.compile(r"(?<![A-Za-z])(" + "|".join(sorted(MONTH_NAMES, key=len, reverse=True)) + r")\.?(?![A-Za-z])", re.I)
 
 
 def source_numbers(text):
     """Numbers a source text states, including spelled-out ones ("three", "forty-eight", "twenty-fifth", "三") and numbers
     whose digits a text layer set apart ("1 0" for 10: only runs of single digits, never "25 75")."""
     out = numbers_in(text)
+    out.update(float(MONTH_NAMES[m.group(1).lower()]) for m in MONTH_NAME_RE.finditer(text or ""))
     merged = SPLIT_DIGITS_RE.sub(lambda m: m.group(0).replace(" ", ""), text or "")
     if merged != (text or ""):
         out |= numbers_in(merged)
@@ -275,7 +281,9 @@ def source_numbers(text):
 
 
 def numbers_in(text):
-    t = REF_SKIP_RE.sub(" ", strip_math_notation(text))
+    t = re.sub(r"(?<![\w.,])\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:\.\d+)?(?![\d.,])",
+               lambda m: re.sub(r"[ \u00a0\u202f]", "", m.group()), text or "")
+    t = REF_SKIP_RE.sub(" ", strip_math_notation(t))
     # In explicit normal-distribution notation the comma separates parameters.
     # Leave ordinary grouped counts (including parenthesized counts) unchanged.
     t = re.sub(r"\bN\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*"

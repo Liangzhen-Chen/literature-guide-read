@@ -12,6 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (DENSITY, DENSITY_ALIASES, LANGS, TIER_ALIASES, TIERS, as_lang, compress,  # noqa: E402
+                    MONTH_NAMES, MONTH_NAME_RE,
                     find_anchor, fmt_num, inline_math_spans, use_utf8, load_elements, load_guide, load_json, numbers_in,
                     parse_range, pnum, source_numbers, suggest_anchor)
 
@@ -46,11 +47,6 @@ LIMITS = {"role": {"zh": 16, "en": 60}, "read": {"zh": 90, "en": 240},
           "claim": {"zh": 80, "en": 220}, "thesis": {"zh": 100, "en": 280}}
 SHORT_NOTE = {"zh": 40, "en": 25}
 
-MONTH_NAMES = {name.lower(): month for month, names in enumerate((
-    ("January", "Jan"), ("February", "Feb"), ("March", "Mar"), ("April", "Apr"),
-    ("May",), ("June", "Jun"), ("July", "Jul"), ("August", "Aug"),
-    ("September", "Sep", "Sept"), ("October", "Oct"), ("November", "Nov"), ("December", "Dec")), 1) for name in names}
-MONTH_NAME_RE = re.compile(r"(?<![A-Za-z])(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?(?![A-Za-z])", re.I)
 NUMERIC_DATE_RE = re.compile(r"(?<!\d)(?:(?P<year_zh>\d{4})\s*\u5e74\s*(?P<month_zh>\d{1,2})\s*\u6708(?:\s*(?P<day_zh>\d{1,2})\s*\u65e5)?|(?P<year_iso>\d{4})-(?P<month_iso>\d{1,2})(?:-(?P<day_iso>\d{1,2}))?|(?P<month_slash>\d{1,2})/(?P<year_slash>\d{4}))(?!\d)")
 
 

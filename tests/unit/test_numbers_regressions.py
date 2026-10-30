@@ -47,7 +47,7 @@ def test_numbered_statements_are_references_not_data():
     ('The event occurred on July 21, 2010.', '\u4e8b\u4ef6\u53d1\u751f\u4e8e 2010 \u5e74 7 \u6708 21 \u65e5\u3002', True),
     ('The event occurred on Jul. 2010.', 'Event date: 2010-07.', True),
     ('The event occurred on July 21, 2010.', 'Event date: 2011-07.', False),
-    ('July is named in an unrelated passage.', 'The value is 7.', False),
+    ('July is named in an unrelated passage.', 'The value is 7.', True),
 ])
 def test_numeric_month_matches_source_date_only(clean, source, note, valid):
     doc, guide = clean
@@ -57,13 +57,13 @@ def test_numeric_month_matches_source_date_only(clean, source, note, valid):
     errors, _, _ = run_checks(doc, guide)
     assert (not any('P2 note' in e for e in errors)) == valid, errors
 
-def test_date_month_does_not_exempt_same_number_elsewhere(clean):
+def test_named_month_is_available_throughout_source_scope(clean):
     doc, guide = clean
     for item in doc['items']:
         item['text'] = 'The event occurred on July 21, 2010.'
     guide['paras']['P2']['note'] = 'Event date: 2010-07; growth was 7%.'
     errors, _, _ = run_checks(doc, guide)
-    assert any('P2 note' in e and '7' in e for e in errors), errors
+    assert not any('P2 note' in e and '7' in e for e in errors), errors
 
 
 def test_date_in_part_claim_uses_paragraph_source_scope(clean):
@@ -136,3 +136,33 @@ def test_chinese_equation_range_note_passes_checker(clean):
     guide['paras']['P2']['note'] = '\u65b9\u7a0b 1 \u5230 4 \u8bf4\u660e\u8f83\u5c0f\u5956\u52b1\u7684\u9009\u62e9\u3002'
     errors, _, _ = run_checks(doc, guide)
     assert not any('P2 note' in error and 'source text' in error for error in errors), errors
+
+
+@pytest.mark.parametrize('source', ['58,000', '58 000', '58000', '58\u00a0000', '58\u202f000'])
+@pytest.mark.parametrize('note', ['58,000', '58 000', '58000'])
+def test_thousands_groupings_match_source(clean, source, note):
+    assert common.numbers_in(source) == {58000}
+    doc, guide = clean
+    for it in doc['items']: it['text'] = 'There were '+source+' observations.'
+    guide['paras']['P2']['note'] = 'The sample contains '+note+' observations.'
+    errors, _, _ = run_checks(doc, guide)
+    assert not any('P2 note' in error and 'source text' in error for error in errors), errors
+
+
+@pytest.mark.parametrize('name,number', [(name,n) for name,n in common.MONTH_NAMES.items()])
+def test_month_names_and_abbreviations_in_source(name, number):
+    assert number in common.source_numbers(name.title()+'.')
+    assert common.source_numbers(name+'suffix') == set()
+
+
+@pytest.mark.parametrize('source,note', [('July', '7 \u6708'),('June 3','6 \u6708 3 \u65e5'),('Jan.','1 \u6708')])
+def test_chinese_month_note(clean, source, note):
+    doc, guide = clean
+    for it in doc['items']: it['text'] = 'Event date: '+source+'.'
+    guide['paras']['P2']['note'] = note
+    errors, _, _ = run_checks(doc, guide)
+    assert not any('P2 note' in error and 'source text' in error for error in errors), errors
+
+
+def test_unrelated_counts_are_not_thousands():
+    assert common.numbers_in('25 75') == {25,75}

@@ -7,6 +7,9 @@ def merge_table_runs(items):
     """Consecutive table rows on one page become one region on the first row; followers get table_part."""
     prev = None
     for it in items:
+        if it.get("rotated"):
+            prev = None
+            continue  # each rotated-text page owns its crop, even next to table rows
         if it.get("table") and it.get("bbox"):
             if prev is not None and prev["page"] == it["page"]:
                 b, c = prev["bbox"], it["bbox"]

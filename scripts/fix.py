@@ -28,6 +28,8 @@ def region(doc, op):
     source, n, box = doc.get("source_path"), op["page"], op["bbox"]
     if op["to"] not in ("para", "heading", "caption", "note"):
         raise ValueError("region target must be para, heading, caption or note")
+    if "level" in op and (op["to"] != "heading" or type(op["level"]) is not int or op["level"] < 0):
+        raise ValueError("level must be a nonnegative heading level")
     if (not isinstance(box, list) or len(box) != 4
             or any(type(v) not in (int, float) or not math.isfinite(v) or not 0 <= v <= 1 for v in box)
             or box[0] >= box[2] or box[1] >= box[3]):
@@ -53,7 +55,7 @@ def region(doc, op):
             text = segment.join_marked(text, line["text"])
     item = dict(type=op["to"], text=text, page=n, bbox=list(box))
     if item["type"] == "heading":
-        item["level"] = 1
+        item["level"] = op.get("level", 1)
     return item
 
 
@@ -122,7 +124,7 @@ def corrected(original, ops, messages=None, current=None):
         it["_keys"] = [it["id"]]
         it["_crops"] = [original.get("crops", {}).get(it["id"])]
     known = {it["id"] for it in items}
-    n_regions = 0
+    n_regions, region_ends, noted = 0, {}, set()
 
     def find(key):
         if key not in known:
@@ -206,10 +208,13 @@ def corrected(original, ops, messages=None, current=None):
                 known.add(key)
                 it.update(id=key, _orig=[key], _keys=[key], _crops=[])
                 texts[key] = it["text"]
-                pos = items.index(after)+1 if after is not None else next(
+                anchor = (op["page"], op["after"])
+                previous_region = next((old for old in items if region_ends.get(anchor) in old["_keys"]), None)
+                pos = items.index(previous_region)+1 if previous_region is not None else items.index(after)+1 if after is not None else next(
                     (i for i, old in enumerate(items) if old.get("page") == it["page"]), next(
                         (i for i, old in enumerate(items) if old.get("page", 0) > it["page"]), len(items)))
                 items.insert(pos, it)
+                region_ends[anchor] = key
             elif kind == "move":
                 it, after = find(op["id"]), find(op["after"])
                 if it is after:
@@ -225,8 +230,9 @@ def corrected(original, ops, messages=None, current=None):
             label = kind + (f"→{op['to']}" if kind in ("type", "region") else "")
             messages.append(f"op {index} {label}: " + "; ".join(f"{ref} {short(texts[ref])}" for ref in refs))
             for ref in refs:
-                if ref in current and current[ref] != texts[ref]:
-                    messages.append(f"Warning op {index}: {ref} means original {short(texts[ref])}; current files show {short(current[ref])} under {ref}. Using the original ID.")
+                if ref in current and current[ref] != texts[ref] and ref not in noted:
+                    messages.append(f"note: op {index} names original {ref} {short(texts[ref])}; the current files show that id on {short(current[ref])}")
+                    noted.add(ref)
         except (ValueError, KeyError, TypeError, StopIteration) as exc:
             detail = f"missing required key {exc.args[0]!r}" if isinstance(exc, KeyError) else str(exc)
             raise ValueError(f"op {index} ({op!r}): {detail}") from exc
@@ -272,44 +278,25 @@ def apply(fixes, paras):
     if not isinstance(ops, list):
         raise ValueError("fixes must be an array or an object with an ops array")
     current = {it["id"]: it["text"] for it in json.loads(paras.read_text(encoding="utf-8"))["items"]} if backup.exists() else {}
-    messages = []
-    doc, mapping = corrected(json.loads(raw), ops, messages, current)
+    original, messages = json.loads(raw), []
+    doc, mapping = corrected(original, ops, messages, current)
     # Validate all operations before writing anything, including the backup.
-    from PIL import Image
+    from fix_crops import stage_crops, remove_stale
+    log = paras.with_name("fixes_log.json")
+    previous = json.loads(log.read_text(encoding="utf-8")).get("created_crops", []) if log.exists() else []
     with tempfile.TemporaryDirectory(prefix="fix-", dir=paras.parent) as tmp:
         stage = Path(tmp)
-        crops = {}
-        for it in doc["items"]:
-            paths = list(dict.fromkeys(path for path in it.pop("_crops") if path))
-            it.pop("_orig")
-            it.pop("_keys")
-            if len(paths) == 1:
-                crops[it["id"]] = paths[0]
-            elif paths:
-                images = []
-                for path in paths:
-                    with Image.open(paras.parent / path) as image:
-                        images.append(image.convert("RGB"))
-                canvas = Image.new("RGB", (max(im.width for im in images), sum(im.height for im in images)), "white")
-                y = 0
-                for image in images:
-                    canvas.paste(image, (0, y))
-                    y += image.height
-                rel = f"crops/fixed_{it['id']}.png"
-                (stage / "crops").mkdir(exist_ok=True)
-                canvas.save(stage / rel)
-                crops[it["id"]] = rel
-        if "crops" in doc or crops:
-            doc["crops"] = crops
+        created = stage_crops(doc, original, paras.parent, stage)
         # Source glyph coverage also carries item IDs.
         for it in doc["items"]:
             for source in it.get("unmapped_sources", []):
                 for coverage in source.get("crop_coverage", []):
                     coverage["crop"] = mapping.get(coverage["crop"], [coverage["crop"]])[0]
         segment.write_outputs(doc, stage, 12000)
-        (stage / "fixes_log.json").write_text(json.dumps(dict(id_map=mapping, ops=ops), ensure_ascii=False, indent=2), encoding="utf-8")
+        (stage / "fixes_log.json").write_text(json.dumps(dict(id_map=mapping, ops=ops, created_crops=created), ensure_ascii=False, indent=2), encoding="utf-8")
         if not backup.exists():
             backup.write_bytes(raw)
+        remove_stale(paras.parent, previous, created, original)
         for old in paras.parent.glob("paragraphs_part*.txt"):
             old.unlink()
         for path in stage.rglob("*"):
@@ -322,6 +309,19 @@ def apply(fixes, paras):
     return doc
 
 
+def ids(paras, pages=None):
+    doc, log = json.loads(paras.read_text(encoding="utf-8")), paras.with_name("fixes_log.json")
+    mapping = json.loads(log.read_text(encoding="utf-8")).get("id_map", {}) if log.exists() else {}
+    originals = {}
+    for old, new_ids in mapping.items():
+        for key in new_ids: originals.setdefault(key, []).append(old)
+    selected = segment.parse_pages(pages, doc.get("page_count") or max((it.get("page",1) for it in doc["items"]), default=1)) if pages else None
+    print("new id | original id(s) | type | page | first 8 words")
+    for it in doc["items"]:
+        if selected is None or set(it.get("pages", [it.get("page")])) & set(selected):
+            print(f"{it['id']} | {', '.join(originals.get(it['id'], [it['id']]))} | {it['type']} | {it.get('page', '')} | {' '.join(it['text'].split()[:8])}")
+
+
 def main():
     segment.use_utf8()
     ap = argparse.ArgumentParser(description=__doc__)
@@ -331,13 +331,14 @@ def main():
     ov.add_argument("--pages")
     ov.add_argument("--out", type=Path)
     ov.add_argument("--orig", action="store_true", help="draw first-segmentation IDs from paragraphs.orig.json when available")
-    fx = sub.add_parser("apply")
-    fx.add_argument("fixes", type=Path)
+    fx = sub.add_parser("apply"); fx.add_argument("fixes", type=Path)
     fx.add_argument("--paras", required=True, type=Path)
+    ls = sub.add_parser("ids"); ls.add_argument("paragraphs", type=Path); ls.add_argument("--pages")
     args = ap.parse_args()
     try:
         if args.command == "overlay":
             overlay(args.paragraphs, args.pages, args.out, args.orig)
+        elif args.command == "ids": ids(args.paragraphs, args.pages)
         else:
             apply(args.fixes, args.paras)
     except (ValueError, OSError, KeyError) as exc:
