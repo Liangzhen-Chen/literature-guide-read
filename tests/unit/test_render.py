@@ -189,7 +189,7 @@ def test_inline_math_in_notes_inlines_katex(clean):
 
 
 def test_cap_key_and_mentions_roman_numerals():
-    # List (2003), QJE: tables are numbered TABLE II ... TABLE XI; Roman numbers must resolve like Arabic ones
+    # An economics article: tables are numbered TABLE II ... TABLE XI; Roman numbers must resolve like Arabic ones
     assert r.cap_key('TABLE III NONDEALER SUMMARY STATISTICS') == ['table', 3]
     assert r.cap_key('FIGURE I Summary of Trading Results') == ['fig', 1]
     assert r.mentions('Table II reports; see Table XI and Figure IV') == [['table', 2], ['table', 11], ['fig', 4]]
@@ -197,7 +197,7 @@ def test_cap_key_and_mentions_roman_numerals():
 
 
 def test_equation_crop_skips_label_only_paragraph(clean):
-    # List (2003): "(2a)" came out as its own paragraph between the introducing sentence and the equation crop
+    # An economics article: "(2a)" came out as its own paragraph between the introducing sentence and the equation crop
     doc, g = clean
     doc['items'][0]['text'] = 'The model is given by the following system:'
     doc['items'].insert(1, {'id': 'P9', 'type': 'para', 'text': '(2a)', 'page': 1})

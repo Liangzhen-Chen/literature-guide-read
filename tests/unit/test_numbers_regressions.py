@@ -39,7 +39,7 @@ def test_bare_shi_is_not_a_reference():
 
 
 def test_numbered_statements_are_references_not_data():
-    # Kőszegi & Rabin (2006): "inequality (8)", "expression (15)", "Definition 1", "Lemma 2" are labels
+    # An economics article: "inequality (8)", "expression (15)", "Definition 1", "Lemma 2" are labels
     from common import numbers_in
     assert numbers_in("by inequality (8), expression (15), Definition 1, Lemma 2, Theorem 3 and Corollary 4; 不等式 (8) 与定义 1") == set()
 

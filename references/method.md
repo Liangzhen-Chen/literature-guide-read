@@ -4,7 +4,7 @@ The page helps a reader read the original and gives an after-reading summary of 
 
 1. Short on time: the argument map at the top shows the whole argument on one screen.
 2. Reading the text: the original runs in order. Close-read paragraphs are open with a "read for" prompt; skim and skip paragraphs show a note first, with the original one click away.
-3. Looking something up: the sidebar lists what each paragraph does, the terms and the evidence.
+3. Looking something up: the left margin shows the current part's claim, reasoning steps and terms; the Terms button opens the full term index.
 
 ## 1 Read everything first
 
@@ -42,7 +42,7 @@ The share of close reads is capped by `meta.density`: low 15%, medium 25%, high 
 - **whole argument** (default): the criteria above as written. In an empirical paper the identification (what lets the authors read an estimate as the effect they claim: an ordering of variables, an instrument, a control group, a restriction), the main results and the robustness checks that bear on the reader's questions are close reads; if the density cap forces a choice, these come before background and literature. The notes on the identification say what assumption it rests on (for an instrument, that it moves the outcome only through the treated variable) and what the authors offer for it, so the reader can judge how strong it is.
 - **core claims only**: close reads are the thesis, each part's claim and the qualifications; design, data and robustness paragraphs are skim with full restating notes, so the reader can trust the claim without reading the evidence. Density low.
 - **method and design only**: close reads are the design, assumptions, identification and measurement paragraphs; results paragraphs are skim with their key numbers in the note. Density medium.
-- **evidence to cite**: close reads are the paragraphs with the main numbers, tables and figures and the limitations; mark every `exp`, `field`, `survey` element with a label `s` so the evidence list is complete.
+- **evidence to cite**: close reads are the paragraphs with the main numbers, tables and figures and the limitations; give each `exp`, `field`, `survey` element a short label `s` that identifies the evidence in its highlight tooltip.
 - **exam revision**: close reads as for whole argument, plus three or four recall questions per part instead of two.
 
 `meta.familiarity` changes the notes, not the tiers: a reader new to the field gets a `def` element at first use for every technical term the argument relies on (each method, model, test, measure and data series a step or claim needs) and notes that spell terms out; a reader who knows the field gets fewer definitions and shorter notes. Before writing, list the terms a newcomer would stop at, starting with the terms the paper's question and the reader's own questions turn on (often a distinction, such as two kinds of protection an asset can give), then the terms the method and results use, and check each has its `def`. When familiarity was not given, write for a reader who knows the field in general but not this paper's methods. Each question in `questions` is answered in `a` from the text only, with `p` naming the paragraphs that answer it; the page shows the questions at the top with links. If the text does not answer a question, say so in `a`.
@@ -52,13 +52,13 @@ The share of close reads is capped by `meta.density`: low 15%, medium 25%, high 
 - close, `read` and `note`. `read` is one line on what to watch for in the original, such as "How reversibility is stated, and how the offers trace each curve"; it must not give away the content, because the reader is about to read it. `note` is the after-reading summary: restate the paragraph under the same rules as a skim note (the claim or result, the specific numbers, the definition itself, the qualification). The page shows it below the original, folded, so the reader reads the original first. A close entry without `note` is a warning.
 - skim, `note`: restate the content: the claim or result, the specific numbers, the definition itself, the conclusion. A reader who skips the original must still know what it said and on what basis. Never describe what the paragraph does ("introduces", "discusses", "这段介绍了"). Length follows content: one sentence for a transition, three or four for a paragraph of data.
 - skip, `note` in one line, plus `why`.
-- every paragraph, `role`: what it does, in a few words ("Experiment 2 results"; at most 16 Chinese characters or 60 English characters, since the sidebar shows these). A role names the move; the content goes in `read` or `note`. Write every entry from the paragraph in hand: never start from another guide's files, whose roles and notes belong to a different text. `read` fits in 90 Chinese or 240 English characters.
+- every paragraph, `role`: what it does, in a few words ("Experiment 2 results"; at most 16 Chinese characters or 60 English characters). Hovering over the paragraph ID shows the role and page. A role names the move; the content goes in `read` or `note`. Write every entry from the paragraph in hand: never start from another guide's files, whose roles and notes belong to a different text. `read` fits in 90 Chinese or 240 English characters.
 
 ## 5 Elements
 
 - Tag what a reader must not miss (see elements.md): definitions, claims, evidence with numbers, figures, tables, formulas, mechanisms, qualifications.
 - Every element of level 2 or 3 needs an anchor `a`, a span copied verbatim from the paragraph, usually a clause or a sentence. The page highlights it in the original.
-- `x` explains the element in the notes language ("Median reservation prices: sellers $7.12, choosers $3.12, buyers $2.87"). `s` is a short label for the argument map ("SFU mugs: sellers $7.12, buyers $2.87"). Give `s` only to elements that belong on the map, usually two to six per part.
+- `x` explains the element in the notes language. `s` is a short label used in its highlight tooltip, falling back to `x` when absent. The argument map shows the thesis and parts; reasoning steps and terms live in the left margin.
 - A definition names its term in `term`; Chinese notes keep the original term in brackets.
 - Anchors in one paragraph must not overlap.
 - A formula element needs `tex`, `syms` and `x` (schema.md). Check the LaTeX against the crop in `WORK/crops/` before you write the symbol table.
@@ -67,7 +67,7 @@ Inline mathematics in any note, read line, claim or explanation goes between sin
 
 ## 6 Numbers
 
-Every number in a note, a read line, an element or a claim must appear in the source: the paragraph itself, its footnotes or its neighbours (for a part claim, anything in the part). check.py stops on numbers it cannot find. Keep the author's form: "more than an order of magnitude" stays that, not "10 times".
+Every number must appear in the scoped source text. Thesis and overview use all paragraphs, headings, notes, fragments and captions; part claims, flow steps and recall questions/answers use the part's paragraphs, linked notes, and fragments/captions from its first paragraph through the run following its last paragraph. Paragraph fields use their own/ref paragraph and neighbouring paragraphs, linked notes and attached fragments/captions; the reader's questions and their answers use cited paragraphs, linked notes and attached fragments/captions. check.py stops on numbers outside that scope. It accepts spelled-out numbers, month names, grouped digits and expanded shorthand year ranges; reference labels and mathematical indices are treated as notation. Check signs and meanings against the source too. Keep the author's wording for qualitative quantities.
 
 ## 7 Footnotes
 
@@ -134,7 +134,7 @@ Each part that is not skipped carries two or three `recall` questions: short que
 
 ## 12 Before running check.py
 
-First reread each claim, flow step, note and recall answer beside its paragraph and check two things check.py cannot:
+First reread each claim, flow step, note and recall answer beside its paragraph and check what check.py cannot:
 
 - Direction: which variable rises or falls, which group is larger, the sign of each effect, which way a series responds. A reversed result is the worst error a guide can make.
 - Strength: keep the author's hedges and limits (may, suggests, in the short run, contemporaneous, in this sample, until a given year) and the sample or period a result comes from. A relation word such as "rules out" or "proves" needs the text to say as much; otherwise use "supports" or "qualifies". "Does not respond" is not "moves the other way".
@@ -142,7 +142,7 @@ First reread each claim, flow step, note and recall answer beside its paragraph 
 - Conditions: a result derived in a model or under an assumption ("in a plausible model", "in equilibrium", a parameter range, a policy rule) keeps that condition in every field that repeats it. A result the authors assert without deriving it in this text is written as their assertion.
 - Position: when a paper answers other authors, the thesis and the first part say where the authors agree with them as well as where they disagree. A paragraph that corrects another author's reading is a close read, and the flow names that author as the object. A reader who meets the agreement only deep in the text reads the paper as a blanket rejection.
 - Setting: every number names where it comes from (table and column, sample, specification). A comparison of two estimates says when they come from different samples, methods, shocks or denominators; when a paper gives ranges from several methods, also compare within one method. Name the group a number covers when the authors' label is broader (an "EU" that is 19 member states), and carry the authors' limits on which members a result holds for. When the robustness checks change the size of a headline estimate, give the range, not only that it stays significant. A result that is not significant in a subgroup or specification is said to be not significant, not that it has no effect or a different effect. A conclusion the authors read off point estimates without a test shown (a coefficient above 1, two estimates "not significantly different") is written as their reading.
-- Terms: render each word at the author's strength. A plain description stays plain in translation when the field has a technical term for something stronger: "runaway inflation" is 失控通胀, and 恶性通胀 (hyperinflation) only where the text says hyperinflation.
+- Terms: render each word at the author's strength. Keep a plain description plain in translation; use a stronger technical category only when the authors use it.
 - Exceptions: when the text's own later evidence makes an exception to a summary claim (one of four cases went the other way), the notes that repeat the summary claim keep the author's words and name the paragraph with the exception.
 - Text against its own tables and figures: before repeating a sentence that describes a table or figure ("in all but one country", "columns 5 and 6 show", "falls by 0.8"), open the crop or page and compare. Where they differ, give the sentence as the authors' description and add what the table or figure shows ("column 5 is not significant").
 - Consistency: a fact stated in several fields (what the instrument is, the sample, the period) reads the same in all of them.

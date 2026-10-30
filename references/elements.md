@@ -1,10 +1,10 @@
 # Element types
 
-Elements are what a reader most needs to see in a paragraph: definitions, claims, evidence, figures, formulas, qualifications. Each one is anchored to a verbatim span of the original and highlighted there.
+Elements are what a reader most needs to see in a paragraph: definitions, claims, evidence, figures, formulas, qualifications. An anchored element is highlighted at its verbatim span in the original.
 
 `check.py` and the page read every line of the form `### code | English name | 中文名 | level | colour family`, and the line after it is the description shown on hover. Keep that format when you add or rename types.
 
-Levels: 3 = highlighted with a type tag, may appear on the argument map when it has a short label `s`, needs an anchor; 2 = highlighted with a type tag, needs an anchor; 1 = a tag in the paragraph header only, anchor optional.
+Levels 2 and 3 require an anchor; level 1 allows one. Anchored elements share one highlight style; hovering shows the type and short label `s` (or explanation `x`). Elements have no header tags or individual map nodes. Definitions also feed the term index and hover definitions; formula elements supply the rendered equation and its folded explanation.
 
 ## Claims
 

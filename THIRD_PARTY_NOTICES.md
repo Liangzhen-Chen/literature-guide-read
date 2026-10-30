@@ -9,6 +9,7 @@ Installed separately with `pip install -r requirements.txt`; none is bundled.
 | Package | Licence | Project |
 | --- | --- | --- |
 | pdfplumber | MIT | https://github.com/jsvine/pdfplumber |
+| fonttools | MIT | https://github.com/fonttools/fonttools |
 | pillow | MIT-CMU (HPND) | https://github.com/python-pillow/Pillow |
 | beautifulsoup4 | MIT | https://www.crummy.com/software/BeautifulSoup/ |
 

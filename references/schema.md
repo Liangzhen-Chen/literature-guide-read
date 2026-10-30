@@ -9,9 +9,9 @@ Text fields take either a plain string, meaning the first language in `meta.note
 ```json
 {
   "meta": {
-    "title": "Anomalies: The Endowment Effect, Loss Aversion, and Status Quo Bias",
-    "author": "Kahneman, Knetsch & Thaler",
-    "source": "Journal of Economic Perspectives 5(1), 1991",
+    "title": "A review of ownership and choices",
+    "author": "Example authors",
+    "source": "Example journal, 1991",
     "genre": "Review",
     "notes_lang": ["en"],
     "density": "medium",
@@ -52,7 +52,7 @@ Parts also carry recall questions (method.md section 11) and the logic map (sect
  ]}
 ```
 
-`meta.purpose` and `meta.familiarity` are the reader's answers from the brief (SKILL.md step 0); `questions` are the reader's own questions (an empty list `[]` when the reader has none), each answered from the text with the paragraph ids `p` that answer it. Numbers in `a` must appear in those paragraphs.
+`meta.purpose` and `meta.familiarity` are the reader's answers from the brief (SKILL.md step 0); `questions` are the reader's own questions (an empty list `[]` when the reader has none), each answered from the text with the paragraph ids `p` that answer it. Numbers in `q` and `a` use those paragraphs, their linked notes and attached fragments/captions.
 
 Rules: `parts` cover P1 to the last paragraph in order; ranges are written `P3-P9` or `P3`; `claim_p` lies inside its part; parts marked `"skip": true` need no claim. The thesis stays under 100 Chinese or 280 English characters and each claim under 80 or 220 (check.py warns above that). Once any part has `rel`, every part that is not skipped needs one, and each part's first relation must lead to `T` without a cycle. Flow steps name paragraphs or footnotes inside the part. `meta.density` is low, medium or high; `meta.language` is the language of the original.
 
@@ -103,10 +103,10 @@ Rules: `parts` cover P1 to the last paragraph in order; ranges are written `P3-P
 Field rules:
 - `tier`: close, skim or skip. close needs `read` and should have `note` (the after-reading summary, a restatement under the same rules as a skim note; missing is a warning); skim needs `note`; skip needs `note` and `why`. Every entry needs `role`.
 - `els[].t` comes from elements.md. Types of level 2 or 3 need `a`, copied verbatim from the paragraph; check.py reports the closest sentence when an anchor is not found.
-- `els[].s` is the argument-map label; `els[].x` the longer explanation; `els[].term` the term a definition defines.
+- `els[].s` is the short label in the highlight tooltip, with `els[].x` as its fallback and longer explanation; `els[].term` names a defined term for the term index. The argument map uses parts and their relations.
 - `formula` elements: `tex` is the LaTeX (copied from the open version, from MinerU, or transcribed by you from `WORK/crops/<id>.png`); `syms` lists every symbol; `x` says the equation in words; `why` is optional. A formula element without `tex` gets a warning.
 - Fragments (ids F1, F2, ...: displayed equations, table bodies) get no entry of their own. The page shows a fragment under the paragraph it follows, which is usually the sentence that introduces it. Write the `formula` element in that paragraph and anchor `a` to the introducing sentence, since the fragment text itself is not in the paragraph.
 - Footnote entries use the footnote's id (N1, N2, ...) from paragraphs.json and are optional.
 - Numbers in any text field must appear in the source text (method.md section 6).
-  Thesis and overview use all paragraphs, headings, notes, fragments and captions in the document; part claims, flow steps and recall questions/answers use the part's paragraphs, linked notes, and fragments/captions from its first paragraph to the end of the run that follows its last paragraph; paragraph fields keep their own/ref paragraph and neighbouring paragraphs, linked notes and attached fragments/captions.
+  Thesis and overview use all paragraphs, headings, notes, fragments and captions in the document; part claims, flow steps and recall questions/answers use the part's paragraphs, linked notes, and fragments/captions from its first paragraph to the end of the run that follows its last paragraph; paragraph fields keep their own/ref paragraph and neighbouring paragraphs, linked notes and attached fragments/captions; the reader's questions and their answers use cited paragraphs, linked notes and attached fragments/captions.
 - Any text field may hold inline LaTeX between single dollar signs (`"note": "Two goods: $c_1 \\in \\{0,1\\}$ ..."`); the page renders it. A dollar sign followed by a digit is money, not math. In JSON write every LaTeX backslash twice (`"\\beta"`): with one backslash, `\b`, `\f`, `\t`, `\n` and `\r` turn into control characters, and check.py reports them.

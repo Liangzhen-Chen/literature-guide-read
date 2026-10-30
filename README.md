@@ -21,7 +21,7 @@ Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://l
 - **Key formulas** rendered and explained, with a table of symbols and the crop from the PDF.
 - A **summary to open** after each close read, to check what you took from it, and **recall questions** at the end of each part.
 - **Answers to the questions** you gave the agent at the start, taken from the text and linked to the paragraphs.
-- Notes **checked against the paper** before the page is built. A number the paper doesn't contain, or a highlight that doesn't match the original word for word, has to be fixed first. Then a second agent that did not write the guide reads it against the paper and its tables, looking for dropped hedges, overstated results and wrong signs; the writer fixes what it finds. This adds to the usage of each paper.
+- Notes **checked against the paper** before the page is built. Numbers and highlights are checked first. A separate agent then reads the guide against the paper and its tables, looking for dropped hedges, overstated results and wrong signs; where the environment cannot start another agent, the writer rereads field by field. The writer fixes the findings before rendering. This adds to the usage of each paper.
 - The agent **looks at the pages** before writing: it draws each paragraph's box on the page image and corrects front matter, captions, table notes and broken paragraphs that the text extraction got wrong.
 
 ![A part of the DPO paper with Chinese notes: the margin holds the part's claim, steps and terms; on the right a close-read paragraph with its read-for prompt, the rendered formula and the opened after-reading summary](assets/readme/page-formula.png)
@@ -73,20 +73,37 @@ pip install -r requirements.txt
 python scripts/segment.py reading.pdf --out work
 ```
 
-`scripts/fix.py`: render item IDs on page overlays and apply an agent's explicit fixes before writing guide data.
+Before writing, inspect page 1, the last body page and any pages named by the self-check or with odd part text. Render their boxes and IDs (this example starts with page 1):
+
+```bash
+python scripts/fix.py overlay work/paragraphs.json --pages 1
+```
+
+Give the model the PDF, these page images, `work/paragraphs.json`, the part files and SKILL.md step 1b. Ask for `work/fixes.json`, an array of explicit corrections (use `[]` when none are needed). Apply it and list the IDs:
+
+```bash
+python scripts/fix.py apply work/fixes.json --paras work/paragraphs.json
+python scripts/fix.py ids work/paragraphs.json
+```
+
+Fixes always use first-segmentation IDs; after an apply, find them with `fix.py overlay work/paragraphs.json --orig` or `paragraphs.orig.json`. Guide data uses the new IDs in paragraphs.json and the rewritten part files.
 
 Give the model the files in `references/` and `work/paragraphs_part*.txt`, with this prompt:
 
 > Write guide data for this reading. The rules are in method.md, elements.md and genres.md; the format is in schema.md. The text is already split into numbered paragraphs: use those ids and do not re-split. Read every paragraph first, then follow method.md. Write the notes in [Chinese/English]. Output only two JSON blocks, saved as guide.json and paras_01.json. Copy every anchor verbatim from the original.
 
-Save the two blocks into `work/`, then:
+Save the two blocks into `work/`, then check:
+
+```bash
+python scripts/check.py work/paragraphs.json work/guide.json work/paras_01.json
+```
+
+Fix the errors. Open a fresh chat with `references/review.md`, paragraphs.json, the part files, guide files, crops and page images (plus the PDF when a page is missing). Include fixes.json, paragraphs.orig.json and fixes_log.json when present. Ask for the second read, pass its findings to the writer and fix every misleading finding and every minor finding with a clear fix. Then check again and render:
 
 ```bash
 python scripts/check.py work/paragraphs.json work/guide.json work/paras_01.json
 python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json --out work/guide.html
 ```
-
-If `check.py` reports errors, paste them back to the model and ask it to fix them. Before rendering, open a new chat, give it `references/review.md`, the paragraph files and the guide files, and ask for the second read described there; paste its findings back to the first chat.
 </details>
 
 To update, run `git pull` in the skill folder, run the `npx` line again, or upload the new zip on claude.ai.
@@ -104,13 +121,29 @@ The install above gives you the basic tier. Adding [MinerU](https://github.com/o
 | Time to read the PDF | a few seconds | 1 to 3 minutes |
 | claude.ai | yes | no (the sandbox cannot download the models) |
 
-In both tiers a figure is shown as an image of its whole page; when the paper has a web version on arXiv, the authors' own figures are used instead.
+In both tiers figures can be shown through page images; when the paper has a web version on arXiv, the authors' own figures are used instead. Rotated-text tables are kept as upright crops in the basic tier.
+
+### Dependencies
+
+| Package | Purpose | What you gain | Cost |
+| --- | --- | --- | --- |
+| pdfplumber | PDF text and page images | Words, positions and PDF crops | Required for PDF input; reads text layers |
+| fonttools | Embedded font metadata and glyphs | Better font styles, case and symbol repairs | Small local Python dependency |
+| Pillow | Page overlays and crop editing | Box labels, upright crops and smaller embedded images | Local Python dependency |
+| beautifulsoup4 | Open-version HTML | Figures, tables and formulas from arXiv | Used by sources.py; fetching needs network access |
+| MinerU (optional) | Layout analysis and OCR | Scans, unusual layouts and formula LaTeX | About 0.8 GB of models; 1 to 3 minutes per paper on CPU in earlier trials |
+
+### Scripts
+
+- `segment.py`: extract and number the text; `crops.py`: write formula and table crops; `mineru_backend.py`: optional MinerU extraction.
+- `fix.py overlay/apply/ids`: inspect and correct segmentation; `fix_crops.py`: preserve and rename crops when fixes are applied.
+- `sources.py`: fetch and parse open versions; `check.py`: validate guide data; `render.py`: build the offline page or recover its data with `--dump`.
 
 ## Use it
 
 1. Give the agent a PDF and say "make me a reading guide for this".
 2. It asks a few questions first: notes in English or Chinese, what you are reading for (the whole argument, core claims, method, evidence to cite, exam revision), how well you know the field, and anything you want answered. Say "you decide" to skip them.
-3. A few minutes later you get the page. With Claude Sonnet, a 6-page paper took about 7 minutes and 134,000 tokens; a 10-page paper with 11 equations took about 10 minutes and 172,000 tokens.
+3. The agent returns the page after inspection and the second read. Before steps 1b and 5b were added, Claude Sonnet took about 7 minutes and 134,000 tokens for a 6-page paper, and about 10 minutes and 172,000 tokens for a 10-page paper with 11 equations. In trials, the second read used roughly half to three quarters as many tokens again as writing the guide; this is an estimate from trials, and page inspection adds work too.
 
 While you read, ask the agent about any paragraph ("what is P23 saying?"), correct a note, or say "walk me through it" to go part by part. If something keeps going wrong for your kind of reading, tell the agent: the rules it follows are plain text in `references/`, and it can change them.
 
@@ -125,6 +158,8 @@ While you read, ask the agent about any paragraph ("what is P23 saying?"), corre
 ## Known limits
 
 The skill was developed mostly on economics, statistics and machine learning papers. Papers from other fields have been tried less. If something comes out wrong, tell the agent, and please [open an issue](https://github.com/Liangzhen-Chen/literature-guide-read/issues).
+
+Segmentation still makes mistakes; step 1b relies on the agent to spot and correct them. Some PDFs swap or drop math symbols in their text layer, so read symbols from the crops or page images. Vector-drawn figures are shown as page images or partial crops and may need the full page for context.
 
 ## License
 

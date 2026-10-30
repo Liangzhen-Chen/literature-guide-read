@@ -68,7 +68,7 @@ def _page(pno, h, lines):
 
 
 def test_strip_margins_removes_running_head_at_twelve_percent():
-    # List (2003), QJE: running heads sit at 12.1% of a 652pt page, outside the old 8.5% band
+    # An economics article: running heads sit at 12.1% of a 652pt page, outside the old 8.5% band
     pages = [_page(p, 652, [('42 QUARTERLY JOURNAL OF ECONOMICS' if p % 2 else 'DOES MARKET EXPERIENCE ELIMINATE ANOMALIES? 43', 79),
                              ('theory to doubt the validity of certain neoclassical models', 106)]) for p in (2, 3, 4, 5)]
     labels = []
@@ -227,7 +227,7 @@ def test_strip_margins_first_page_title_at_head_row_survives():
 
 
 def test_link_notes_superscript_digit_marker():
-    # Kőszegi & Rabin (2006): the text layer carries the footnote marker as "²"
+    # An economics article: the text layer carries the footnote marker as "²"
     items = [dict(id='P1', type='para', text='the utility is given by²', page=6),
              dict(id='N1', type='note', text='2. Despite the clear evidence.', page=6)]
     s.link_notes(items)

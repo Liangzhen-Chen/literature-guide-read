@@ -1,7 +1,7 @@
 pdfplumber>=0.10
 # embedded font styles and encoded case validation
 fonttools>=4
-# crop re-encoding in render.py; without it crops are embedded as they are
+# page overlays, crop editing/rotation, and image re-encoding in render.py
 pillow
 # open versions (sources.py parse)
 beautifulsoup4

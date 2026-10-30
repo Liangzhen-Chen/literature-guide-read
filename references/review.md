@@ -12,12 +12,12 @@ A fresh agent that took no part in writing the guide: start a subagent when the 
 >
 > - The text: `WORK/paragraphs.json` (paragraph ids, text, pages), the crops in `WORK/crops/` for tables, figures and formulas, and the PDF at `<pdf>` for anything else (render a page to check a table).
 > - The guide: `WORK/guide.json` and `WORK/paras_*.json`; the rules it was written to are in `SKILL_DIR/references/method.md` (section 12) and `schema.md`.
-> - Segmentation fixes, if any: `WORK/fixes.json`, with ids from `WORK/paragraphs.orig.json`.
+> - Segmentation fixes, if any: `WORK/fixes.json`, with ids from `WORK/paragraphs.orig.json`. Use `python SKILL_DIR/scripts/fix.py ids WORK/paragraphs.json` or `WORK/fixes_log.json` to map them to the current IDs.
 >
 > Check, in this order:
 > 1. The thesis, overview, part claims, flow steps, recall answers and answers to the reader's questions, each against the paragraphs it cites or the part it sums up, and the tables those paragraphs report. These short fields lose hedges first.
 > 2. Every close-read note and every skim note that reports a result. For each result taken from a table or figure, or from a sentence that describes one, open the crop or page and compare: authors' descriptions of their own tables and figures are sometimes wrong.
-> 3. Each `frag` op in fixes.json: is the hidden text really outside the argument (masthead, chart labels, table cells), or did a list item, definition or caption disappear?
+> 3. Each `type` op to frag in fixes.json: is the hidden text really outside the argument (masthead, chart labels, table cells), or did a list item, definition or caption disappear?
 >
 > For each, look for: a hedge, condition, sample, period, specification or scenario dropped; a result stated as ruled out, proved or caused when the text says less; significance or sign that differs between the text and its own table (name the column); a number that differs from the text or table; the authors' reading or assertion given as a finding; a view the authors report or reject given as theirs; the wrong object (who criticises whom, which group); a term translated at a different strength; an exception in the text that a summary sentence leaves out; a symbol named as the extracted text shows it when the crop or page shows another (θ extracted as "u").
 >
@@ -25,4 +25,4 @@ A fresh agent that took no part in writing the guide: start a subagent when the 
 
 ## After the second read
 
-Fix every misleading finding and every minor one whose fix is clear, in the guide data only; the original text is never edited. When a finding is wrong (the reader missed a sentence), leave the field and say why in one line. When a fixes.json op hid real text, do not apply fixes again now (it renumbers the paragraphs the guide already uses): give the hidden content in the note of the paragraph it belongs to and say so in the chat reply. Run check.py again before rendering. In the chat reply, say in one line how many findings the second read made and how many were fixed.
+Fix every misleading finding and every minor finding with a clear fix before rendering; do not stop early. Make the changes in the guide data; preserve the original text. When a finding is wrong (the reader missed a sentence), leave the field and say why in one line. When a fixes.json op hid real text, do not apply fixes again now (it renumbers the paragraphs the guide already uses): give the hidden content in the note of the paragraph it belongs to and say so in the chat reply. Run check.py again before rendering. In the chat reply, say in one line how many findings the second read made and how many were fixed.
