@@ -44,9 +44,10 @@ Read `references/method.md`, `references/elements.md` and `references/schema.md`
 4. **Write the guide.** Format in `references/schema.md`: `WORK/guide.json` with meta, thesis, overview and parts (each part with its claim, its relations `rel` and its reasoning steps `flow`, see method.md section 10), and `WORK/paras_01.json`, `paras_02.json`, ... with about 40 paragraph entries each.
 5. **Check.** `python SKILL_DIR/scripts/check.py WORK/paragraphs.json WORK/guide.json WORK/paras_*.json`
    Fix every error. Judge each warning: change it or have a reason. When an anchor is not found, copy from the closest sentence the checker prints. When a number is not in the source, use the author's figure or wording.
+5b. **Second read.** Follow `references/review.md`: a reader that did not write the guide (a subagent with the brief there, or yourself field by field where no subagent can be started) checks the short fields, the notes that report results and the hidden text against the paragraphs and tables. Fix what it finds, then run check.py again.
 6. **Render.** `python SKILL_DIR/scripts/render.py WORK/paragraphs.json WORK/guide.json WORK/paras_*.json --out OUT/<slug>-guide.html` (add `--sources WORK/sources.json` if step 2 produced it). Deliver the page the way the environment delivers web pages: publish it as a link if you can, otherwise give the file. The page is a single offline HTML file.
 
-In the chat reply, give the thesis in one sentence, the answers to the reader's questions with their paragraph ids, the close-read paragraphs grouped by part (with ranges and pages), and the page. Do not repeat the whole map.
+In the chat reply, give how many findings the second read made and how many you fixed, the thesis in one sentence, the answers to the reader's questions with their paragraph ids, the close-read paragraphs grouped by part (with ranges and pages), and the page. Do not repeat the whole map.
 
 ## Rules that must hold
 
@@ -54,6 +55,7 @@ In the chat reply, give the thesis in one sentence, the answers to the reader's 
 - Skim notes restate the content, with its numbers, definitions and conclusion; they never just say what the paragraph does.
 - Close-read paragraphs get a "read for" line (no spoilers) and a `note` after-reading summary that restates the paragraph; the page shows it folded below the original.
 - Anchors are verbatim. Every number in the guide appears in the source.
+- The page is rendered only after the second read (step 5b) and a clean check.
 - Keep close reads within `meta.density` (low, medium, high: 15%, 25%, 40%).
 - Do not grade the authors or add information the text does not contain.
 - A paragraph that introduces a formula the argument relies on is a close read; its formula element carries `tex`, `syms` and `x`, checked against the crop.

@@ -21,7 +21,8 @@ Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://l
 - **Key formulas** rendered and explained, with a table of symbols and the crop from the PDF.
 - A **summary to open** after each close read, to check what you took from it, and **recall questions** at the end of each part.
 - **Answers to the questions** you gave the agent at the start, taken from the text and linked to the paragraphs.
-- Notes **checked against the paper** before the page is built. A number the paper doesn't contain, or a highlight that doesn't match the original word for word, has to be fixed first.
+- Notes **checked against the paper** before the page is built. A number the paper doesn't contain, or a highlight that doesn't match the original word for word, has to be fixed first. Then a second agent that did not write the guide reads it against the paper and its tables, looking for dropped hedges, overstated results and wrong signs; the writer fixes what it finds. This adds to the usage of each paper.
+- The agent **looks at the pages** before writing: it draws each paragraph's box on the page image and corrects front matter, captions, table notes and broken paragraphs that the text extraction got wrong.
 
 ![A part of the DPO paper with Chinese notes: the margin holds the part's claim, steps and terms; on the right a close-read paragraph with its read-for prompt, the rendered formula and the opened after-reading summary](assets/readme/page-formula.png)
 
@@ -85,7 +86,7 @@ python scripts/check.py work/paragraphs.json work/guide.json work/paras_01.json
 python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json --out work/guide.html
 ```
 
-If `check.py` reports errors, paste them back to the model and ask it to fix them.
+If `check.py` reports errors, paste them back to the model and ask it to fix them. Before rendering, open a new chat, give it `references/review.md`, the paragraph files and the guide files, and ask for the second read described there; paste its findings back to the first chat.
 </details>
 
 To update, run `git pull` in the skill folder, run the `npx` line again, or upload the new zip on claude.ai.
