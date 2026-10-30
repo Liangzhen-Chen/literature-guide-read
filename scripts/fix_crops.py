@@ -1,11 +1,16 @@
 """Stage crops under current IDs, preserving original bytes for fixes replay."""
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import shutil
+
+
+def posix(rel):
+    return PureWindowsPath(rel).as_posix()
 
 
 def stage_crops(doc, original, work, stage):
     from PIL import Image
-    originals = set(original.get("crops", {}).values())
+    # The segmenter writes OS-native separators (crops\F3.png on Windows); compare names in one form.
+    originals = {posix(rel) for rel in original.get("crops", {}).values()}
     saved = {}
     for rel in originals:
         archive = Path("crops.orig") / rel
@@ -16,7 +21,7 @@ def stage_crops(doc, original, work, stage):
             shutil.copyfile(source, stage / archive)
     crops = {}
     for it in doc["items"]:
-        paths = list(dict.fromkeys(p for p in it.pop("_crops") if p))
+        paths = list(dict.fromkeys(posix(p) for p in it.pop("_crops") if p))
         it.pop("_orig"); it.pop("_keys")
         if not paths:
             continue
@@ -47,7 +52,7 @@ def stage_crops(doc, original, work, stage):
 
 
 def remove_stale(work, previous, current, original):
-    for rel in set(previous) - set(current) - set(original.get("crops", {}).values()):
+    for rel in {posix(r) for r in previous} - {posix(r) for r in current} - {posix(r) for r in original.get("crops", {}).values()}:
         path = (work / rel).resolve()
         # Only files explicitly recorded as apply outputs inside crops/ qualify.
         if path.parent == (work / "crops").resolve() and path.suffix == ".png":

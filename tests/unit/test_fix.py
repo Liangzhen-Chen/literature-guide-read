@@ -383,13 +383,14 @@ def test_overlay_orig_without_backup_and_cli_flag(work, capsys, monkeypatch):
     assert called[0] == (work, None, None, True)
 
 
-def test_crop_names_collisions_cleanup_and_replay(work):
+@pytest.mark.parametrize('sep', ['/', '\\'])  # segment.py writes OS-native separators
+def test_crop_names_collisions_cleanup_and_replay(work, sep):
     doc = json.loads(work.read_text())
     crops = work.parent / 'crops'; crops.mkdir()
     for key, color in [('P2', 'red'), ('P3', 'blue')]:
         Image.new('RGB', (10,10), color).save(crops/f'{key}.png')
     (crops/'manual.png').write_bytes(b'untouched manual asset')
-    doc['crops'] = {key:f'crops/{key}.png' for key in ['P2','P3']}
+    doc['crops'] = {key:f'crops{sep}{key}.png' for key in ['P2','P3']}
     work.write_text(json.dumps(doc))
     original = {key:(crops/f'{key}.png').read_bytes() for key in ['P2','P3']}
     ops = [dict(op='type',ids=['P1'],to='heading',why='renumber')]
