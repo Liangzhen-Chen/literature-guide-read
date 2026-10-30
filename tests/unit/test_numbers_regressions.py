@@ -224,3 +224,10 @@ def test_text_layer_space_before_decimal_point():
     assert 62.8 in source_numbers('a share of 62 .8 percent')
     assert 5.26 in source_numbers('rose by 5 .26 points')
     assert 0.5 not in source_numbers('ends here. 5 apples')
+
+
+def test_parenthesised_count_after_label_word_is_data():
+    from common import source_numbers
+    assert 14 in source_numbers('The environment part (14 questions) included items.')
+    assert 3 not in source_numbers('Equation (3) shows the bound')
+    assert 2 not in source_numbers('as Study 2 shows')
