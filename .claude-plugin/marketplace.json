@@ -1,0 +1,17 @@
+{
+  "name": "literature-guide-read",
+  "owner": {
+    "name": "Liangzhen Chen",
+    "url": "https://github.com/Liangzhen-Chen"
+  },
+  "metadata": {
+    "description": "Reading guides for papers and course PDFs."
+  },
+  "plugins": [
+    {
+      "name": "literature-guide-read",
+      "source": "./",
+      "description": "Turns a paper or course PDF into an offline reading page with close/skim/skip marks, an argument map, rendered formulas and recall questions. Notes in English or Chinese."
+    }
+  ]
+}

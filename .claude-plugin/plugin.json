@@ -1,0 +1,14 @@
+{
+  "name": "literature-guide-read",
+  "version": "0.8.0",
+  "description": "Turns a paper or course PDF into an offline reading page: the original text with close/skim/skip marks for every paragraph, an argument map, rendered formulas and recall questions. Notes in English or Chinese.",
+  "author": {
+    "name": "Liangzhen Chen",
+    "url": "https://github.com/Liangzhen-Chen"
+  },
+  "homepage": "https://liangzhen-chen.github.io/literature-guide-read/",
+  "repository": "https://github.com/Liangzhen-Chen/literature-guide-read",
+  "license": "MIT",
+  "keywords": ["reading", "papers", "pdf", "study", "education", "chinese"],
+  "skills": ["./"]
+}

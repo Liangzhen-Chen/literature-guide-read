@@ -35,6 +35,15 @@
 git clone https://github.com/Liangzhen-Chen/literature-guide-read ~/.claude/skills/literature-guide-read
 pip install -r ~/.claude/skills/literature-guide-read/requirements.txt
 ```
+
+也可以在 Claude Code 里作为插件安装：
+
+```
+/plugin marketplace add Liangzhen-Chen/literature-guide-read
+/plugin install literature-guide-read@literature-guide-read
+```
+
+然后 `pip install pdfplumber fonttools pillow beautifulsoup4`。
 </details>
 
 <details>

@@ -35,6 +35,15 @@ Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://l
 git clone https://github.com/Liangzhen-Chen/literature-guide-read ~/.claude/skills/literature-guide-read
 pip install -r ~/.claude/skills/literature-guide-read/requirements.txt
 ```
+
+Or as a plugin, inside Claude Code:
+
+```
+/plugin marketplace add Liangzhen-Chen/literature-guide-read
+/plugin install literature-guide-read@literature-guide-read
+```
+
+then `pip install pdfplumber fonttools pillow beautifulsoup4`.
 </details>
 
 <details>
