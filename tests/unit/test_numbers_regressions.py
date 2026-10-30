@@ -210,6 +210,39 @@ def test_sentence_ending_grouped_amount_in_source(clean):
     assert not any('P1 note' in error and 'source text' in error for error in errors), errors
 
 
+@pytest.mark.parametrize('source,value', [('p < 0. 01', .01), ('1. 85', 1.85),
+                                        ('N = 8, 234', 8234), ('N = 8, 234, 567', 8234567),
+                                        ('1.\u00a085', 1.85), ('8,\u202f234', 8234)])
+def test_source_spaced_separators_add_values_without_removing_any(source, value):
+    parsed = common.numbers_in(source)
+    allowed = common.source_numbers(source)
+    assert parsed <= allowed and value in allowed
+    assert value not in parsed  # the guide parser remains unchanged
+
+
+def test_separator_additions_keep_existing_split_digit_repairs():
+    source = '62 .8, 234 and 1 0 observations with p < 0. 01'
+    previous = common.numbers_in(source) | common.numbers_in('62.8, 234 and 10 observations with p < 0. 01')
+    assert previous <= common.source_numbers(source)
+
+
+@pytest.mark.parametrize('source', ['8, 23', '8, 2345', 'Eq. 3'])
+def test_source_separator_repair_keeps_unrelated_numbers(source):
+    assert common.source_numbers(source) == common.numbers_in(source)
+
+
+@pytest.mark.parametrize('source,note', [('p < 0. 01', 'The threshold is 0.01.'),
+                                      ('An estimate of 1. 85.', 'The estimate is 1.85.'),
+                                      ('N = 8, 234.', 'The sample has 8234 observations.')])
+def test_source_spaced_separators_pass_notes(clean, source, note):
+    doc, guide = clean
+    doc['items'][0]['text'] = source
+    guide['paras']['P1']['els'] = []
+    guide['paras']['P1']['note'] = note
+    errors, _, _ = run_checks(doc, guide)
+    assert not any('P1 note' in error and 'source text' in error for error in errors), errors
+
+
 def test_abbreviated_year_source_accepts_expanded_note(clean):
     doc, guide = clean
     for it in doc['items']:

@@ -206,6 +206,8 @@ def build_data(doc, guide, comp, sources, imgs, lang, crops=None):
             if it.get("table") and last_cap and figs.get(last_cap, {}).get("host"):
                 host = figs[last_cap]["host"]
             host = host or last
+            if not host and it.get("embedded_image"):
+                host = next((p["id"] for p in doc["items"] if p["type"] == "para"), None)
             if host:
                 frag_crops.setdefault(host, []).append(it["id"])
     glossary = []  # terms and symbols the page can explain on hover wherever they recur

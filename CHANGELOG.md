@@ -8,6 +8,7 @@ Full guide trials on unseen papers prompted two new workflow steps. Page inspect
 
 ### Workflow
 
+- Crop regions can list original IDs in `replaces` to retire partial crops while keeping their text and replayable originals.
 - Step 1b, look and fix: `fix.py overlay` draws item boxes and IDs on PDF pages, with a coordinate grid and heading levels. The agent writes `fixes.json` to type, join, split, move or rebuild an item from a page region using PDF words. Split tails have stable names such as `P9#2`. Fixes replay from paragraphs.orig.json; `overlay --orig`, `fix.py ids`, target echoes and fixes_log.json help distinguish original IDs from the current numbering. Crops follow new IDs, with originals kept for replay, including on Windows. Lists, definitions and captions stay visible; running heads inside paragraphs can be split out, hidden and the remaining text joined.
 - A region op can also make a crop: `to` table, figure or display covers a whole table, a vector diagram, a code listing or a display equation that the basic tier cropped partly or not at all, and the page shows it under the paragraph named in `after`.
 - Step 5b, second read: a separate reader follows `references/review.md` after check.py passes, then the writer fixes its findings and checks again before rendering. Where a separate agent cannot be started, the writer rereads field by field. The reader then confirms the changed fields, because a correction once moved a quotation to the wrong speaker. Trials found dropped hedges, overstated results, wrong signs and hidden argument text even in guides that passed check.py. The chat reply reports findings and fixes; the READMEs explain the extra usage.
@@ -15,6 +16,7 @@ Full guide trials on unseen papers prompted two new workflow steps. Page inspect
 
 ### Segmentation and symbols
 
+- The basic tier crops embedded raster images with a nearby figure/table or other exhibit label, merges touching panels and places them beside their captions; existing table and rotated-page crops take precedence.
 - Rotated-text pages that earlier trials silently lost are reported and kept as table crops, turned upright from the glyph direction. Ordinary crops retain their orientation.
 - The basic tier decodes unresolved glyphs in TeX math-symbol fonts through the standard OMS table and TeX math italic through OML. Adobe's Symbol table recovers bullets and symbols in that encoding. These repairs restore lost minus signs and Greek letters; already decoded text stays unchanged. A warning names pages where custom Greek or math fonts return plain letters or a misleading symbol, so the agent reads them from crops or page images. Other unrecovered glyphs keep their codes and source positions; warnings exclude covered display ink and proven nonprinting marks.
 - A column cut that leaves all lines on one side no longer crashes. Blank pages remain in the run; image-only pages are named and skipped, and scan-only input directs the agent to MinerU. The basic tier finds page columns, including three-column text and full-width regions, and retries column settings when its self-check finds problems. The first-time trial on the licensed Ioannidis (2005) demo exposed mixed columns and references among the body paragraphs.
@@ -30,6 +32,7 @@ Full guide trials on unseen papers prompted two new workflow steps. Page inspect
 
 ### Number checks
 
+- Source-number checks also accept decimals and thousands counts whose text layer inserts a space after the separator; existing accepted values remain available.
 - A text layer that sets a decimal with a space before the point ("62 .8") still supplies 62.8.
 - Source-number extraction accepts spelled-out numbers, ordinal words, split digits, space/comma-grouped thousands, English month names and abbreviated year-range endpoints, including century rollover. Dates can use month numbers in Chinese notes; centuries and decades are accepted when the source has a corresponding year. Numeric ranges keep both endpoints; Chinese equation labels and page/figure/table ranges are treated as references. These changes address false errors from otherwise faithful notes.
 - Part claims, flow steps and recall questions/answers can use fragments and captions within the part's item range and the run after its last paragraph. Thesis and overview can use all document fragments and captions. Paragraph fields retain their local scope. The checker also warns when flow steps copy paragraph notes, and handles money beside inline maths without a spurious line-break warning. The schema and method state these scopes and the thesis/claim length limits.

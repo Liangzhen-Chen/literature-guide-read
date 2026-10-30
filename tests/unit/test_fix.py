@@ -545,6 +545,44 @@ def test_region_crop_replay_in_fresh_process(work):
     assert all(p.read_bytes() == before[p] for p in paths)
 
 
+def test_region_replaces_retires_flags_and_crop_with_replay(work):
+    doc = json.loads(work.read_text())
+    old = dict(id='F1', type='frag', text='Keep these table cells.', page=1,
+               bbox=[.1, .1, .5, .2], table=True, figure=True, equation=True,
+               has_math=True, region_crop=True, eq_part=True, table_part=True)
+    doc['items'].insert(1, old)
+    crop = work.parent/'crops/F1.png'; crop.parent.mkdir()
+    Image.new('RGB', (12, 12), 'red').save(crop)
+    original = crop.read_bytes()
+    doc['crops'] = {'F1': 'crops/F1.png'}
+    work.write_text(json.dumps(doc))
+    ops = [region_op(to='table', replaces=['F1'])]
+    result = run(work, ops)
+    retired = next(it for it in result['items'] if it['text'] == old['text'])
+    assert retired['type'] == 'frag'
+    assert not any(retired.get(k) for k in ['table', 'figure', 'equation', 'has_math', 'region_crop', 'eq_part', 'table_part'])
+    assert retired['id'] not in result['crops'] and len(result['crops']) == 1
+    assert (work.parent/'crops.orig/crops/F1.png').read_bytes() == original
+    before = work.read_bytes()
+    made = {key: (work.parent/path).read_bytes() for key, path in result['crops'].items()}
+    result = run(work, ops)
+    assert work.read_bytes() == before
+    assert made == {key: (work.parent/path).read_bytes() for key, path in result['crops'].items()}
+
+
+@pytest.mark.parametrize('changes,message', [
+    (dict(replaces=['F404']), 'unknown id'),
+    (dict(replaces='P1'), 'replaces must'),
+    (dict(replaces=['P1', 'P1']), 'distinct'),
+    (dict(to='para', replaces=['P1']), 'crop target'),
+])
+def test_invalid_replaces_does_not_write(work, changes, message):
+    before = work.read_bytes()
+    with pytest.raises(ValueError, match=f'op 1.*{message}'):
+        run(work, [region_op(**dict(dict(to='table'), **changes))])
+    assert work.read_bytes() == before and not work.with_name('paragraphs.orig.json').exists()
+
+
 def test_page_selection_uses_pdf_page_numbers_of_an_excerpt():
     doc = {"page_count": 3, "pages_processed": [164, 166],
            "items": [{"id": "P1", "type": "para", "text": "x", "page": 165}]}

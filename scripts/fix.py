@@ -214,6 +214,17 @@ def corrected(original, ops, messages=None, current=None):
                 items.insert(items.index(it)+1, tail)
             elif kind == "region":
                 it = region(doc, op)
+                if "replaces" in op:
+                    replaces = op["replaces"]
+                    if not it.get("region_crop"):
+                        raise ValueError("replaces requires a crop target")
+                    if not isinstance(replaces, list) or len(set(replaces)) != len(replaces):
+                        raise ValueError("replaces must be a list of distinct original IDs")
+                    for old in [find(name) for name in replaces]:
+                        old["type"], old["_crops"] = "frag", []
+                        for flag in ("table", "figure", "equation", "has_math", "region_crop", "embedded_image",
+                                     "rotated", "crop_turn", "crop_bbox", "table_part", "eq_part", "tex", "level"):
+                            old.pop(flag, None)
                 after = find(op["after"]) if op["after"] is not None else None
                 if after is not None and after["page"] != op["page"]:
                     raise ValueError("region after must be on the same page")
@@ -240,7 +251,7 @@ def corrected(original, ops, messages=None, current=None):
             else:
                 raise ValueError(f"unknown operation {kind!r}")
             refs = list(op["ids"]) if kind in ("type", "join") else [op["id"]] if kind == "split" else [op.get("id"), op.get("after")]
-            if kind == "region": refs.append(key)
+            if kind == "region": refs.extend([key, *op.get("replaces", [])])
             refs = list(dict.fromkeys(ref for ref in refs if ref))
             short = lambda text: json.dumps(" ".join(text.split()[:8]), ensure_ascii=False)
             label = kind + (f"→{op['to']}" if kind in ("type", "region") else "")

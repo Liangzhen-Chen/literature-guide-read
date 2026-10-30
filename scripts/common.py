@@ -274,6 +274,10 @@ def source_numbers(text):
     merged = SPLIT_DIGITS_RE.sub(lambda m: m.group(0).replace(" ", ""), text or "")
     merged = re.sub(r"(?<=\d) (?=\.\d)", "", merged)  # a text layer that sets "62 .8" for 62.8
     if merged != (text or ""):
+        out |= numbers_in(merged)  # retain all values accepted before separator repair
+    merged = re.sub(r"(?<=\d\.)[ \u00a0\u202f]+(?=\d)", "", merged)
+    merged = re.sub(r"(?<=\d,)[ \u00a0\u202f]+(?=\d{3}(?!\d))", "", merged)
+    if merged != (text or ""):
         out |= numbers_in(merged)
     for w in re.findall(r"[A-Za-z]+", text or ""):
         if w.lower() in WORD_NUMS:

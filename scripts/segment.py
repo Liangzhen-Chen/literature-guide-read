@@ -4679,6 +4679,104 @@ def rotated_text_regions(pdf, pnos):
     return regions
 
 
+IMAGE_EXHIBIT_RE = re.compile(
+    r"^\s*(?:Tables?|Fig(?:ure)?s?\.?|Charts?|Graphs?|Exhibits?|Maps?|Plates?|Panels?|图|表)"
+    r"\s*(?:\d+(?:\.\d+)*[A-Za-z]?|[IVXLCDM]+)(?![A-Za-z0-9])", re.I)
+
+
+def embedded_image_regions(pdf, pnos, items):
+    """Keep labelled raster exhibits, merging tiles before the 3%-90% area test.
+
+    Coordinates are page-relative, as with text items. Exhibit labels may be
+    in any item within 10% page height, or at the start of the image text.
+    Existing table and rotated-page crops take precedence over images inside them.
+    """
+    from copy import deepcopy
+    from crops import merge_table_runs, wants_crop
+    covered = merge_table_runs(deepcopy(items))
+    regions = []
+    for n in pnos:
+        page = pdf.pages[n-1]
+        if any(it.get("rotated") and it["page"] == n and wants_crop(it) for it in covered):
+            continue
+        boxes = []
+        for image in page.images:
+            box = [max(0, (image["x0"]-page.bbox[0])/page.width),
+                   max(0, (image["top"]-page.bbox[1])/page.height),
+                   min(1, (image["x1"]-page.bbox[0])/page.width),
+                   min(1, (image["bottom"]-page.bbox[1])/page.height)]
+            if box[0] < box[2] and box[1] < box[3] and (box[2]-box[0])*(box[3]-box[1]) <= .9:
+                boxes.append(box)
+        merged = []
+        while boxes:
+            box = boxes.pop(0)
+            while True:
+                touching = [b for b in boxes if b[0] <= box[2] and b[2] >= box[0]
+                            and b[1] <= box[3] and b[3] >= box[1]]
+                if not touching:
+                    break
+                for b in touching:
+                    boxes.remove(b)
+                    box = [min(box[0], b[0]), min(box[1], b[1]), max(box[2], b[2]), max(box[3], b[3])]
+            if .03 <= (box[2]-box[0])*(box[3]-box[1]) <= .9:
+                merged.append(box)
+        words = get_words(page) if merged else []
+        labels = [it for it in items if it["page"] == n and it.get("bbox")
+                  and IMAGE_EXHIBIT_RE.match(it.get("text", ""))]
+        for box in sorted(merged, key=lambda b: (b[1], b[0])):
+            if any(it["page"] == n and it.get("table") and wants_crop(it)
+                   and (b := it["bbox"])[0] <= box[0]+.001 and b[1] <= box[1]+.001
+                   and b[2] >= box[2]-.001 and b[3] >= box[3]-.001 for it in covered):
+                continue
+            inside = [w for w in words if box[0] <= (w["x0"]+w["x1"])/2/page.width <= box[2]
+                      and box[1] <= (w["top"]+w["bottom"])/2/page.height <= box[3]]
+            text = ""
+            for line in make_lines(inside):
+                text = join_marked(text, line["text"])
+            nearby_label = any(
+                min(box[2], b[2])-max(box[0], b[0]) >= .25*min(box[2]-box[0], b[2]-b[0])
+                and (0 <= b[1]-box[3] <= .1 or 0 <= box[1]-b[3] <= .1)
+                for b in (it["bbox"] for it in labels))
+            if not nearby_label and not IMAGE_EXHIBIT_RE.match(text):
+                continue
+            regions.append(dict(type="frag", figure=True, region_crop=True, embedded_image=True,
+                                page=n, bbox=[round(v, 4) for v in box], text=text))
+    return regions
+
+
+def insert_image_regions(items, regions):
+    """Prefer a caption within 3% page height; otherwise use the next column item."""
+    for region in regions:
+        box, n = region["bbox"], region["page"]
+        same_column = lambda b: min(box[2], b[2])-max(box[0], b[0]) >= .25*min(box[2]-box[0], b[2]-b[0])
+        captions = []
+        for j, it in enumerate(items):
+            if it["page"] != n or it["type"] != "caption" or not it.get("bbox") or not same_column(it["bbox"]):
+                continue
+            b = it["bbox"]
+            if 0 <= b[1]-box[3] <= .03:
+                captions.append((b[1]-box[3], j))
+            elif 0 <= box[1]-b[3] <= .03:
+                captions.append((box[1]-b[3], j+1))
+        pos = min(captions)[1] if captions else next(
+            (j for j, it in enumerate(items) if it["page"] == n and it.get("bbox")
+             and it["bbox"][1] >= box[3] and same_column(it["bbox"])), next(
+                (j for j, it in enumerate(items) if it["page"] > n), len(items)))
+        items.insert(pos, region)
+    mapping, count = {}, 0
+    for it in items:
+        if it["type"] == "frag":
+            count += 1
+            if "id" in it:
+                mapping[it["id"]] = f"F{count}"
+            it["id"] = f"F{count}"
+    for it in items:
+        for source in it.get("unmapped_sources", []):
+            for coverage in source.get("crop_coverage", []):
+                coverage["crop"] = mapping.get(coverage["crop"], coverage["crop"])
+    return count
+
+
 def segment_text_layer(pdf, pnos, columns, cache=None):
     """One full pass of the default tier: blocks, classification, references, continuations."""
     blocks, body, info, stats = from_pdf_text(pdf, pnos, columns, cache)
@@ -4821,7 +4919,7 @@ def filter_cropped_unmapped(doc, regions):
 def write_outputs(doc, out, chunk_chars):
     # Rotated table text is raw PDF character order, not prose evidence for
     # document-wide hyphen/ligature repairs; retain it verbatim beside its crop.
-    its = [i for i in doc["items"] if isinstance(i.get("text"), str) and not i.get("rotated")]
+    its = [i for i in doc["items"] if isinstance(i.get("text"), str) and not i.get("rotated") and not i.get("embedded_image")]
     resolved, doc_decisions = resolve_hyphens([i["text"] for i in its])
     for i, t in zip(its, resolved):
         i["text"] = t
@@ -4983,6 +5081,12 @@ def main():
                 counters["F"] += 1
                 it["id"] = f"F{counters['F']}"
         report.append(f"给执行的 agent（不是给用户的）：页 {[r['page'] for r in rotated]} 含旋转文字，已保留为表格裁剪；请打开对应 crops/ 图片并在 step 1b 核对。")
+    image_regions = []
+    if not is_text:
+        with pdfplumber.open(str(src)) as pdf:
+            image_regions = embedded_image_regions(pdf, pnos, items)
+        if image_regions:
+            counters["F"] = insert_image_regions(items, image_regions)
     labels = page_labels_from(stats["labels"], pnos) if pnos else {}
     title = next((i["text"] for i in items if i["type"] == "heading" and i.get("level") == 0), "")
     if not title and raster_cover:
@@ -4998,7 +5102,8 @@ def main():
     regions=unmapped_equation_regions(items)
     if pnos:
         from crops import crop_regions
-        made = crop_regions(src, items, out / "crops")
+        made = crop_regions(src, [it for it in items if not it.get("embedded_image")], out / "crops")
+        made.update(crop_regions(src, image_regions, out / "crops"))
         if made:
             doc["crops"] = {k: str(Path(v).relative_to(out)) for k, v in made.items()}
     filter_cropped_unmapped(doc,regions)
@@ -5017,7 +5122,7 @@ def main():
     print(f"条目：段落 P {counters['P']}，标题 H {counters['H']}，图表说明 C {counters['C']}，"
           f"脚注 N {counters['N']}，碎片 F {counters['F']}（不编入导读），参考文献 {n_refs} 条（不编入导读）")
     if made:
-        print(f"裁剪了 {len(made)} 个公式/表格区域到 {out / 'crops'}（公式转写时对照这些图）")
+        print(f"裁剪了 {len(made)} 个公式/表格/图片区域到 {out / 'crops'}（公式转写时对照这些图）")
     if counters["roman_rewrites"]:
         print(f"OCR 修正：把 {counters['roman_rewrites']} 处 “Figure l / Experiment I” 改成了 1（文档未使用罗马数字编号）")
     elif counters.get("roman_suppressed"):
