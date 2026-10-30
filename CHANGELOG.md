@@ -16,6 +16,7 @@ Full guide trials on unseen papers prompted two new workflow steps. Page inspect
 
 ### Segmentation and symbols
 
+- The page puts an embedded figure under the paragraph that first cites it, also when the image sits above its caption or the text cites a panel ("Figure 2a").
 - The basic tier crops embedded raster images with a nearby figure/table or other exhibit label, merges touching panels and places them beside their captions; existing table and rotated-page crops take precedence.
 - Rotated-text pages that earlier trials silently lost are reported and kept as table crops, turned upright from the glyph direction. Ordinary crops retain their orientation.
 - The basic tier decodes unresolved glyphs in TeX math-symbol fonts through the standard OMS table and TeX math italic through OML. Adobe's Symbol table recovers bullets and symbols in that encoding. These repairs restore lost minus signs and Greek letters; already decoded text stays unchanged. A warning names pages where custom Greek or math fonts return plain letters or a misleading symbol, so the agent reads them from crops or page images. Other unrecovered glyphs keep their codes and source positions; warnings exclude covered display ink and proven nonprinting marks.

@@ -159,7 +159,7 @@ While you read, ask the agent about any paragraph ("what is P23 saying?"), corre
 
 The skill was developed mostly on economics, statistics and machine learning papers. Papers from other fields have been tried less. If something comes out wrong, tell the agent, and please [open an issue](https://github.com/Liangzhen-Chen/literature-guide-read/issues).
 
-Segmentation still makes mistakes; step 1b relies on the agent to spot and correct them. Some PDFs swap or drop math symbols in their text layer, so read symbols from the crops or page images. Vector-drawn figures are shown as page images or partial crops and may need the full page for context.
+Segmentation still makes mistakes; step 1b relies on the agent to spot and correct them. Some PDFs swap or drop math symbols in their text layer, so read symbols from the crops or page images. Figures embedded as images are cropped when a figure or table label sits next to them; vector-drawn figures get a crop only when the agent draws one in step 1b, and otherwise need the full page.
 
 ## License
 

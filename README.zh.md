@@ -159,7 +159,7 @@ python scripts/render.py work/paragraphs.json work/guide.json work/paras_01.json
 
 开发时主要用的是经济学、统计学和机器学习的论文，其他领域试得较少。遇到问题可以直接告诉 agent，也欢迎[提 issue](https://github.com/Liangzhen-Chen/literature-guide-read/issues)。
 
-分段仍会出错，第 1b 步依靠 agent 发现并改正。有些 PDF 的文字层会错换或丢掉数学符号，符号要从裁图或页面图上读。矢量绘制的图会显示为页面图或局部裁图，有时需要打开整页才能看全。
+分段仍会出错，第 1b 步依靠 agent 发现并改正。有些 PDF 的文字层会错换或丢掉数学符号，符号要从裁图或页面图上读。以图片嵌入的图，旁边有图表编号时会自动裁图；矢量绘制的图要 agent 在第 1b 步框出才有裁图，否则要打开整页看。
 
 ## 许可
 
