@@ -10,7 +10,7 @@
 
 直接打开做好的页面：[Ioannidis（2005），中英双语笔记](https://liangzhen-chen.github.io/literature-guide-read/)，或 [DPO 论文（2023），中文笔记](https://liangzhen-chen.github.io/literature-guide-read/dpo.html)。两篇论文都是开放许可：[Ioannidis](https://doi.org/10.1371/journal.pmed.0020124)（CC BY），[Rafailov 等](https://arxiv.org/abs/2305.18290)（CC BY 4.0）。
 
-![页面顶部：标题、结论和思维导图](assets/readme/page-top.zh.png)
+![导读页面的用法：结论和论证结构图，跳到一个部分，精读段的公式和展开的读后小结，点左栏的一步，只看小结](assets/readme/demo.zh.gif)
 
 ## 页面上有什么
 

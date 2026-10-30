@@ -10,7 +10,7 @@ The page holds the full original text, and you read it yourself. The guide point
 
 Open a finished page: [Ioannidis (2005), notes in English and Chinese](https://liangzhen-chen.github.io/literature-guide-read/), or [the DPO paper (2023), notes in Chinese](https://liangzhen-chen.github.io/literature-guide-read/dpo.html). Both papers are openly licensed: [Ioannidis](https://doi.org/10.1371/journal.pmed.0020124) (CC BY) and [Rafailov et al.](https://arxiv.org/abs/2305.18290) (CC BY 4.0).
 
-![The top of a reading page: title, conclusion and the mind map](assets/readme/page-top.png)
+![A reading page in use: the conclusion and argument map, a jump to one part, a close read with its formula and opened summary, a step in the margin, the summaries-only view and the notes switched to Chinese](assets/readme/demo.gif)
 
 ## What's on the page
 
