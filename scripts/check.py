@@ -519,9 +519,11 @@ def run_checks(doc, guide, density=None):
                 errors.append(f"{where}: contains a backspace/form-feed character, so a LaTeX backslash was eaten by JSON "
                               f"(\\b -> backspace, \\f -> form feed); {fix}: «{v[:50]!r}»")
             else:  # a tab/newline/return before a letter is often legitimate, so only inside maths and only a warning
-                # money ("$500") is not a maths span; a tab right after the opening $ is a span whose first backslash was eaten
+                # money ("$500") is not a maths span; a tab right after the opening $ is a span whose first backslash was eaten,
+                # and a newline breaks inline_math_spans, so "$r_i \neq r_j$" written with one backslash is found separately
                 spans = [v] if key == "tex" else ([m.group(1) for m in inline_math_spans(v)]
-                                                  + re.findall(r"\$([\t\n\r][^$]*)\$", v))
+                                                  + re.findall(r"\$([\t\n\r][^$]*)\$", v)
+                                                  + re.findall(r"\$(?![\s$\d])([^$]*[\t\n\r][a-z][^$]*)(?<!\s)\$", v))
                 if any(re.search(r"[\t\n\r][a-z]", x) for x in spans):
                     warns.append(f"{where}: a tab/newline/return is followed by a letter inside maths, perhaps \\theta, \\nu or \\rho eaten by JSON "
                                  f"(\\t, \\n, \\r); {fix}: «{v[:50]!r}»")

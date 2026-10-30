@@ -356,3 +356,8 @@ def test_json_newline_before_letter_is_only_a_warning_inside_maths(clean):
     errors, warns, _ = run_checks(doc, g)
     assert not any('double backslash' in e for e in errors)
     assert any('paras.P1.why' in w and 'double backslash' in w for w in warns)
+    g['paras']['P1']['why'] = 'ok'
+    g['paras']['P1']['note'] = {'zh': '由此 $r_i \neq r_j$。', 'en': 'Costs $5 or\nless, $10 at most.'}
+    errors, warns, _ = run_checks(doc, g)
+    assert any('paras.P1.note.zh' in w and 'double backslash' in w for w in warns), warns
+    assert not any('paras.P1.note.en' in w for w in warns)
