@@ -92,6 +92,8 @@ def crop_regions(pdf_path, items, out_dir, resolution=150, pad=0.006):
                 # relative: offsets from the page's own top-left, so a MediaBox that does not start at
                 # the origin (JSTOR scans) still crops the right region
                 img = page.crop(box, relative=True).to_image(resolution=resolution).original.convert("RGB")
+                if it.get("rotated") and it.get("crop_turn") in (90, 270):
+                    img = img.rotate(it["crop_turn"], expand=True)
             except Exception as e:  # a damaged page must not stop the run
                 print(f"crop skipped for {it['id']}: {e}")
                 continue

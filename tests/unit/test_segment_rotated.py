@@ -64,3 +64,38 @@ def test_rotated_character_order_does_not_change_prose_repairs(tmp_path):
     segment.write_outputs(with_table,tmp_path/'after',12000)
     assert with_table['items'][0]['text'] == baseline['items'][0]['text']
     assert with_table['items'][1]['text'] == 'com-pound'
+
+
+@pytest.mark.parametrize('matrix,turn', [((0,10,-10,0,0,0),270),((0,-10,10,0,0,0),90)])
+def test_rotated_crop_direction_from_glyph_baseline(matrix, turn):
+    assert segment.rotated_crop_turn([dict(matrix=matrix)]) == turn
+
+
+def test_upright_glyphs_prevent_double_applying_page_rotation():
+    assert segment.rotated_crop_turn([dict(matrix=(10,0,0,10,0,0))]*3+[dict(matrix=(0,-10,10,0,0,0))],90) == 0
+    assert segment.rotated_crop_turn([{}],270) == 270
+
+
+@pytest.mark.parametrize('matrix,turn', [('0 1 -1 0 80 200',270),('0 -1 1 0 80 600',90)])
+def test_rotated_crop_pixels_both_directions(tmp_path, matrix, turn):
+    import pdfplumber
+    import crops
+    from copy import deepcopy
+    from PIL import ImageChops
+    injection = ') Tj ET q '+matrix+' cm BT /F1 12 Tf 0 0 Td (LEFT RIGHT) Tj ET Q BT /F1 12 Tf 60 400 Td ('
+    source = tmp_path/'turn.pdf'
+    source.write_bytes(_pdf_bytes([[(60,400,injection)]]))
+    with pdfplumber.open(source) as pdf:
+        item = segment.rotated_text_regions(pdf,[1])[0]
+    item['id'] = 'F1'
+    assert item['crop_turn'] == turn
+    raw = deepcopy(item); raw['rotated'] = False
+    crops.crop_regions(source,[raw],tmp_path/'raw',resolution=72,pad=0)
+    crops.crop_regions(source,[item],tmp_path/'upright',resolution=72,pad=0)
+    with Image.open(tmp_path/'raw/F1.png') as before, Image.open(tmp_path/'upright/F1.png') as after:
+        assert after.width > after.height
+        assert ImageChops.difference(before.rotate(turn,expand=True),after).getbbox() is None
+    # A turn field has no effect on ordinary crops.
+    plain = deepcopy(raw); plain.pop('crop_turn')
+    crops.crop_regions(source,[plain],tmp_path/'plain',resolution=72,pad=0)
+    assert (tmp_path/'plain/F1.png').read_bytes() == (tmp_path/'raw/F1.png').read_bytes()

@@ -4601,6 +4601,20 @@ def layout_signals(blocks, n_pages, info=None):
     return score, reasons
 
 
+def rotated_crop_turn(chars, page_rotation=0):
+    """Pillow counterclockwise turn from the dominant rendered glyph baseline.
+
+    PDF b>0 reads bottom-to-top in a raster: turn clockwise (270 degrees).
+    Matrices include /Rotate already, so upright baselines vote for no turn.
+    """
+    turns = Counter()
+    for c in chars:
+        if c.get("matrix"):
+            a, b = c["matrix"][:2]
+            turns[0 if abs(a) >= abs(b) else 270 if b > 0 else 90] += 1
+    return turns.most_common(1)[0][0] if turns else page_rotation % 360 if page_rotation % 180 else 0
+
+
 def rotated_text_regions(pdf, pnos):
     """Keep quarter-turn /Rotate or predominantly non-upright pages as crops.
 
@@ -4624,6 +4638,9 @@ def rotated_text_regions(pdf, pnos):
             regions.append(dict(type="frag", page=n, table=True, rotated=True,
                                 bbox=[round(v,4) for v in (x0,y0,x1,y1)],
                                 text=clean_text("".join(c["text"] for c in chosen))))
+            turn = rotated_crop_turn(chosen, getattr(page, "rotation", 0))
+            if turn in (90, 270):
+                regions[-1]["crop_turn"] = turn
     return regions
 
 
