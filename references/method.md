@@ -79,6 +79,8 @@ Figures and tables are shown on the paragraph that first mentions them, with the
 
 Display equations and table rows are cropped from the PDF by segment.py; the page shows the crop under the paragraph, beside the rendered `tex` and the symbol table. Transcribe table rows into the note only when the table carries the argument.
 
+A PDF's text layer can lose or swap mathematical symbols: θ extracted as "u", "=" as "¼", a Greek letter or a whole inline formula missing. Read symbols from the crop or the page image, never from the extracted text, in `tex`, `syms` and every note; when the extracted paragraph shows the symbols wrongly, say so in one clause of that paragraph's note ("the extracted text shows θ as u").
+
 ## 9 Language
 
 - Notes follow the user's language, zh or en. Write both only when asked; `meta.notes_lang` lists them and the first is the default.
