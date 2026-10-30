@@ -24,7 +24,7 @@ from common import inline_math_spans, SKILL_DIR, as_lang, load_elements, load_gu
 DATA_RE = re.compile(r'<script id="guide-data" type="application/json">(.*?)</script>', re.S)
 NUMBER = r"(?P<{0}>\d+|(?=[IVXLC])M{{0,3}}(?:CM|CD|D?C{{0,3}})(?:XC|XL|L?X{{0,3}})(?:IX|IV|V?I{{0,3}}))"
 CAP_KEY_RE = re.compile(r"^\s*(?:(?P<fig>fig(?:ure)?s?\.?|exhibit|chart|plate|map|图)|(?P<tab>tables?|tab\.|表))\s*" + NUMBER.format("n") + r"\b", re.I)
-MENTION_RE = re.compile(r"(?:\b(?P<w>fig(?:ure)?s?\.?|tables?|tab\.)\s*" + NUMBER.format("n") + r"\b)|(?:(?P<c>[图表])\s*(?P<m>\d+))", re.I)
+MENTION_RE = re.compile(r"(?:\b(?P<w>fig(?:ure)?s?\.?|tables?|tab\.)\s*" + NUMBER.format("n") + r"(?:(?<=\d)[a-z])?\b)|(?:(?P<c>[图表])\s*(?P<m>\d+))", re.I)
 EQ_LABEL_ONLY_RE = re.compile(r"^\s*\(\d{1,3}[a-z]?\)\s*$")
 ROMAN = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
 
@@ -193,6 +193,15 @@ def build_data(doc, guide, comp, sources, imgs, lang, crops=None):
     crops = crops or {}
     # crops of equation/table fragments: a table that follows a caption goes to the paragraph that first cites
     # the caption (method.md section 8); anything else goes to the paragraph it follows
+    # an embedded image set above its caption ("Figure 1" under the chart) belongs to that caption
+    next_cap, following = {}, None
+    for it in reversed(doc["items"]):
+        if it["type"] == "caption":
+            following = it
+        elif it["type"] != "frag":
+            following = None
+        elif it.get("embedded_image") and following is not None and following["page"] == it["page"]:
+            next_cap[it["id"]] = following["id"]
     frag_crops, last, last_cap = {}, None, None
     for it in doc["items"]:
         if it["type"] == "para":
@@ -203,8 +212,9 @@ def build_data(doc, guide, comp, sources, imgs, lang, crops=None):
             last_cap = it["id"]
         elif it["type"] == "frag" and it["id"] in crops:
             host = None
-            if it.get("table") and last_cap and figs.get(last_cap, {}).get("host"):
-                host = figs[last_cap]["host"]
+            cap = next_cap.get(it["id"]) or last_cap
+            if (it.get("table") or it.get("figure")) and cap and figs.get(cap, {}).get("host"):
+                host = figs[cap]["host"]
             host = host or last
             if not host and it.get("embedded_image"):
                 host = next((p["id"] for p in doc["items"] if p["type"] == "para"), None)

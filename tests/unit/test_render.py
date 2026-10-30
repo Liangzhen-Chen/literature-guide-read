@@ -106,6 +106,20 @@ def test_table_crop_attaches_to_citing_paragraph(clean):
     assert d['frag_crops'] == {'P1': ['F1']}
 
 
+def test_figure_images_above_their_captions_attach_to_citing_paragraphs(clean):
+    doc, g = clean
+    doc['items'][0]['text'] += ' Figure 1 shows the trend.'
+    doc['items'][1]['text'] += ' The map is in Figure 2a.'
+    image = {'type': 'frag', 'text': '', 'page': 2, 'figure': True, 'region_crop': True, 'embedded_image': True,
+             'bbox': [0.1, 0.1, 0.9, 0.4]}
+    doc['items'] += [dict(image, id='F1'), {'id': 'C1', 'type': 'caption', 'text': 'Figure 1: Trend', 'page': 2},
+                     dict(image, id='F2', page=3), {'id': 'C2', 'type': 'caption', 'text': 'Figure 2: Maps', 'page': 3}]
+    _, _, comp = run_checks(doc, g)
+    d = r.build_data(doc, g, comp, None, {}, None, crops={'F1': 'data:image/png;base64,AAAA', 'F2': 'data:image/png;base64,AAAA'})
+    assert d['frag_crops'] == {'P1': ['F1'], 'P2': ['F2']}
+    assert r.mentions('Figure 2a and Table 3') == [['fig', 2], ['table', 3]]
+
+
 def test_katex_placeholder_in_text_does_not_break_page(clean, tmp_path):
     args = SimpleNamespace(density=None, force=False, sources=None, no_page_images=True, pdf=None, lang=None)
     doc, g = _with_formula(clean, bbox=False)
