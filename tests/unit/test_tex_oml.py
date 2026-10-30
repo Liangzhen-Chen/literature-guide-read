@@ -48,8 +48,8 @@ def test_warning_names_pages_and_does_not_change_chars(font, text):
              SimpleNamespace(chars=[char(text, font)])]
     before = deepcopy(pages)
     warning = s.swapped_math_warning(SimpleNamespace(pages=pages), [1, 2, 3])
-    assert 'For the agent:' in warning and 'PDF pages [1, 3]' in warning
-    assert 'crops or page images (method.md section 8)' in warning
+    assert '给执行的 agent' in warning and '页 [1, 3]' in warning
+    assert 'method.md 第 8 节' in warning
     assert pages == before
     assert s.swapped_math_warning(SimpleNamespace(pages=pages), [2]) == ''
 
