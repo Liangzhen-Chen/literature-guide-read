@@ -6,6 +6,7 @@ from PIL import Image
 
 import check
 import fix
+import segment
 
 
 @pytest.fixture
@@ -542,3 +543,10 @@ def test_region_crop_replay_in_fresh_process(work):
                     '--paras', str(work)], check=True, capture_output=True,
                    env=dict(os.environ, PYTHONHASHSEED='1'))
     assert all(p.read_bytes() == before[p] for p in paths)
+
+
+def test_page_selection_uses_pdf_page_numbers_of_an_excerpt():
+    doc = {"page_count": 3, "pages_processed": [164, 166],
+           "items": [{"id": "P1", "type": "para", "text": "x", "page": 165}]}
+    assert fix.last_page(doc) == 166
+    assert segment.parse_pages("164,166", fix.last_page(doc)) == [164, 166]

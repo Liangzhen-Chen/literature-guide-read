@@ -62,6 +62,12 @@ def region(doc, op):
     return item
 
 
+def last_page(doc):
+    """Highest PDF page number the document can name; an excerpt's page_count may be smaller."""
+    processed = doc.get("pages_processed") or [1]
+    return max([doc.get("page_count") or 1, processed[-1]] + [it.get("page", 1) for it in doc["items"]])
+
+
 def overlay(paras, pages=None, out=None, orig=False):
     backup = paras.with_name("paragraphs.orig.json")
     drawn = backup if orig and backup.exists() else paras
@@ -69,9 +75,12 @@ def overlay(paras, pages=None, out=None, orig=False):
     doc = json.loads(drawn.read_text(encoding="utf-8"))
     items = doc["items"]
     processed = doc.get("pages_processed")
-    selected = segment.parse_pages(pages, doc.get("page_count", 1)) if pages else (
+    selected = segment.parse_pages(pages, last_page(doc)) if pages else (
         list(range(processed[0], processed[-1]+1)) if processed else sorted(
             {it.get("page") for it in items if it.get("page")}))
+    if pages and not selected:
+        print(f"--pages {pages} names no page of this document (PDF pages {processed or 'unknown'}).")
+        return []
     source = doc.get("source_path")
     if not source or not Path(source).is_file() or Path(source).suffix.lower() != ".pdf":
         print("No PDF/bboxes available for page overlays.")
@@ -322,7 +331,7 @@ def ids(paras, pages=None):
     originals = {}
     for old, new_ids in mapping.items():
         for key in new_ids: originals.setdefault(key, []).append(old)
-    selected = segment.parse_pages(pages, doc.get("page_count") or max((it.get("page",1) for it in doc["items"]), default=1)) if pages else None
+    selected = segment.parse_pages(pages, last_page(doc)) if pages else None
     print("new id | original id(s) | type | page | first 8 words")
     for it in doc["items"]:
         if selected is None or set(it.get("pages", [it.get("page")])) & set(selected):
