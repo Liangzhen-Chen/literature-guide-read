@@ -64,19 +64,18 @@ def _stage_crops(doc, original, work, stage, tmp):
                 canvas.paste(image, (0, y)); y += image.height
             canvas.save(target)
         crops[it["id"]] = rel
-    # Restore original root names when they are no longer used by current items.
-    # Colliding names are safe: their original bytes are archived before install.
-    for rel in originals - set(crops.values()):
-        (stage / rel).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(saved[rel], stage / rel)
     if "crops" in doc or crops:
         doc["crops"] = crops
     return sorted(crops.values())
 
 
 def remove_stale(work, previous, current, original):
-    for rel in {posix(r) for r in previous} - {posix(r) for r in current} - {posix(r) for r in original.get("crops", {}).values()}:
+    """After install, crops/ holds only current-ID crops: earlier apply outputs and
+    segmenter crops under unused names go (the latter stay archived in crops.orig/)."""
+    originals = {posix(r) for r in original.get("crops", {}).values()}
+    for rel in ({posix(r) for r in previous} | originals) - {posix(r) for r in current}:
         path = (work / rel).resolve()
-        # Only files explicitly recorded as apply outputs inside crops/ qualify.
+        if rel in originals and not (work / "crops.orig" / rel).exists():
+            continue  # never delete a segmenter crop that has no archived copy
         if path.parent == (work / "crops").resolve() and path.suffix == ".png":
             path.unlink(missing_ok=True)

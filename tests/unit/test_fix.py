@@ -398,6 +398,7 @@ def test_crop_names_collisions_cleanup_and_replay(work, sep):
     assert result['crops'] == {'P1':'crops/P1.png','P2':'crops/P2.png'}
     assert (crops/'P1.png').read_bytes() == original['P2']
     assert (crops/'P2.png').read_bytes() == original['P3']
+    assert not (crops/'P3.png').exists()  # no crop left under a name the current ids do not use
     for key in original:
         assert (work.parent/'crops.orig/crops'/f'{key}.png').read_bytes() == original[key]
     run(work, ops)

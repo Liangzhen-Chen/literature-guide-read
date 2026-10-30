@@ -303,7 +303,6 @@ def apply(fixes, paras):
         (stage / "fixes_log.json").write_text(json.dumps(dict(id_map=mapping, ops=ops, created_crops=created), ensure_ascii=False, indent=2), encoding="utf-8")
         if not backup.exists():
             backup.write_bytes(raw)
-        remove_stale(paras.parent, previous, created, original)
         for old in paras.parent.glob("paragraphs_part*.txt"):
             old.unlink()
         for path in stage.rglob("*"):
@@ -311,6 +310,7 @@ def apply(fixes, paras):
                 dest = paras.parent / path.relative_to(stage)
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, dest)
+        remove_stale(paras.parent, previous, created, original)
     for message in messages: print(message)
     print("Counts: " + ", ".join(f"{key}={n}" for key, n in sorted(Counter(it["type"] for it in doc["items"]).items())))
     return doc
