@@ -187,7 +187,7 @@ REF_SKIP_RE = re.compile(r"\b(?:sections?|chapters?|parts?)\s?\d+(?:\.\d+)+\b|\b
                          r"(?:实验|研究|问题|题|假说|命题|公式|方程|不等式|定义|引理|定理|推论|条件)\s?\(?\d+[a-z]?\)?(?:\s*(?:到|至)\s*\(?\d+[a-z]?(?!\d|[.,]\d)\)?)?|式\s?\(\d+[a-z]?\)|"
                          r"[图表]\s?\d+(?!\d|[.,]\d)(?:\s*(?:到|至)\s*\d+(?!\d|[.,]\d))?|第\s?\d+(?:\.\d+)*(?:\(\d+\))?(?:\s*(?:[–-]|到|至)\s*\d+(?:\.\d+)*)?\s?[页节章部分条]|\bpp?\.\s?\d+(?:\s?[–-]\s?\d+)?", re.I)
 # A number glued to a Chinese or Japanese character ("约为12.5%") is still a number; one glued to a letter ("x2", "P12") is not.
-NUM_TOKEN_RE = re.compile(r"(?<![.]|[^\W　-鿿＀-￯])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)")
+NUM_TOKEN_RE = re.compile(r"(?<![.]|[^\W\u3000-\u9fff\uff00-\uffef])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)")
 # Inline LaTeX in notes: $...$. A span that starts with a digit is money ("$50,000 against $60,000")
 # unless it holds LaTeX or operators ("$1 + \eta$") or has no spaces at all ("$0$").
 INLINE_MATH_RE = re.compile(r"\$(?![\s$])([^$\n]+?)(?<!\s)\$")
@@ -289,7 +289,7 @@ def source_numbers(text):
 
 
 def numbers_in(text):
-    t = re.sub(r"(?<![.,]|[^\W　-鿿＀-￯])\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?![\d,]|\.\d|[ \u00a0\u202f]\d{3})",
+    t = re.sub(r"(?<![.,]|[^\W\u3000-\u9fff\uff00-\uffef])\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?![\d,]|\.\d|[ \u00a0\u202f]\d{3})",
                lambda m: re.sub(r"[ \u00a0\u202f]", "", m.group()), text or "")
     t = REF_SKIP_RE.sub(" ", strip_math_notation(t))
     # In explicit normal-distribution notation the comma separates parameters.
